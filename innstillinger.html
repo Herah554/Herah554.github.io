@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Innstillinger — Diplom-is</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, onValue, set, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+const LINES = ['Løp 1','Løp 2','Løp 3','Rollo','Koba','Glacier','Krokan'];
+const DEFAULT_CAUSES = ['Mekanisk feil','Elektrisk feil','Planlagt vedlikehold','Operatørfeil','Materialmangel','Kvalitetsstopp','Programvarefeil','Kjøling / frys','Annet'];
+
+let db = null;
+let settings = { globalGoal:30, lineGoals:{}, lineCauses:{} };
+let configSaved = false;
+
+function lineKey(l) { return l.replace(/\s/g,'_'); }
+
+function tryInitFirebase() {
+  const raw = localStorage.getItem('firebaseConfig');
+  if (!raw) return false;
+  try {
+    const cfg = JSON.parse(raw);
+    const app = initializeApp(cfg);
+    db = getDatabase(app);
+    onValue(ref(db,'settings'), snap => {
+      if (snap.exists()) settings = { globalGoal:30, lineGoals:{}, lineCauses:{}, ...snap.val() };
+      renderSettings();
+    });
+    document.getElementById('db-status').textContent = '✓ Koblet til Firebase';
+    document.getElementById('db-status').style.color = 'var(--green)';
+    configSaved = true;
+    return true;
+  } catch(e) {
+    document.getElementById('db-status').textContent = '✕ Ugyldig konfig: ' + e.message;
+    document.getElementById('db-status').style.color = 'var(--red)';
+    return false;
+  }
+}
+
+async function saveSettings() {
+  if (!db) { showToast('Ikke koblet til Firebase', true); return; }
+  await set(ref(db,'settings'), settings);
+  showToast('Innstillinger lagret');
+}
+
+window.saveFirebaseConfig = function() {
+  const raw = document.getElementById('firebase-config-input').value.trim();
+  let parsed;
+  try {
+    let clean = raw;
+    if (clean.includes('initializeApp(')) {
+      const m = clean.match(/initializeApp\((\{[\s\S]*?\})\)/);
+      if (m) clean = m[1];
+    }
+    parsed = JSON.parse(clean);
+    if (!parsed.apiKey || !parsed.databaseURL) throw new Error('Mangler apiKey eller databaseURL');
+  } catch(e) {
+    document.getElementById('db-status').textContent = '✕ Feil: ' + e.message;
+    document.getElementById('db-status').style.color = 'var(--red)';
+    return;
+  }
+  localStorage.setItem('firebaseConfig', JSON.stringify(parsed));
+  location.reload();
+};
+
+window.setGlobalGoal = function() {
+  const v = parseInt(document.getElementById('global-goal').value);
+  if (!v || v < 1) return;
+  settings.globalGoal = v;
+  saveSettings();
+};
+
+window.setLineGoal = function(line) {
+  const v = parseInt(document.getElementById('goal-'+lineKey(line)).value);
+  if (!v || v < 1) return;
+  if (!settings.lineGoals) settings.lineGoals = {};
+  settings.lineGoals[lineKey(line)] = v;
+  saveSettings();
+};
+
+window.clearLineGoal = function(line) {
+  if (!settings.lineGoals) return;
+  delete settings.lineGoals[lineKey(line)];
+  renderSettings();
+  saveSettings();
+};
+
+window.addCause = function(line) {
+  const inp = document.getElementById('new-cause-'+lineKey(line));
+  const val = inp.value.trim();
+  if (!val) return;
+  const key = lineKey(line);
+  if (!settings.lineCauses) settings.lineCauses = {};
+  if (!settings.lineCauses[key]) settings.lineCauses[key] = [];
+  if (!settings.lineCauses[key].includes(val)) {
+    settings.lineCauses[key].push(val);
+    saveSettings();
+  }
+  inp.value = '';
+};
+
+window.removeCause = function(line, cause) {
+  const key = lineKey(line);
+  if (!settings.lineCauses?.[key]) return;
+  settings.lineCauses[key] = settings.lineCauses[key].filter(c=>c!==cause);
+  if (settings.lineCauses[key].length===0) delete settings.lineCauses[key];
+  saveSettings();
+};
+
+function renderSettings() {
+  document.getElementById('global-goal').value = settings.globalGoal || 30;
+  const container = document.getElementById('lines-container');
+  container.innerHTML = '';
+  LINES.forEach(line => {
+    const key = lineKey(line);
+    const lineGoal = settings.lineGoals?.[key];
+    const customCauses = settings.lineCauses?.[key] || [];
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+      <div class="card-title"><div class="card-accent"></div>${line}</div>
+      <div class="setting-section">
+        <div class="setting-label">Nedetidsmål (minutter per dag)</div>
+        <div class="goal-row">
+          <input type="number" id="goal-${key}" value="${lineGoal ?? ''}" placeholder="${settings.globalGoal || 30} (globalt mål)" min="1" style="flex:1"/>
+          <button class="btn-sm btn-primary" onclick="setLineGoal('${line}')">Lagre</button>
+          ${lineGoal ? `<button class="btn-sm btn-ghost" onclick="clearLineGoal('${line}')">Tilbakestill</button>` : ''}
+        </div>
+        ${lineGoal ? `<div class="goal-active">Individuelt mål: <strong>${lineGoal} min</strong></div>` : `<div class="goal-fallback">Bruker globalt mål: <strong>${settings.globalGoal||30} min</strong></div>`}
+      </div>
+      <div class="setting-section">
+        <div class="setting-label">Egne nedetidsårsaker for ${line}</div>
+        <div class="causes-default">
+          <div class="causes-label">Standard årsaker (gjelder alle linjer):</div>
+          <div class="causes-chips">
+            ${DEFAULT_CAUSES.map(c=>`<span class="chip chip-gray">${c}</span>`).join('')}
+          </div>
+        </div>
+        ${customCauses.length > 0 ? `
+        <div class="causes-custom">
+          <div class="causes-label">Egne årsaker for ${line}:</div>
+          <div class="causes-chips">
+            ${customCauses.map(c=>`<span class="chip chip-blue">${c} <button class="chip-del" onclick="removeCause('${line}','${c}')">✕</button></span>`).join('')}
+          </div>
+        </div>` : ''}
+        <div class="add-cause-row">
+          <input type="text" id="new-cause-${key}" placeholder="Legg til ny årsak..." style="flex:1" onkeydown="if(event.key==='Enter')addCause('${line}')"/>
+          <button class="btn-sm btn-primary" onclick="addCause('${line}')">+ Legg til</button>
+        </div>
+      </div>`;
+    container.appendChild(card);
+  });
+}
+
+function showToast(msg, isErr=false) {
+  const t = document.getElementById('toast');
+  t.textContent = (isErr?'✕ ':'✓ ')+msg;
+  t.className = 'toast'+(isErr?' del':'');
+  t.style.opacity='1';
+  setTimeout(()=>t.style.opacity='0',2500);
+}
+
+window.addEventListener('load', () => {
+  const saved = localStorage.getItem('firebaseConfig');
+  if (saved) {
+    try { document.getElementById('firebase-config-input').value = JSON.stringify(JSON.parse(saved), null, 2); } catch(e){}
+    tryInitFirebase();
+  } else {
+    renderSettings();
+  }
+  setInterval(()=>{ document.getElementById('clock').textContent=new Date().toLocaleTimeString('no-NO'); },1000);
+  document.getElementById('clock').textContent=new Date().toLocaleTimeString('no-NO');
+});
+</script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f7f8fa;--bg2:#fff;--bg3:#f0f2f5;
+  --border:#e4e7ed;--border2:#d0d5dd;
+  --text:#1a1d23;--text2:#5a6072;--text3:#9aa0b0;
+  --accent:#e63329;--accent2:#ff5c52;
+  --blue:#2563eb;--green:#16a34a;--amber:#d97706;--red:#dc2626;
+  --font:'IBM Plex Sans',sans-serif;--mono:'IBM Plex Mono',monospace;
+  --radius:8px;--radius-lg:12px;
+  --shadow:0 1px 3px rgba(0,0,0,.07);--shadow-md:0 4px 16px rgba(0,0,0,.10);
+}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;line-height:1.5}
+.topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 2rem;height:58px;display:flex;align-items:center;gap:1rem;position:sticky;top:0;z-index:100;box-shadow:var(--shadow)}
+.logo{font-size:16px;font-weight:600;color:var(--accent);letter-spacing:-.02em}
+.logo span{color:var(--text3);font-weight:400;font-size:13px;margin-left:4px}
+.topbar-sep{width:1px;height:22px;background:var(--border)}
+.nav-link{font-size:13px;color:var(--text2);text-decoration:none;padding:6px 12px;border-radius:var(--radius);font-weight:500;transition:all .15s}
+.nav-link:hover{background:var(--bg3);color:var(--text)}
+.nav-link.active{background:var(--bg3);color:var(--accent)}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:12px}
+.clock{font-family:var(--mono);font-size:12px;color:var(--text3)}
+.page{max-width:900px;margin:0 auto;padding:1.75rem 2rem}
+.section-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);margin-bottom:.75rem;font-family:var(--mono)}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;box-shadow:var(--shadow);margin-bottom:1rem}
+.card-title{font-size:14px;font-weight:600;color:var(--text);margin-bottom:1rem;display:flex;align-items:center;gap:8px}
+.card-accent{width:3px;height:16px;border-radius:2px;background:var(--accent);flex-shrink:0}
+.firebase-box{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem}
+textarea.config-area{width:100%;min-height:140px;font-family:var(--mono);font-size:12px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);padding:10px;resize:vertical;outline:none}
+textarea.config-area:focus{border-color:var(--accent)}
+.db-status{font-size:12px;font-family:var(--mono);margin-top:8px;font-weight:500}
+.btn-row{display:flex;gap:8px;margin-top:10px}
+.btn-primary{background:var(--accent);border:none;border-radius:var(--radius);color:#fff;font-size:13px;font-weight:600;padding:8px 16px;cursor:pointer;transition:background .15s}
+.btn-primary:hover{background:var(--accent2)}
+.btn-sm{padding:6px 12px;border-radius:var(--radius);font-size:12px;font-weight:600;cursor:pointer;border:none;transition:all .15s;white-space:nowrap}
+.btn-sm.btn-primary{background:var(--accent);color:#fff}
+.btn-sm.btn-primary:hover{background:var(--accent2)}
+.btn-sm.btn-ghost{background:var(--bg3);color:var(--text2);border:1px solid var(--border)}
+.btn-sm.btn-ghost:hover{background:var(--border)}
+.global-goal-row{display:flex;gap:10px;align-items:center;max-width:320px}
+.global-goal-row input{flex:1}
+.setting-section{margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border)}
+.setting-label{font-size:11px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.05em;color:var(--text3);margin-bottom:8px}
+.goal-row{display:flex;gap:8px;align-items:center;max-width:420px}
+.goal-active{font-size:12px;color:var(--green);margin-top:5px;font-weight:500}
+.goal-fallback{font-size:12px;color:var(--text3);margin-top:5px}
+.causes-default{margin-bottom:10px}
+.causes-custom{margin-bottom:10px}
+.causes-label{font-size:11px;color:var(--text3);margin-bottom:5px}
+.causes-chips{display:flex;flex-wrap:wrap;gap:5px}
+.chip{display:inline-flex;align-items:center;gap:4px;font-size:12px;padding:3px 10px;border-radius:99px;font-weight:500}
+.chip-gray{background:var(--bg3);color:var(--text2);border:1px solid var(--border)}
+.chip-blue{background:#eff6ff;color:var(--blue);border:1px solid #bfdbfe}
+.chip-del{background:none;border:none;cursor:pointer;color:inherit;opacity:.6;font-size:11px;padding:0 2px;line-height:1}
+.chip-del:hover{opacity:1}
+.add-cause-row{display:flex;gap:8px;align-items:center;margin-top:8px}
+.add-cause-row input{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);padding:7px 10px;font-family:var(--font);font-size:13px;outline:none}
+.add-cause-row input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(230,51,41,.08)}
+input[type=number]{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);padding:7px 10px;font-family:var(--font);font-size:13px;outline:none}
+input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(230,51,41,.08)}
+.how-to{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:var(--radius);padding:1rem;font-size:13px;color:#166534;line-height:1.7}
+.how-to ol{padding-left:1.25rem;margin-top:.5rem}
+.how-to li{margin-bottom:.25rem}
+.how-to code{background:#dcfce7;padding:1px 5px;border-radius:3px;font-family:var(--mono);font-size:12px}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--bg2);border:1px solid #bbf7d0;color:var(--green);font-size:13px;font-weight:600;padding:10px 18px;border-radius:var(--radius);opacity:0;transition:opacity .3s;pointer-events:none;box-shadow:var(--shadow-md)}
+.toast.del{border-color:#fecaca;color:var(--red)}
+@media(max-width:600px){.page{padding:1rem}.topbar{padding:0 1rem}}
+</style>
+</head>
+<body>
+<nav class="topbar">
+  <div class="logo">Diplom-is <span>/ Produksjon</span></div>
+  <div class="topbar-sep"></div>
+  <a href="index.html" class="nav-link">Dashboard</a>
+  <a href="innstillinger.html" class="nav-link active">Innstillinger</a>
+  <div class="topbar-right">
+    <div class="clock" id="clock">--:--:--</div>
+  </div>
+</nav>
+
+<main class="page">
+
+  <div class="section-title">Firebase-tilkobling</div>
+  <div class="card">
+    <div class="card-title"><div class="card-accent"></div>Databasekonfigurasjon</div>
+    <div class="how-to">
+      Slik setter du opp gratis database:
+      <ol>
+        <li>Gå til <strong>console.firebase.google.com</strong> og logg inn med Google</li>
+        <li>Klikk <strong>Add project</strong> → gi det et navn → klikk deg gjennom</li>
+        <li>Klikk <strong>Build → Realtime Database → Create database</strong> → velg <code>Start in test mode</code></li>
+        <li>Gå til <strong>Project settings (tannhjulet)</strong> → <strong>Your apps → &lt;/&gt; Web</strong> → registrer app</li>
+        <li>Kopier hele <code>firebaseConfig</code>-objektet og lim det inn under</li>
+      </ol>
+    </div>
+    <div class="firebase-box" style="margin-top:1rem">
+      <div class="setting-label">Lim inn firebaseConfig her:</div>
+      <textarea class="config-area" id="firebase-config-input" placeholder='{
+  "apiKey": "AIza...",
+  "authDomain": "ditt-prosjekt.firebaseapp.com",
+  "databaseURL": "https://ditt-prosjekt-default-rtdb.firebaseio.com",
+  "projectId": "ditt-prosjekt",
+  "storageBucket": "ditt-prosjekt.appspot.com",
+  "messagingSenderId": "123456789",
+  "appId": "1:123..."
+}'></textarea>
+      <div class="db-status" id="db-status" style="color:var(--text3)">Ikke konfigurert</div>
+      <div class="btn-row">
+        <button class="btn-primary" onclick="saveFirebaseConfig()">Koble til og lagre</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-title">Globalt nedetidsmål</div>
+  <div class="card">
+    <div class="card-title"><div class="card-accent"></div>Samlet mål for alle linjer</div>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:1rem">Dette gjelder alle linjer som ikke har et individuelt mål satt.</p>
+    <div class="global-goal-row">
+      <input type="number" id="global-goal" value="30" min="1" placeholder="Minutter"/>
+      <button class="btn-sm btn-primary" onclick="setGlobalGoal()">Lagre globalt mål</button>
+    </div>
+  </div>
+
+  <div class="section-title">Individuelle mål og årsaker per linje</div>
+  <div id="lines-container"></div>
+
+</main>
+<div class="toast" id="toast"></div>
+</body>
+</html>
