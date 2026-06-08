@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Rapporter — Diplom-is</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f4f6f9;--bg2:#fff;--bg3:#eef0f4;--border:#e2e6ed;
+  --text:#18202e;--text2:#4a5568;--text3:#8a95a8;
+  --red:#dc2626;--amber:#d97706;--green:#16a34a;--blue:#2563eb;--purple:#7c3aed;--teal:#0d9488;
+  --accent:#e63329;
+  --font:'IBM Plex Sans',sans-serif;--mono:'IBM Plex Mono',monospace;
+  --r:8px;--rl:12px;--sh:0 1px 4px rgba(0,0,0,.08);--shm:0 4px 20px rgba(0,0,0,.12);
+}
+body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14px;min-height:100vh}
+nav{background:var(--bg2);border-bottom:1px solid var(--border);height:54px;display:flex;align-items:center;padding:0 1.5rem;gap:.4rem;position:sticky;top:0;z-index:50;box-shadow:var(--sh)}
+.logo{font-weight:600;font-size:15px;color:var(--accent);margin-right:.3rem}.logo span{font-weight:400;font-size:12px;color:var(--text3)}
+.nl{font-size:13px;color:var(--text2);text-decoration:none;padding:5px 10px;border-radius:var(--r);font-weight:500;white-space:nowrap}
+.nl:hover{background:var(--bg3)}.nl.on{color:var(--accent);background:var(--bg3)}
+.ml{margin-left:auto;display:flex;align-items:center;gap:8px}
+.ubadge{font-size:11px;font-family:var(--mono);background:var(--bg3);padding:3px 9px;border-radius:99px;color:var(--text2)}
+.lout{font-size:12px;background:none;border:1px solid var(--border);border-radius:var(--r);padding:4px 9px;cursor:pointer;color:var(--text3)}
+.lout:hover{border-color:#fecaca;color:var(--red)}
+.page{max-width:1300px;margin:0 auto;padding:1.25rem 1.5rem}
+h2{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin:1.1rem 0 .6rem;font-family:var(--mono)}
+h2:first-child{margin-top:0}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:1rem 1.1rem;box-shadow:var(--sh);margin-bottom:.75rem}
+.ct{font-size:12px;font-weight:600;color:var(--text);margin-bottom:.7rem;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.ca{width:3px;height:13px;border-radius:2px;flex-shrink:0}
+.cw{position:relative;height:220px}
+.cw-lg{position:relative;height:280px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:.75rem}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem;margin-bottom:.75rem}
+/* CONTROLS */
+.ctrl-bar{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:1rem 1.1rem;margin-bottom:1rem;box-shadow:var(--sh)}
+.ctrl-group{display:flex;flex-direction:column;gap:4px}
+.ctrl-label{font-size:10px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.05em}
+select,input{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text);padding:7px 10px;font-family:var(--font);font-size:13px;outline:none}
+select:focus,input:focus{border-color:var(--accent)}
+.btn{background:var(--accent);border:none;border-radius:var(--r);color:#fff;font-size:13px;font-weight:600;padding:8px 18px;cursor:pointer;align-self:flex-end}
+.btn:hover{opacity:.9}
+/* KPI CARDS */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:1rem}
+.kpi{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:.8rem 1rem;box-shadow:var(--sh);position:relative;overflow:hidden}
+.kpi::after{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.kpi.green::after{background:var(--green)}.kpi.red::after{background:var(--red)}.kpi.blue::after{background:var(--blue)}.kpi.amber::after{background:var(--amber)}
+.klbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;font-family:var(--mono);margin-bottom:4px}
+.kval{font-size:22px;font-weight:600;line-height:1;margin-bottom:3px}
+.ksub{font-size:10px;color:var(--text3)}
+.trend{font-size:11px;font-weight:500;margin-top:3px}
+.trend.up{color:var(--green)}.trend.dn{color:var(--red)}.trend.eq{color:var(--text3)}
+/* TABLE */
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th{font-size:10px;font-family:var(--mono);text-transform:uppercase;color:var(--text3);padding:6px 10px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:8px 10px;font-size:12px;border-bottom:1px solid var(--border);color:var(--text2);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--bg3)}
+td:first-child{font-family:var(--mono);font-size:11px;color:var(--text3);white-space:nowrap}
+.badge{display:inline-block;font-size:9px;font-family:var(--mono);padding:1px 5px;border-radius:3px;font-weight:600}
+.bg{background:#f0fdf4;color:var(--green);border:1px solid #bbf7d0}
+.br{background:#fef2f2;color:var(--red);border:1px solid #fecaca}
+.ba{background:#fffbeb;color:var(--amber);border:1px solid #fde68a}
+/* WEEK TABLE */
+.week-row{cursor:pointer}
+.week-row:hover td{background:var(--bg3)}
+.week-detail{display:none}
+.week-detail td{padding:5px 10px;font-size:11px;color:var(--text3);background:var(--bg3)}
+/* LOADING */
+.loading{color:var(--text3);font-size:13px;text-align:center;padding:2rem}
+@media(max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}.g2,.g3{grid-template-columns:1fr}}
+@media(max-width:600px){.page{padding:1rem}nav{padding:0 1rem}}
+</style>
+</head>
+<body>
+<nav>
+  <div class="logo">Diplom-is<span> / Produksjon</span></div>
+  <a href="index.html" class="nl">Dashboard</a>
+  <a href="rapporter.html" class="nl on">Rapporter</a>
+  <a href="innstillinger.html" class="nl" id="nav-set">Innstillinger</a>
+  <a href="brukere.html" class="nl" id="nav-usr">Brukere</a>
+  <div class="ml">
+    <div class="ubadge" id="ubadge">—</div>
+    <button class="lout" onclick="auth.signOut().then(()=>location.href='login.html')">Logg ut</button>
+  </div>
+</nav>
+
+<main class="page">
+  <h2>Velg periode og linje</h2>
+  <div class="ctrl-bar">
+    <div class="ctrl-group">
+      <div class="ctrl-label">Visning</div>
+      <select id="view-mode" onchange="render()">
+        <option value="year">Årsoversikt</option>
+        <option value="month">Månedsoversikt</option>
+        <option value="week">Ukeoversikt</option>
+        <option value="compare">Sammenlign år</option>
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <div class="ctrl-label">År</div>
+      <select id="sel-year" onchange="render()"></select>
+    </div>
+    <div class="ctrl-group" id="grp-month">
+      <div class="ctrl-label">Måned</div>
+      <select id="sel-month" onchange="render()">
+        <option value="0">Januar</option><option value="1">Februar</option><option value="2">Mars</option>
+        <option value="3">April</option><option value="4">Mai</option><option value="5">Juni</option>
+        <option value="6">Juli</option><option value="7">August</option><option value="8">September</option>
+        <option value="9">Oktober</option><option value="10">November</option><option value="11">Desember</option>
+      </select>
+    </div>
+    <div class="ctrl-group" id="grp-compare" style="display:none">
+      <div class="ctrl-label">Sammenlign med</div>
+      <select id="sel-year2" onchange="render()"></select>
+    </div>
+    <div class="ctrl-group">
+      <div class="ctrl-label">Linje</div>
+      <select id="sel-line" onchange="render()">
+        <option value="Alle">Alle linjer</option>
+        <option>Løp 1</option><option>Løp 2</option><option>Løp 3</option>
+        <option>Rollo</option><option>Koba</option><option>Glacier</option><option>Krokan</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="report-content"><div class="loading">Laster data...</div></div>
+</main>
+
+<script>
+const FB={apiKey:"AIzaSyCL4x1KNwgeDxqTFeP32BndJgH4B5MworQ",authDomain:"messystem-f14dd.firebaseapp.com",databaseURL:"https://messystem-f14dd-default-rtdb.firebaseio.com",projectId:"messystem-f14dd",storageBucket:"messystem-f14dd.firebasestorage.app",messagingSenderId:"1001051250309",appId:"1:1001051250309:web:0b2d82db50e8fd24ce93ec"};
+if(!firebase.apps.length) firebase.initializeApp(FB);
+localStorage.setItem('firebaseConfig',JSON.stringify(FB));
+const db=firebase.database(), auth=firebase.auth();
+
+let EVENTS=[], SETTINGS={defaultDayHours:8,oeeGoal:97,oeeGoals:{},prodPlan:{}};
+let charts={};
+const LINES=['Løp 1','Løp 2','Løp 3','Rollo','Koba','Glacier','Krokan'];
+const MONTHS=['Januar','Februar','Mars','April','Mai','Juni','Juli','August','September','Oktober','November','Desember'];
+const pad=n=>String(n).padStart(2,'0');
+
+function fmtD(m){if(!m&&m!==0)return'—';if(m<60)return m+'m';const h=Math.floor(m/60),r=m%60;return r?h+'t '+r+'m':h+'t';}
+function lk(l){return(l||'').replace(/[\s\/]/g,'_');}
+function getDayPlanMin(line){
+  if(!line||line==='Alle')return(SETTINGS.defaultDayHours||8)*60;
+  const wh=SETTINGS.prodPlan?.[lk(line)]?.weekHours;
+  return wh?(wh/5*60):(SETTINGS.defaultDayHours||8)*60;
+}
+function getOEEGoal(line){
+  if(!line||line==='Alle')return SETTINGS.oeeGoal||97;
+  return SETTINGS.oeeGoals?.[lk(line)]||SETTINGS.oeeGoal||97;
+}
+function calcOEE(evts,planMin){
+  if(!planMin||planMin<=0)return null;
+  const nd=evts.reduce((s,e)=>s+e.duration,0);
+  return Math.max(0,Math.min(100,(planMin-nd)/planMin*100));
+}
+function getOEEForDay(evts_day,line){
+  if(line&&line!=='Alle'){return calcOEE(evts_day.filter(e=>e.line===line),getDayPlanMin(line));}
+  const vals=LINES.map(l=>calcOEE(evts_day.filter(e=>e.line===l),getDayPlanMin(l))).filter(v=>v!==null);
+  return vals.length?vals.reduce((s,v)=>s+v,0)/vals.length:null;
+}
+function getEvtsFor(year,month=null,line=null){
+  return EVENTS.filter(e=>{
+    const d=new Date(e.ts);
+    if(d.getFullYear()!==year)return false;
+    if(month!==null&&d.getMonth()!==month)return false;
+    if(line&&line!=='Alle'&&e.line!==line)return false;
+    return true;
+  });
+}
+function getWeekNum(d){const s=new Date(d.getFullYear(),0,1);return Math.ceil(((d-s)/86400000+s.getDay()+1)/7);}
+function getMonWeek(year,week){
+  const jan1=new Date(year,0,1);const dow=jan1.getDay()||7;
+  const d=new Date(jan1);d.setDate(jan1.getDate()+(week-1)*7-(dow-1));
+  return d;
+}
+
+auth.onAuthStateChanged(async user=>{
+  if(!user){location.href='login.html';return;}
+  const snap=await db.ref('users/'+user.uid).once('value');
+  if(!snap.exists()){auth.signOut();location.href='login.html';return;}
+  const profile=snap.val();
+  document.getElementById('ubadge').textContent=profile.name+' · '+(profile.role==='master'?'Master':profile.role==='leder'?'Leder':'Operatør');
+  if(profile.role==='linjeoperator'){location.href='index.html';return;}
+});
+
+db.ref('settings').on('value',snap=>{
+  if(snap.exists()) SETTINGS=Object.assign({defaultDayHours:8,oeeGoal:97,oeeGoals:{},prodPlan:{}},snap.val());
+  render();
+});
+db.ref('events').on('value',snap=>{
+  EVENTS=[];
+  snap.forEach(c=>EVENTS.push({id:c.key,...c.val()}));
+  EVENTS.sort((a,b)=>a.ts-b.ts);
+  initYearSelects();
+  render();
+});
+
+function initYearSelects(){
+  const years=new Set();
+  const now=new Date().getFullYear();
+  years.add(now);years.add(now-1);years.add(now-2);
+  EVENTS.forEach(e=>years.add(new Date(e.ts).getFullYear()));
+  const sorted=[...years].sort((a,b)=>b-a);
+  ['sel-year','sel-year2'].forEach(id=>{
+    const sel=document.getElementById(id);
+    const cur=sel.value;
+    sel.innerHTML='';
+    sorted.forEach(y=>{const o=document.createElement('option');o.value=y;o.textContent=y;sel.appendChild(o);});
+    if(id==='sel-year') sel.value=now;
+    if(id==='sel-year2'&&sorted.length>1) sel.value=sorted[1];
+    if(cur&&[...sel.options].some(o=>o.value==cur)) sel.value=cur;
+  });
+  // Set current month
+  document.getElementById('sel-month').value=new Date().getMonth();
+}
+
+function render(){
+  const mode=document.getElementById('view-mode').value;
+  const year=parseInt(document.getElementById('sel-year').value)||new Date().getFullYear();
+  const month=parseInt(document.getElementById('sel-month').value);
+  const line=document.getElementById('sel-line').value;
+  const year2=parseInt(document.getElementById('sel-year2').value)||year-1;
+  // Show/hide controls
+  document.getElementById('grp-month').style.display=(mode==='month'||mode==='week')?'flex':'none';
+  document.getElementById('grp-compare').style.display=mode==='compare'?'flex':'none';
+  // Destroy old charts
+  Object.values(charts).forEach(c=>{try{c.destroy();}catch(e){}});
+  charts={};
+  // Render
+  if(mode==='year') renderYear(year,line);
+  else if(mode==='month') renderMonth(year,month,line);
+  else if(mode==='week') renderWeek(year,month,line);
+  else if(mode==='compare') renderCompare(year,year2,line);
+}
+
+// ── YEAR VIEW ──
+function renderYear(year,line){
+  const now=new Date();
+  const oeeGoal=getOEEGoal(line==='Alle'?null:line);
+  const evts=getEvtsFor(year,null,line==='Alle'?null:line);
+  const totalMin=evts.reduce((s,e)=>s+e.duration,0);
+  const totalEvents=evts.length;
+  // OEE year-to-date
+  const ytdDays=year<now.getFullYear()?365:now.getDate()+(Array.from({length:now.getMonth()},(_,i)=>new Date(year,i+1,0).getDate()).reduce((s,d)=>s+d,0));
+  const planMin=getDayPlanMin(line==='Alle'?null:line)*ytdDays;
+  const oeeYTD=calcOEE(evts,planMin);
+  // Monthly data
+  const mLabels=MONTHS.map((_,i)=>MONTHS[i].slice(0,3));
+  const mOEE=[],mNd=[],mCnt=[];
+  for(let m=0;m<12;m++){
+    const isF=year===now.getFullYear()&&m>now.getMonth();
+    if(isF){mOEE.push(null);mNd.push(null);mCnt.push(null);continue;}
+    const dInM=(year===now.getFullYear()&&m===now.getMonth())?now.getDate():new Date(year,m+1,0).getDate();
+    const mEvts=evts.filter(e=>new Date(e.ts).getMonth()===m);
+    let oee;
+    if(line&&line!=='Alle'){oee=calcOEE(mEvts,getDayPlanMin(line)*dInM);}
+    else{const vals=LINES.map(l=>calcOEE(mEvts.filter(e=>e.line===l),getDayPlanMin(l)*dInM)).filter(v=>v!==null);oee=vals.length?vals.reduce((s,v)=>s+v,0)/vals.length:null;}
+    mOEE.push(oee!==null?parseFloat(oee.toFixed(1)):null);
+    mNd.push(mEvts.reduce((s,e)=>s+e.duration,0));
+    mCnt.push(mEvts.length);
+  }
+  // Top causes
+  const cm={};evts.forEach(e=>cm[e.cause]=(cm[e.cause]||0)+e.duration);
+  const topCauses=Object.entries(cm).sort((a,b)=>b[1]-a[1]).slice(0,5);
+
+  const html=`
+    <div class="kpis">
+      <div class="kpi green"><div class="klbl">OEE ${year}</div><div class="kval" style="color:${oeeYTD!==null?(oeeYTD>=oeeGoal?'var(--green)':oeeYTD>=90?'var(--amber)':'var(--red)'):'var(--text3)'}">${oeeYTD!==null?oeeYTD.toFixed(1)+'%':'—'}</div><div class="ksub">Mål: ${oeeGoal}%</div></div>
+      <div class="kpi red"><div class="klbl">Total nedetid</div><div class="kval" style="color:var(--red)">${fmtD(totalMin)}</div><div class="ksub">${year}</div></div>
+      <div class="kpi blue"><div class="klbl">Hendelser</div><div class="kval">${totalEvents}</div><div class="ksub">Registrerte stopp ${year}</div></div>
+      <div class="kpi amber"><div class="klbl">Snitt per uke</div><div class="kval" style="font-size:16px;padding-top:4px">${fmtD(Math.round(totalMin/52))}</div><div class="ksub">Nedetid per uke</div></div>
+    </div>
+    <div class="g2">
+      <div class="card"><div class="ct"><div class="ca" style="background:var(--purple)"></div>OEE per måned — ${year} (%)</div><div class="cw-lg"><canvas id="ch-oee-year"></canvas></div></div>
+      <div class="card"><div class="ct"><div class="ca" style="background:var(--accent)"></div>Nedetid per måned — ${year}</div><div class="cw-lg"><canvas id="ch-nd-year"></canvas></div></div>
+    </div>
+    <div class="g2">
+      <div class="card"><div class="ct"><div class="ca" style="background:var(--amber)"></div>Topp årsaker ${year}</div>
+        <div class="tw"><table><thead><tr><th>Årsak</th><th>Total tid</th><th>Andel</th></tr></thead><tbody>
+          ${topCauses.map(([cause,min])=>`<tr><td style="color:var(--text2)">${cause}</td><td style="font-family:var(--mono);font-weight:500">${fmtD(min)}</td><td><div style="height:6px;background:var(--bg3);border-radius:99px;min-width:80px"><div style="height:100%;width:${totalMin?Math.round(min/totalMin*100):0}%;background:var(--amber);border-radius:99px"></div></div></td></tr>`).join('')}
+        </tbody></table></div>
+      </div>
+      <div class="card"><div class="ct"><div class="ca" style="background:var(--blue)"></div>Hendelser per måned — ${year}</div><div class="cw-lg"><canvas id="ch-cnt-year"></canvas></div></div>
+    </div>`;
+  document.getElementById('report-content').innerHTML=html;
+
+  const RED='#dc2626',AMBER='#d97706',GREEN='#16a34a',GRID='rgba(0,0,0,0.05)';
+  const oeeColors=mOEE.map(v=>v===null?'transparent':v>=oeeGoal?GREEN:v>=90?AMBER:RED);
+  charts.oeeYear=new Chart(document.getElementById('ch-oee-year'),{type:'line',data:{labels:mLabels,datasets:[{data:mOEE,borderColor:oeeColors,backgroundColor:mOEE.map(v=>v===null?'transparent':v>=oeeGoal?GREEN+'22':v>=90?AMBER+'22':RED+'22'),borderWidth:2,pointBackgroundColor:oeeColors,pointRadius:5,fill:true,tension:0.3,spanGaps:true}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y===null?'Ingen data':c.parsed.y+'%'}}},scales:{x:{grid:{color:GRID},ticks:{font:{size:11}}},y:{grid:{color:GRID},min:0,max:100,ticks:{callback:v=>v+'%',font:{size:11}}}}}});
+  charts.ndYear=new Chart(document.getElementById('ch-nd-year'),{type:'bar',data:{labels:mLabels,datasets:[{data:mNd,backgroundColor:mNd.map(v=>v===null?'transparent':v>240?RED+'cc':v>120?AMBER+'cc':'var(--blue)cc'),borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmtD(c.parsed.y)}}},scales:{x:{grid:{color:'rgba(0,0,0,0)'},ticks:{font:{size:11}}},y:{grid:{color:GRID},beginAtZero:true,ticks:{callback:v=>fmtD(v),font:{size:11}}}}}});
+  charts.cntYear=new Chart(document.getElementById('ch-cnt-year'),{type:'bar',data:{labels:mLabels,datasets:[{data:mCnt,backgroundColor:'var(--blue)cc',borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y+' hendelser'}}},scales:{x:{grid:{color:'rgba(0,0,0,0)'},ticks:{font:{size:11}}},y:{grid:{color:GRID},beginAtZero:true,ticks:{stepSize:1,font:{size:11}}}}}});
+}
+
+// ── MONTH VIEW ──
+function renderMonth(year,month,line){
+  const now=new Date();
+  const oeeGoal=getOEEGoal(line==='Alle'?null:line);
+  const evts=getEvtsFor(year,month,line==='Alle'?null:line);
+  const daysInM=new Date(year,month+1,0).getDate();
+  const isCurrentMonth=(year===now.getFullYear()&&month===now.getMonth());
+  const totalMin=evts.reduce((s,e)=>s+e.duration,0);
+  // Daily data
+  const dLabels=[],dOEE=[],dNd=[];
+  for(let d=1;d<=daysInM;d++){
+    const dt=new Date(year,month,d);
+    if(isCurrentMonth&&dt>now){dLabels.push(pad(d));dOEE.push(null);dNd.push(null);continue;}
+    dLabels.push(pad(d));
+    const dEvts=evts.filter(e=>{const ed=new Date(e.ts);return ed.getDate()===d;});
+    const nd=dEvts.reduce((s,e)=>s+e.duration,0);
+    let oee;
+    if(line&&line!=='Alle'){oee=calcOEE(dEvts,getDayPlanMin(line));}
+    else{const vals=LINES.map(l=>calcOEE(dEvts.filter(e=>e.line===l),getDayPlanMin(l))).filter(v=>v!==null);oee=vals.length?vals.reduce((s,v)=>s+v,0)/vals.length:null;}
+    dOEE.push(oee!==null?parseFloat(oee.toFixed(1)):null);
+    dNd.push(nd);
+  }
+  const planMin=getDayPlanMin(line==='Alle'?null:line)*(isCurrentMonth?now.getDate():daysInM);
+  const oeeM=calcOEE(evts,planMin);
+  // Causes
+  const cm={};evts.forEach(e=>cm[e.cause]=(cm[e.cause]||0)+e.duration);
+  const topC=Object.entries(cm).sort((a,b)=>b[1]-a[1]).slice(0,5);
+
+  const html=`
+    <div class="kpis">
+      <div class="kpi green"><div class="klbl">OEE ${MONTHS[month]}</div><div class="kval" style="color:${oeeM!==null?(oeeM>=oeeGoal?'var(--green)':oeeM>=90?'var(--amber)':'var(--red)'):'var(--text3)'}">${oeeM!==null?oeeM.toFixed(1)+'%':'—'}</div><div class="ksub">Mål: ${oeeGoal}%</div></div>
+      <div class="kpi red"><div class="klbl">Total nedetid</div><div class="kval" style="color:var(--red)">${fmtD(totalMin)}</div><div class="ksub">${MONTHS[month]} ${year}</div></div>
+      <div class="kpi blue"><div class="klbl">Hendelser</div><div class="kval">${evts.length}</div><div class="ksub">Denne måneden</div></div>
+      <div class="kpi amber"><div class="klbl">Verste dag</div><div class="kval" style="font-size:16px;padding-top:4px">${fmtD(Math.max(...dNd.filter(v=>v!==null),0))}</div><div class="ksub">Maks nedetid på én dag</div></div>
+    </div>
+    <div class="card"><div class="ct"><div class="ca" style="background:var(--purple)"></div>OEE per dag — ${MONTHS[month]} ${year} (%)</div><div class="cw-lg"><canvas id="ch-oee-m"></canvas></div></div>
+    <div class="g2">
+      <div class="card"><div class="ct"><div class="ca" style="background:var(--accent)"></div>Nedetid per dag</div><div class="cw"><canvas id="ch-nd-m"></canvas></div></div>
+      <div class="card"><div class="ct"><div class="ca" style="background:var(--amber)"></div>Topp årsaker</div>
+        <div class="tw"><table><thead><tr><th>Årsak</th><th>Tid</th><th>Andel</th></tr></thead><tbody>
+          ${topC.map(([cause,min])=>`<tr><td style="color:var(--text2)">${cause}</td><td style="font-family:var(--mono);font-weight:500">${fmtD(min)}</td><td style="font-size:11px;color:var(--text3)">${totalMin?Math.round(min/totalMin*100):0}%</td></tr>`).join('')}
+        </tbody></table></div>
+      </div>
+    </div>`;
+  document.getElementById('report-content').innerHTML=html;
+  const RED='#dc2626',AMBER='#d97706',GREEN='#16a34a',GRID='rgba(0,0,0,0.05)';
+  const oeeC=dOEE.map(v=>v===null?'transparent':v>=oeeGoal?GREEN:v>=90?AMBER:RED);
+  charts.oeeMon=new Chart(document.getElementById('ch-oee-m'),{type:'line',data:{labels:dLabels,datasets:[{data:dOEE,borderColor:oeeC,backgroundColor:dOEE.map(v=>v===null?'transparent':v>=oeeGoal?GREEN+'22':v>=90?AMBER+'22':RED+'22'),borderWidth:2,pointBackgroundColor:oeeC,pointRadius:3,fill:true,tension:0.3,spanGaps:true}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y===null?'Ingen data':c.parsed.y+'%'}}},scales:{x:{grid:{color:GRID},ticks:{font:{size:9},maxTicksLimit:15}},y:{grid:{color:GRID},min:0,max:100,ticks:{callback:v=>v+'%',font:{size:10}}}}}});
+  charts.ndMon=new Chart(document.getElementById('ch-nd-m'),{type:'bar',data:{labels:dLabels,datasets:[{data:dNd,backgroundColor:dNd.map(v=>v===null?'transparent':v>240?RED+'cc':v>60?AMBER+'cc':'var(--blue)cc'),borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmtD(c.parsed.y)}}},scales:{x:{grid:{color:'rgba(0,0,0,0)'},ticks:{font:{size:9},maxTicksLimit:15}},y:{grid:{color:GRID},beginAtZero:true,ticks:{callback:v=>fmtD(v),font:{size:10}}}}}});
+}
+
+// ── WEEK VIEW ──
+function renderWeek(year,month,line){
+  const oeeGoal=getOEEGoal(line==='Alle'?null:line);
+  const evts=getEvtsFor(year,month,line==='Alle'?null:line);
+  // Group by week
+  const weekMap={};
+  evts.forEach(e=>{
+    const d=new Date(e.ts);
+    const wk=getWeekNum(d);
+    if(!weekMap[wk])weekMap[wk]=[];
+    weekMap[wk].push(e);
+  });
+  const weeks=Object.keys(weekMap).sort((a,b)=>a-b);
+  if(!weeks.length){document.getElementById('report-content').innerHTML='<div class="card"><div style="color:var(--text3);text-align:center;padding:2rem">Ingen data for valgt periode.</div></div>';return;}
+  const rows=weeks.map(wk=>{
+    const wEvts=weekMap[wk];
+    const nd=wEvts.reduce((s,e)=>s+e.duration,0);
+    const planMin=getDayPlanMin(line==='Alle'?null:line)*5;
+    let oee;
+    if(line&&line!=='Alle'){oee=calcOEE(wEvts,planMin);}
+    else{const vals=LINES.map(l=>calcOEE(wEvts.filter(e=>e.line===l),getDayPlanMin(l)*5)).filter(v=>v!==null);oee=vals.length?vals.reduce((s,v)=>s+v,0)/vals.length:null;}
+    const oeeStr=oee!==null?oee.toFixed(1)+'%':'—';
+    const oeeBadge=oee===null?'ba':oee>=oeeGoal?'bg':'br';
+    const cm={};wEvts.forEach(e=>cm[e.cause]=(cm[e.cause]||0)+e.duration);
+    const topC=Object.entries(cm).sort((a,b)=>b[1]-a[1]).slice(0,3);
+    const mon=getMonWeek(year,parseInt(wk));
+    const sun=new Date(mon);sun.setDate(mon.getDate()+6);
+    const dateStr=pad(mon.getDate())+'.'+pad(mon.getMonth()+1)+' — '+pad(sun.getDate())+'.'+pad(sun.getMonth()+1);
+    return {wk,nd,oee,oeeStr,oeeBadge,wEvts,topC,dateStr};
+  });
+  const html=`<div class="card"><div class="ct"><div class="ca" style="background:var(--blue)"></div>Ukeoversikt — ${MONTHS[month]} ${year}</div>
+    <div class="tw"><table><thead><tr><th>Uke</th><th>Periode</th><th>OEE</th><th>Nedetid</th><th>Hendelser</th><th>Topp årsak</th></tr></thead><tbody>
+      ${rows.map(r=>`
+        <tr class="week-row" onclick="toggleWeek('wk-${r.wk}')">
+          <td>Uke ${r.wk}</td>
+          <td>${r.dateStr}</td>
+          <td><span class="badge ${r.oeeBadge}">${r.oeeStr}</span></td>
+          <td style="font-family:var(--mono);font-weight:500">${fmtD(r.nd)}</td>
+          <td>${r.wEvts.length}</td>
+          <td style="color:var(--text2)">${r.topC[0]?r.topC[0][0]+'  ('+fmtD(r.topC[0][1])+')':'—'}</td>
+        </tr>
+        <tr class="week-detail" id="wk-${r.wk}"><td colspan="6">
+          <div style="padding:.5rem">
+            <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:.4rem">Hendelser denne uken:</div>
+            ${r.wEvts.sort((a,b)=>b.ts-a.ts).map(e=>`<div style="display:flex;gap:10px;padding:4px 0;border-bottom:1px solid var(--border);font-size:11px"><span style="font-family:var(--mono);color:var(--text3);width:90px;flex-shrink:0">${new Date(e.ts).toLocaleDateString('no-NO')} ${pad(new Date(e.ts).getHours())}:${pad(new Date(e.ts).getMinutes())}</span><span style="color:var(--text2)">${e.machine||'—'}</span><span style="color:var(--text2)">${e.cause}</span><span style="font-family:var(--mono);font-weight:500">${fmtD(e.duration)}</span></div>`).join('')}
+          </div>
+        </td></tr>`).join('')}
+    </tbody></table></div></div>`;
+  document.getElementById('report-content').innerHTML=html;
+}
+function toggleWeek(id){const el=document.getElementById(id);if(el)el.style.display=el.style.display==='table-row'?'none':'table-row';}
+
+// ── COMPARE VIEW ──
+function renderCompare(year,year2,line){
+  const oeeGoal=getOEEGoal(line==='Alle'?null:line);
+  const evts1=getEvtsFor(year,null,line==='Alle'?null:line);
+  const evts2=getEvtsFor(year2,null,line==='Alle'?null:line);
+  const mLabels=MONTHS.map(m=>m.slice(0,3));
+  const now=new Date();
+  function getMonthOEE(evts,yr,m){
+    const isF=(yr===now.getFullYear()&&m>now.getMonth());
+    if(isF)return null;
+    const dInM=(yr===now.getFullYear()&&m===now.getMonth())?now.getDate():new Date(yr,m+1,0).getDate();
+    const mEvts=evts.filter(e=>new Date(e.ts).getMonth()===m);
+    if(line&&line!=='Alle'){return calcOEE(mEvts,getDayPlanMin(line)*dInM);}
+    const vals=LINES.map(l=>calcOEE(mEvts.filter(e=>e.line===l),getDayPlanMin(l)*dInM)).filter(v=>v!==null);
+    return vals.length?vals.reduce((s,v)=>s+v,0)/vals.length:null;
+  }
+  function getMonthNd(evts,m){return evts.filter(e=>new Date(e.ts).getMonth()===m).reduce((s,e)=>s+e.duration,0);}
+  const oee1=Array.from({length:12},(_,m)=>getMonthOEE(evts1,year,m)).map(v=>v!==null?parseFloat(v.toFixed(1)):null);
+  const oee2=Array.from({length:12},(_,m)=>getMonthOEE(evts2,year2,m)).map(v=>v!==null?parseFloat(v.toFixed(1)):null);
+  const nd1=Array.from({length:12},(_,m)=>getMonthNd(evts1,m));
+  const nd2=Array.from({length:12},(_,m)=>getMonthNd(evts2,m));
+  const ytdDays1=(year===now.getFullYear())?now.getDate()+(Array.from({length:now.getMonth()},(_,i)=>new Date(year,i+1,0).getDate()).reduce((s,d)=>s+d,0)):365;
+  const ytdDays2=(year2===now.getFullYear())?now.getDate()+(Array.from({length:now.getMonth()},(_,i)=>new Date(year2,i+1,0).getDate()).reduce((s,d)=>s+d,0)):365;
+  const p1=getDayPlanMin(line==='Alle'?null:line);
+  const oeeYTD1=calcOEE(evts1,p1*ytdDays1);
+  const oeeYTD2=calcOEE(evts2,p1*ytdDays2);
+  const nd1Total=evts1.reduce((s,e)=>s+e.duration,0);
+  const nd2Total=evts2.reduce((s,e)=>s+e.duration,0);
+  const diff=oeeYTD1!==null&&oeeYTD2!==null?oeeYTD1-oeeYTD2:null;
+  const diffStr=diff!==null?(diff>=0?'▲ +':diff<0?'▼ ':'')+Math.abs(diff).toFixed(1)+'% vs '+year2:'—';
+  const diffClass=diff===null?'eq':diff>0?'up':'dn';
+  const html=`
+    <div class="kpis">
+      <div class="kpi green"><div class="klbl">OEE ${year}</div><div class="kval" style="color:${oeeYTD1!==null?(oeeYTD1>=oeeGoal?'var(--green)':oeeYTD1>=90?'var(--amber)':'var(--red)'):'var(--text3)'}">${oeeYTD1!==null?oeeYTD1.toFixed(1)+'%':'—'}</div><div class="trend ${diffClass}">${diffStr}</div></div>
+      <div class="kpi blue"><div class="klbl">OEE ${year2}</div><div class="kval" style="color:${oeeYTD2!==null?(oeeYTD2>=oeeGoal?'var(--green)':oeeYTD2>=90?'var(--amber)':'var(--red)'):'var(--text3)'}">${oeeYTD2!==null?oeeYTD2.toFixed(1)+'%':'—'}</div><div class="ksub">Referanseår</div></div>
+      <div class="kpi red"><div class="klbl">Nedetid ${year}</div><div class="kval" style="color:var(--red);font-size:18px">${fmtD(nd1Total)}</div><div class="ksub">${evts1.length} hendelser</div></div>
+      <div class="kpi amber"><div class="klbl">Nedetid ${year2}</div><div class="kval" style="font-size:18px">${fmtD(nd2Total)}</div><div class="ksub">${evts2.length} hendelser</div></div>
+    </div>
+    <div class="card"><div class="ct"><div class="ca" style="background:var(--purple)"></div>OEE sammenligning — ${year} vs ${year2} (%)</div><div class="cw-lg"><canvas id="ch-cmp-oee"></canvas></div></div>
+    <div class="card"><div class="ct"><div class="ca" style="background:var(--accent)"></div>Nedetid per måned — ${year} vs ${year2}</div><div class="cw-lg"><canvas id="ch-cmp-nd"></canvas></div></div>`;
+  document.getElementById('report-content').innerHTML=html;
+  const RED='#dc2626',BLUE='#2563eb',GRID='rgba(0,0,0,0.05)';
+  charts.cmpOEE=new Chart(document.getElementById('ch-cmp-oee'),{type:'line',data:{labels:mLabels,datasets:[{label:String(year),data:oee1,borderColor:RED,backgroundColor:RED+'15',borderWidth:2,pointBackgroundColor:RED,pointRadius:4,fill:false,tension:0.3,spanGaps:true},{label:String(year2),data:oee2,borderColor:BLUE,backgroundColor:BLUE+'15',borderWidth:2,pointBackgroundColor:BLUE,pointRadius:4,fill:false,tension:0.3,spanGaps:true,borderDash:[5,5]}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{font:{size:11}}},tooltip:{callbacks:{label:c=>c.dataset.label+': '+(c.parsed.y===null?'Ingen data':c.parsed.y+'%')}}},scales:{x:{grid:{color:GRID},ticks:{font:{size:11}}},y:{grid:{color:GRID},min:0,max:100,ticks:{callback:v=>v+'%',font:{size:11}}}}}});
+  charts.cmpNd=new Chart(document.getElementById('ch-cmp-nd'),{type:'bar',data:{labels:mLabels,datasets:[{label:String(year),data:nd1,backgroundColor:RED+'99',borderRadius:3},{label:String(year2),data:nd2,backgroundColor:BLUE+'99',borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{font:{size:11}}},tooltip:{callbacks:{label:c=>c.dataset.label+': '+fmtD(c.parsed.y)}}},scales:{x:{grid:{color:'rgba(0,0,0,0)'},ticks:{font:{size:11}}},y:{grid:{color:GRID},beginAtZero:true,ticks:{callback:v=>fmtD(v),font:{size:11}}}}}});
+}
+
+Chart.defaults.font.family="'IBM Plex Sans',sans-serif";
+Chart.defaults.color='#8a95a8';
+</script>
+</body>
+</html>
