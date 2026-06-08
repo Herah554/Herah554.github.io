@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Logg inn — Diplom-is</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--accent:#e63329;--accent2:#ff5c52;--bg:#f4f6f9;--bg2:#fff;--bg3:#eef0f4;--border:#e2e6ed;--text:#18202e;--text2:#4a5568;--text3:#8a95a8;--green:#16a34a;--red:#dc2626;--font:'IBM Plex Sans',sans-serif;--mono:'IBM Plex Mono',monospace;--r:8px;--rl:14px;--sh:0 4px 24px rgba(0,0,0,.10)}
+body{font-family:var(--font);background:var(--bg);min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1rem}
+.box{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:2rem 2.25rem;width:100%;max-width:380px;box-shadow:var(--sh)}
+.logo{text-align:center;margin-bottom:1.75rem}
+.logo-name{font-size:22px;font-weight:600;color:var(--accent);letter-spacing:-.02em}
+.logo-sub{font-size:12px;color:var(--text3);margin-top:3px;font-family:var(--mono)}
+.fr{margin-bottom:1rem}
+label{display:block;font-size:11px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px}
+input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text);padding:10px 12px;font-family:var(--font);font-size:14px;outline:none;transition:border-color .15s}
+input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(230,51,41,.08)}
+.btn{width:100%;background:var(--accent);border:none;border-radius:var(--r);color:#fff;font-size:14px;font-weight:600;padding:11px;cursor:pointer;transition:background .15s,transform .1s;margin-top:.25rem}
+.btn:hover{background:var(--accent2)}.btn:active{transform:scale(.98)}
+.err{background:#fef2f2;border:1px solid #fecaca;border-radius:var(--r);padding:8px 12px;font-size:12px;color:var(--red);margin-bottom:.75rem;display:none}
+.setup-box{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:2rem 2.25rem;width:100%;max-width:480px;box-shadow:var(--sh);display:none}
+.setup-title{font-size:16px;font-weight:600;margin-bottom:.5rem}
+.setup-desc{font-size:13px;color:var(--text2);margin-bottom:1.25rem;line-height:1.6}
+textarea{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text);padding:9px 11px;font-family:var(--mono);font-size:11px;resize:vertical;min-height:130px;outline:none;line-height:1.6}
+textarea:focus{border-color:var(--accent)}
+.dbst{font-size:11px;font-family:var(--mono);margin-top:5px;min-height:14px}
+.loading{text-align:center;color:var(--text3);font-size:13px;padding:2rem}
+</style>
+</head>
+<body>
+<div class="loading" id="loading">Laster inn...</div>
+
+<!-- Setup screen (first time) -->
+<div class="setup-box" id="setup-box">
+  <div class="logo"><div class="logo-name">Diplom-is</div><div class="logo-sub">Første gangs oppsett</div></div>
+  <div class="setup-title">Koble til Firebase</div>
+  <div class="setup-desc">Lim inn Firebase-konfigen din. Etter dette settes en master-bruker opp automatisk og systemet er klart.</div>
+  <div style="margin-bottom:.75rem"><label>Firebase Config JSON</label>
+  <textarea id="cfg-input" placeholder='{ "apiKey": "...", "authDomain": "...", "databaseURL": "https://...", ... }'></textarea>
+  <div class="dbst" id="cfg-status"></div></div>
+  <div style="margin-bottom:1rem"><label>Master e-post</label><input type="email" id="setup-email" placeholder="admin@diplom-is.no"/></div>
+  <div style="margin-bottom:1rem"><label>Master passord</label><input type="password" id="setup-pass" placeholder="Minst 8 tegn"/></div>
+  <div style="margin-bottom:1rem"><label>Ditt navn</label><input type="text" id="setup-name" placeholder="Ola Nordmann"/></div>
+  <div class="err" id="setup-err"></div>
+  <button class="btn" onclick="doSetup()">Opprett master-bruker og start</button>
+</div>
+
+<!-- Login screen -->
+<div class="box" id="login-box" style="display:none">
+  <div class="logo"><div class="logo-name">Diplom-is</div><div class="logo-sub">Produksjonssystem</div></div>
+  <div class="err" id="login-err"></div>
+  <div class="fr"><label>E-post</label><input type="email" id="login-email" placeholder="din@epost.no" onkeydown="if(event.key==='Enter')doLogin()"/></div>
+  <div class="fr"><label>Passord</label><input type="password" id="login-pass" placeholder="Passord" onkeydown="if(event.key==='Enter')doLogin()"/></div>
+  <button class="btn" onclick="doLogin()">Logg inn</button>
+</div>
+
+<script>
+const FIREBASE_CFG_KEY='firebaseConfig';
+
+function showErr(id,msg){const el=document.getElementById(id);el.textContent=msg;el.style.display='block';}
+function hideErr(id){document.getElementById(id).style.display='none';}
+
+async function init(){
+  const raw=localStorage.getItem(FIREBASE_CFG_KEY);
+  if(!raw){
+    document.getElementById('loading').style.display='none';
+    document.getElementById('setup-box').style.display='block';
+    return;
+  }
+  try{
+    if(!firebase.apps.length) firebase.initializeApp(JSON.parse(raw));
+    firebase.auth().onAuthStateChanged(async user=>{
+      if(user){
+        // Check if user profile exists
+        const snap=await firebase.database().ref('users/'+user.uid).once('value');
+        if(snap.exists()){
+          window.location.href='index.html';
+        } else {
+          firebase.auth().signOut();
+          document.getElementById('loading').style.display='none';
+          document.getElementById('login-box').style.display='block';
+        }
+      } else {
+        document.getElementById('loading').style.display='none';
+        document.getElementById('login-box').style.display='block';
+      }
+    });
+  }catch(e){
+    document.getElementById('loading').style.display='none';
+    document.getElementById('setup-box').style.display='block';
+  }
+}
+
+async function doSetup(){
+  const raw=document.getElementById('cfg-input').value.trim();
+  const email=document.getElementById('setup-email').value.trim();
+  const pass=document.getElementById('setup-pass').value;
+  const name=document.getElementById('setup-name').value.trim();
+  hideErr('setup-err');
+  if(!raw||!email||!pass||!name){showErr('setup-err','Fyll inn alle feltene.');return;}
+  if(pass.length<8){showErr('setup-err','Passordet må være minst 8 tegn.');return;}
+  let cfg;
+  try{
+    cfg=JSON.parse(raw);
+    if(!cfg.apiKey||!cfg.databaseURL||!cfg.authDomain) throw new Error('Mangler apiKey, authDomain eller databaseURL');
+    document.getElementById('cfg-status').textContent='✓ Konfig ser OK ut';
+    document.getElementById('cfg-status').style.color='var(--green)';
+  }catch(e){showErr('setup-err','Ugyldig konfig: '+e.message);return;}
+  try{
+    if(!firebase.apps.length) firebase.initializeApp(cfg);
+    const cred=await firebase.auth().createUserWithEmailAndPassword(email,pass);
+    await firebase.database().ref('users/'+cred.user.uid).set({name,email,role:'master',lines:[],createdAt:Date.now()});
+    await firebase.database().ref('settings/initialized').set(true);
+    localStorage.setItem(FIREBASE_CFG_KEY,JSON.stringify(cfg));
+    window.location.href='index.html';
+  }catch(e){
+    const msgs={
+      'auth/email-already-in-use':'Denne e-posten er allerede registrert. Gå til innlogging.',
+      'auth/weak-password':'Passordet er for svakt.',
+      'auth/invalid-email':'Ugyldig e-postadresse.'
+    };
+    showErr('setup-err',msgs[e.code]||e.message);
+  }
+}
+
+async function doLogin(){
+  const email=document.getElementById('login-email').value.trim();
+  const pass=document.getElementById('login-pass').value;
+  hideErr('login-err');
+  if(!email||!pass){showErr('login-err','Fyll inn e-post og passord.');return;}
+  try{
+    await firebase.auth().signInWithEmailAndPassword(email,pass);
+    window.location.href='index.html';
+  }catch(e){
+    const msgs={
+      'auth/user-not-found':'Ingen bruker med denne e-posten.',
+      'auth/wrong-password':'Feil passord.',
+      'auth/invalid-credential':'Feil e-post eller passord.',
+      'auth/too-many-requests':'For mange forsøk. Prøv igjen senere.'
+    };
+    showErr('login-err',msgs[e.code]||'Innlogging feilet: '+e.message);
+  }
+}
+init();
+</script>
+</body>
+</html>
