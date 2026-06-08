@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Innstillinger — Diplom-is</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f7f8fa;--bg2:#fff;--bg3:#f0f2f5;
+  --border:#e4e7ed;--border2:#d0d5dd;
+  --text:#1a1d23;--text2:#5a6072;--text3:#9aa0b0;
+  --accent:#e63329;--accent2:#ff5c52;
+  --blue:#2563eb;--green:#16a34a;--amber:#d97706;--red:#dc2626;--purple:#7c3aed;
+  --font:'IBM Plex Sans',sans-serif;--mono:'IBM Plex Mono',monospace;
+  --radius:8px;--radius-lg:12px;
+  --shadow:0 1px 3px rgba(0,0,0,.07);--shadow-md:0 4px 16px rgba(0,0,0,.10);
+}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;line-height:1.5}
+.topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 2rem;height:58px;display:flex;align-items:center;gap:1rem;position:sticky;top:0;z-index:100;box-shadow:var(--shadow)}
+.logo{font-size:16px;font-weight:600;color:var(--accent);}
+.logo span{color:var(--text3);font-weight:400;font-size:13px;margin-left:4px}
+.topbar-sep{width:1px;height:22px;background:var(--border)}
+.nav-link{font-size:13px;color:var(--text2);text-decoration:none;padding:6px 12px;border-radius:var(--radius);font-weight:500;transition:all .15s}
+.nav-link:hover{background:var(--bg3);color:var(--text)}
+.nav-link.active{background:var(--bg3);color:var(--accent)}
+.topbar-right{margin-left:auto}
+.clock{font-family:var(--mono);font-size:12px;color:var(--text3)}
+.page{max-width:960px;margin:0 auto;padding:1.75rem 2rem}
+.section-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);margin-bottom:.75rem;font-family:var(--mono);margin-top:1.5rem}
+.section-title:first-child{margin-top:0}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;box-shadow:var(--shadow);margin-bottom:1rem}
+.card-title{font-size:14px;font-weight:600;color:var(--text);margin-bottom:1rem;display:flex;align-items:center;gap:8px}
+.card-accent{width:3px;height:16px;border-radius:2px;background:var(--accent);flex-shrink:0}
+.card-accent-purple{width:3px;height:16px;border-radius:2px;background:var(--purple);flex-shrink:0}
+textarea.config-area{width:100%;min-height:160px;font-family:var(--mono);font-size:12px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);padding:10px;resize:vertical;outline:none;line-height:1.6}
+textarea.config-area:focus{border-color:var(--accent)}
+.db-status{font-size:12px;font-family:var(--mono);margin-top:8px;font-weight:500;min-height:18px}
+.row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.row input,.row select{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);padding:7px 10px;font-family:var(--font);font-size:13px;outline:none}
+.row input:focus,.row select:focus{border-color:var(--accent)}
+.fl{display:flex;gap:8px;flex-wrap:wrap;margin-top:.5rem;margin-bottom:.75rem}
+.chip{display:inline-flex;align-items:center;gap:4px;font-size:12px;padding:3px 10px;border-radius:99px;font-weight:500;border:1px solid}
+.chip-gray{background:var(--bg3);color:var(--text2);border-color:var(--border)}
+.chip-blue{background:#eff6ff;color:var(--blue);border-color:#bfdbfe}
+.chip-purple{background:#f5f3ff;color:var(--purple);border-color:#ddd6fe}
+.chip-del{background:none;border:none;cursor:pointer;color:inherit;opacity:.6;font-size:11px;padding:0 2px;line-height:1}
+.chip-del:hover{opacity:1}
+.btn-p{background:var(--accent);border:none;border-radius:var(--radius);color:#fff;font-size:12px;font-weight:600;padding:7px 14px;cursor:pointer;white-space:nowrap;transition:background .15s}
+.btn-p:hover{background:var(--accent2)}
+.btn-g{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);color:var(--text2);font-size:12px;font-weight:500;padding:7px 14px;cursor:pointer;white-space:nowrap;transition:all .15s}
+.btn-g:hover{background:var(--border)}
+.btn-purple{background:var(--purple);border:none;border-radius:var(--radius);color:#fff;font-size:12px;font-weight:600;padding:7px 14px;cursor:pointer;white-space:nowrap;transition:opacity .15s}
+.btn-purple:hover{opacity:.85}
+.sep{border:none;border-top:1px solid var(--border);margin:1rem 0}
+.goal-ok{font-size:12px;color:var(--green);margin-top:4px;font-weight:500}
+.goal-fb{font-size:12px;color:var(--text3);margin-top:4px}
+.sub-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem;margin-top:.75rem}
+.sub-title{font-size:12px;font-weight:600;color:var(--text2);margin-bottom:.5rem}
+.machine-block{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem 1rem;margin-bottom:.5rem}
+.machine-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem}
+.machine-name{font-size:13px;font-weight:600;color:var(--text)}
+.how-to{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:var(--radius);padding:1rem;font-size:13px;color:#166534;line-height:1.7;margin-bottom:1rem}
+.how-to ol{padding-left:1.25rem;margin-top:.5rem}
+.how-to li{margin-bottom:.25rem}
+.how-to code{background:#dcfce7;padding:1px 5px;border-radius:3px;font-family:var(--mono);font-size:12px}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--bg2);border:1px solid #bbf7d0;color:var(--green);font-size:13px;font-weight:600;padding:10px 18px;border-radius:var(--radius);opacity:0;transition:opacity .3s;pointer-events:none;box-shadow:var(--shadow-md)}
+.toast.del{border-color:#fecaca;color:var(--red)}
+select{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);padding:7px 10px;font-family:var(--font);font-size:13px;outline:none}
+select:focus{border-color:var(--accent)}
+@media(max-width:600px){.page{padding:1rem}.topbar{padding:0 1rem}}
+</style>
+</head>
+<body>
+<nav class="topbar">
+  <div class="logo">Diplom-is <span>/ Produksjon</span></div>
+  <div class="topbar-sep"></div>
+  <a href="index.html" class="nav-link">Dashboard</a>
+  <a href="innstillinger.html" class="nav-link active">Innstillinger</a>
+  <div class="topbar-right"><div class="clock" id="clock">--:--:--</div></div>
+</nav>
+
+<main class="page">
+
+  <div class="section-title">Firebase-tilkobling</div>
+  <div class="card">
+    <div class="card-title"><div class="card-accent"></div>Databasekonfigurasjon</div>
+    <div class="how-to">
+      Slik setter du opp gratis database:
+      <ol>
+        <li>Gå til <strong>console.firebase.google.com</strong> og logg inn</li>
+        <li>Gå til <strong>Realtime Database</strong> og opprett database i <code>test mode</code></li>
+        <li>Klikk tannhjulet → <strong>Project settings</strong> → rull ned → klikk <code>&lt;/&gt;</code> og registrer app</li>
+        <li>Kopier kun JSON-objektet (fra <code>{</code> til <code>}</code>) og lim inn under</li>
+      </ol>
+    </div>
+    <div style="font-size:11px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Firebase config JSON</div>
+    <textarea class="config-area" id="firebase-config-input" placeholder='{ "apiKey": "...", "databaseURL": "https://...", ... }'></textarea>
+    <div class="db-status" id="db-status" style="color:var(--text3)">Ikke konfigurert</div>
+    <div style="margin-top:10px;display:flex;gap:8px">
+      <button class="btn-p" onclick="saveFirebaseConfig()">Koble til og lagre</button>
+      <button class="btn-g" onclick="clearConfig()">Koble fra</button>
+    </div>
+  </div>
+
+  <div class="section-title">Globale mål</div>
+  <div class="card">
+    <div class="card-title"><div class="card-accent"></div>Standardmål — gjelder alle linjer uten individuelt mål</div>
+    <div class="row" style="max-width:500px">
+      <span style="font-size:13px;color:var(--text2);width:180px;flex-shrink:0">Nedetidsmål (min/dag)</span>
+      <input type="number" id="global-goal" value="30" min="1" style="max-width:100px"/>
+      <button class="btn-p" onclick="setGlobal('goal')">Lagre</button>
+    </div>
+    <div class="row" style="max-width:500px">
+      <span style="font-size:13px;color:var(--text2);width:180px;flex-shrink:0">OEE-mål (%)</span>
+      <input type="number" id="global-oee" value="97" min="1" max="100" style="max-width:100px"/>
+      <button class="btn-p" onclick="setGlobal('oee')">Lagre</button>
+    </div>
+  </div>
+
+  <div class="section-title">Planlagte stopp</div>
+  <div class="card">
+    <div class="card-title"><div class="card-accent-purple"></div>Planlagte stoppårsaker</div>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:.75rem">Disse vil vises på alle maskiner og markeres som planlagte stopp i dashbordet.</p>
+    <div class="fl" id="planned-chips"></div>
+    <div class="row" style="max-width:420px">
+      <input type="text" id="new-planned" placeholder="Ny planlagt stoppårsak..." onkeydown="if(event.key==='Enter')addPlanned()"/>
+      <button class="btn-purple" onclick="addPlanned()">+ Legg til</button>
+    </div>
+  </div>
+
+  <div class="section-title">Linjer — maskiner, årsaker og mål</div>
+  <div id="lines-container"></div>
+
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+const LINES=['Løp 1','Løp 2','Løp 3','Rollo','Koba','Glacier','Krokan'];
+let db=null, settings={globalGoal:30,oeeGoal:97,lineGoals:{},oeeGoals:{},machines:{},causes:{},plannedStops:[]};
+
+function lk(l){return l.replace(/[\s\/]/g,'_');}
+function mk(l,m){return lk(l)+'__'+m.replace(/[\s\/]/g,'_');}
+
+setInterval(()=>{document.getElementById('clock').textContent=new Date().toLocaleTimeString('no-NO');},1000);
+document.getElementById('clock').textContent=new Date().toLocaleTimeString('no-NO');
+
+function tryInit(){
+  const raw=localStorage.getItem('firebaseConfig');
+  if(!raw){renderAll();return;}
+  try{
+    const cfg=JSON.parse(raw);
+    if(!firebase.apps.length) firebase.initializeApp(cfg);
+    db=firebase.database();
+    db.ref('settings').on('value',snap=>{
+      if(snap.exists()) settings=Object.assign({globalGoal:30,oeeGoal:97,lineGoals:{},oeeGoals:{},machines:{},causes:{},plannedStops:[]},snap.val());
+      renderAll();
+    });
+    document.getElementById('db-status').textContent='✓ Koblet til Firebase';
+    document.getElementById('db-status').style.color='var(--green)';
+    document.getElementById('firebase-config-input').value=JSON.stringify(cfg,null,2);
+  }catch(e){
+    document.getElementById('db-status').textContent='✕ Feil: '+e.message;
+    document.getElementById('db-status').style.color='var(--red)';
+    renderAll();
+  }
+}
+
+function saveFirebaseConfig(){
+  const raw=document.getElementById('firebase-config-input').value.trim();
+  try{
+    const p=JSON.parse(raw);
+    if(!p.apiKey||!p.databaseURL) throw new Error('Mangler apiKey eller databaseURL');
+    localStorage.setItem('firebaseConfig',JSON.stringify(p));
+    location.reload();
+  }catch(e){
+    document.getElementById('db-status').textContent='✕ '+e.message;
+    document.getElementById('db-status').style.color='var(--red)';
+  }
+}
+function clearConfig(){localStorage.removeItem('firebaseConfig');location.reload();}
+
+async function save(){
+  if(!db){showToast('Ikke koblet til Firebase',true);return;}
+  await db.ref('settings').set(settings);
+  showToast('Lagret');
+}
+
+function setGlobal(type){
+  if(type==='goal'){const v=parseInt(document.getElementById('global-goal').value);if(v>0){settings.globalGoal=v;save();}}
+  else{const v=parseInt(document.getElementById('global-oee').value);if(v>0&&v<=100){settings.oeeGoal=v;save();}}
+}
+
+function setLineGoal(line,type){
+  const key=type==='oee'?'oeeGoals':'lineGoals';
+  const val=parseInt(document.getElementById((type==='oee'?'oeeg-':'goal-')+lk(line)).value);
+  if(!val||val<1) return;
+  if(!settings[key]) settings[key]={};
+  settings[key][lk(line)]=val;
+  save();
+}
+function clearLineGoal(line,type){
+  const key=type==='oee'?'oeeGoals':'lineGoals';
+  if(settings[key]) delete settings[key][lk(line)];
+  save();
+}
+
+function addMachine(line){
+  const inp=document.getElementById('nm-'+lk(line));
+  const val=inp.value.trim();
+  if(!val) return;
+  if(!settings.machines) settings.machines={};
+  const key=lk(line);
+  if(!settings.machines[key]) settings.machines[key]=[];
+  if(!settings.machines[key].includes(val)){settings.machines[key].push(val);save();}
+  inp.value='';
+}
+function removeMachine(line,machine){
+  const key=lk(line);
+  if(!settings.machines?.[key]) return;
+  settings.machines[key]=settings.machines[key].filter(m=>m!==machine);
+  // Also remove causes for this machine
+  const mkey=mk(line,machine);
+  if(settings.causes?.[mkey]) delete settings.causes[mkey];
+  save();
+}
+
+function addCause(line,machine){
+  const key=mk(line,machine);
+  const inp=document.getElementById('nc-'+key);
+  const val=inp.value.trim();
+  if(!val) return;
+  if(!settings.causes) settings.causes={};
+  if(!settings.causes[key]) settings.causes[key]=[];
+  if(!settings.causes[key].includes(val)){settings.causes[key].push(val);save();}
+  inp.value='';
+}
+function removeCause(line,machine,cause){
+  const key=mk(line,machine);
+  if(!settings.causes?.[key]) return;
+  settings.causes[key]=settings.causes[key].filter(c=>c!==cause);
+  save();
+}
+
+function addPlanned(){
+  const inp=document.getElementById('new-planned');
+  const val=inp.value.trim();
+  if(!val) return;
+  if(!settings.plannedStops) settings.plannedStops=[];
+  if(!settings.plannedStops.includes(val)){settings.plannedStops.push(val);save();}
+  inp.value='';
+}
+function removePlanned(p){
+  settings.plannedStops=(settings.plannedStops||[]).filter(x=>x!==p);
+  save();
+}
+
+function renderAll(){
+  document.getElementById('global-goal').value=settings.globalGoal||30;
+  document.getElementById('global-oee').value=settings.oeeGoal||97;
+  renderPlanned();
+  renderLines();
+}
+
+function renderPlanned(){
+  const c=document.getElementById('planned-chips');
+  c.innerHTML='';
+  (settings.plannedStops||[]).forEach(p=>{
+    const sp=document.createElement('span');
+    sp.className='chip chip-purple';
+    sp.innerHTML=`${p} <button class="chip-del" onclick="removePlanned('${p.replace(/'/g,"\\'")}')">✕</button>`;
+    c.appendChild(sp);
+  });
+  if(!(settings.plannedStops||[]).length){
+    c.innerHTML='<span style="font-size:12px;color:var(--text3)">Ingen planlagte stopp lagt til enda.</span>';
+  }
+}
+
+function renderLines(){
+  const container=document.getElementById('lines-container');
+  container.innerHTML='';
+  LINES.forEach(line=>{
+    const key=lk(line);
+    const lineGoal=settings.lineGoals?.[key];
+    const oeeGoal=settings.oeeGoals?.[key];
+    const machines=settings.machines?.[key]||[];
+
+    const div=document.createElement('div');
+    div.className='card';
+    div.innerHTML=`<div class="card-title"><div class="card-accent"></div>${line}</div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem">
+        <div>
+          <div style="font-size:11px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.05em;color:var(--text3);margin-bottom:6px">Nedetidsmål (min/dag)</div>
+          <div class="row">
+            <input type="number" id="goal-${key}" value="${lineGoal??''}" placeholder="${settings.globalGoal||30} (globalt)" min="1"/>
+            <button class="btn-p" onclick="setLineGoal('${line}','goal')">Sett</button>
+            ${lineGoal?`<button class="btn-g" onclick="clearLineGoal('${line}','goal')">↺</button>`:''}
+          </div>
+          <div class="${lineGoal?'goal-ok':'goal-fb'}">${lineGoal?'Eget mål: '+lineGoal+' min':'Globalt mål: '+(settings.globalGoal||30)+' min'}</div>
+        </div>
+        <div>
+          <div style="font-size:11px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.05em;color:var(--text3);margin-bottom:6px">OEE-mål (%)</div>
+          <div class="row">
+            <input type="number" id="oeeg-${key}" value="${oeeGoal??''}" placeholder="${settings.oeeGoal||97} (globalt)" min="1" max="100"/>
+            <button class="btn-p" onclick="setLineGoal('${line}','oee')">Sett</button>
+            ${oeeGoal?`<button class="btn-g" onclick="clearLineGoal('${line}','oee')">↺</button>`:''}
+          </div>
+          <div class="${oeeGoal?'goal-ok':'goal-fb'}">${oeeGoal?'Eget mål: '+oeeGoal+'%':'Globalt mål: '+(settings.oeeGoal||97)+'%'}</div>
+        </div>
+      </div>
+
+      <hr class="sep"/>
+      <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:.5rem">Maskiner på ${line}</div>
+      <div id="machines-${key}"></div>
+      <div class="row" style="max-width:380px;margin-top:.5rem">
+        <input type="text" id="nm-${key}" placeholder="Legg til maskin..." onkeydown="if(event.key==='Enter')addMachine('${line}')"/>
+        <button class="btn-p" onclick="addMachine('${line}')">+ Maskin</button>
+      </div>`;
+
+    container.appendChild(div);
+
+    // Render machines
+    const mDiv=div.querySelector('#machines-'+key);
+    if(!machines.length){
+      mDiv.innerHTML='<div style="font-size:12px;color:var(--text3);padding:4px 0">Ingen maskiner lagt til enda.</div>';
+    } else {
+      machines.forEach(machine=>{
+        const mkey=mk(line,machine);
+        const causes=settings.causes?.[mkey]||[];
+        const block=document.createElement('div');
+        block.className='machine-block';
+        block.innerHTML=`<div class="machine-header">
+            <div class="machine-name">⚙ ${machine}</div>
+            <button class="btn-g" style="font-size:11px;padding:4px 10px;color:var(--red);border-color:#fecaca" onclick="removeMachine('${line}','${machine.replace(/'/g,"\\'")}')">Fjern maskin</button>
+          </div>
+          <div style="font-size:11px;color:var(--text3);margin-bottom:5px">Årsaker for denne maskinen:</div>
+          <div class="fl" id="causes-${mkey}"></div>
+          <div class="row" style="max-width:380px">
+            <input type="text" id="nc-${mkey}" placeholder="Ny årsak for ${machine}..." onkeydown="if(event.key==='Enter')addCause('${line}','${machine.replace(/'/g,"\\'")}')"/>
+            <button class="btn-p" onclick="addCause('${line}','${machine.replace(/'/g,"\\'")}')">+ Årsak</button>
+          </div>`;
+        mDiv.appendChild(block);
+
+        const cDiv=block.querySelector('#causes-'+mkey);
+        if(!causes.length){
+          cDiv.innerHTML='<span style="font-size:12px;color:var(--text3)">Ingen årsaker enda.</span>';
+        } else {
+          causes.forEach(cause=>{
+            const sp=document.createElement('span');
+            sp.className='chip chip-blue';
+            sp.innerHTML=`${cause} <button class="chip-del" onclick="removeCause('${line}','${machine.replace(/'/g,"\\'")}','${cause.replace(/'/g,"\\'")}')">✕</button>`;
+            cDiv.appendChild(sp);
+          });
+        }
+      });
+    }
+  });
+}
+
+function showToast(msg,isErr=false){
+  const t=document.getElementById('toast');
+  t.textContent=(isErr?'✕ ':'✓ ')+msg;
+  t.className='toast'+(isErr?' del':'');
+  t.style.opacity='1';
+  setTimeout(()=>t.style.opacity='0',2500);
+}
+
+tryInit();
+</script>
+</body>
+</html>
