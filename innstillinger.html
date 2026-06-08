@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Innstillinger — Diplom-is</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f4f6f9;--bg2:#fff;--bg3:#eef0f4;--border:#e2e6ed;--border2:#cdd2db;
+  --text:#18202e;--text2:#4a5568;--text3:#8a95a8;
+  --accent:#e63329;--accent2:#ff5c52;
+  --blue:#2563eb;--green:#16a34a;--amber:#d97706;--red:#dc2626;--purple:#7c3aed;--teal:#0d9488;
+  --font:'IBM Plex Sans',sans-serif;--mono:'IBM Plex Mono',monospace;
+  --r:8px;--rl:12px;--sh:0 1px 3px rgba(0,0,0,.07);--shm:0 4px 20px rgba(0,0,0,.10);
+}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;line-height:1.5}
+.topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 1.5rem;height:56px;display:flex;align-items:center;gap:.75rem;position:sticky;top:0;z-index:100;box-shadow:var(--sh)}
+.logo{font-size:15px;font-weight:600;color:var(--accent)}.logo span{color:var(--text3);font-weight:400;font-size:12px;margin-left:3px}
+.tsep{width:1px;height:20px;background:var(--border)}
+.nl{font-size:13px;color:var(--text2);text-decoration:none;padding:5px 11px;border-radius:var(--r);font-weight:500;transition:all .15s}
+.nl:hover{background:var(--bg3)}.nl.on{background:var(--bg3);color:var(--accent)}
+.clk{font-family:var(--mono);font-size:12px;color:var(--text3);margin-left:auto}
+.page{max-width:960px;margin:0 auto;padding:1.5rem}
+.sec{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:.65rem;font-family:var(--mono);margin-top:1.5rem}
+.sec:first-child{margin-top:0}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:1.1rem 1.25rem;box-shadow:var(--sh);margin-bottom:.75rem}
+.ct{font-size:13px;font-weight:600;color:var(--text);margin-bottom:.8rem;display:flex;align-items:center;gap:7px}
+.ca{width:3px;height:14px;border-radius:2px;flex-shrink:0}
+textarea.cfg{width:100%;min-height:140px;font-family:var(--mono);font-size:12px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text);padding:9px;resize:vertical;outline:none;line-height:1.6}
+textarea.cfg:focus{border-color:var(--accent)}
+.dbst{font-size:11px;font-family:var(--mono);margin-top:6px;font-weight:500;min-height:15px}
+.row{display:flex;gap:7px;align-items:center;margin-bottom:6px}
+.row input,.row select{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text);padding:6px 9px;font-family:var(--font);font-size:13px;outline:none}
+.row input:focus,.row select:focus{border-color:var(--accent)}
+.chips{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;min-height:22px}
+.chip{display:inline-flex;align-items:center;gap:3px;font-size:11px;padding:2px 9px;border-radius:99px;font-weight:500;border:1px solid}
+.cg{background:var(--bg3);color:var(--text2);border-color:var(--border)}
+.cb{background:#eff6ff;color:var(--blue);border-color:#bfdbfe}
+.cp{background:#f5f3ff;color:var(--purple);border-color:#ddd6fe}
+.ct2{background:#f0fdf4;color:var(--green);border-color:#bbf7d0}
+.cd{background:none;border:none;cursor:pointer;color:inherit;opacity:.55;font-size:10px;padding:0 2px}
+.cd:hover{opacity:1}
+.bp{background:var(--accent);border:none;border-radius:var(--r);color:#fff;font-size:12px;font-weight:600;padding:6px 12px;cursor:pointer;white-space:nowrap;transition:background .15s}
+.bp:hover{background:var(--accent2)}
+.bg{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text2);font-size:12px;font-weight:500;padding:6px 12px;cursor:pointer;white-space:nowrap;transition:all .15s}
+.bg:hover{background:var(--border)}
+.bpur{background:var(--purple);border:none;border-radius:var(--r);color:#fff;font-size:12px;font-weight:600;padding:6px 12px;cursor:pointer;transition:opacity .15s}
+.bpur:hover{opacity:.85}
+.bgrn{background:var(--green);border:none;border-radius:var(--r);color:#fff;font-size:12px;font-weight:600;padding:6px 12px;cursor:pointer;transition:opacity .15s}
+.bgrn:hover{opacity:.85}
+.bteal{background:var(--teal);border:none;border-radius:var(--r);color:#fff;font-size:12px;font-weight:600;padding:6px 12px;cursor:pointer;transition:opacity .15s}
+.bteal:hover{opacity:.85}
+.sep{border:none;border-top:1px solid var(--border);margin:.75rem 0}
+.ok{font-size:11px;color:var(--green);margin-top:2px;font-weight:500}
+.fb{font-size:11px;color:var(--text3);margin-top:2px}
+.mblock{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:.75rem .9rem;margin-bottom:.5rem}
+.mhdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:.4rem}
+.mname{font-size:12px;font-weight:600;color:var(--text)}
+.lbl{font-size:10px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.05em;color:var(--text3);margin-bottom:4px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+.how{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:var(--r);padding:.8rem;font-size:12px;color:#166534;line-height:1.7;margin-bottom:.8rem}
+.how ol{padding-left:1rem;margin-top:.35rem}.how li{margin-bottom:.15rem}
+.how code{background:#dcfce7;padding:1px 4px;border-radius:3px;font-family:var(--mono);font-size:11px}
+.plan-box{background:#fff9f0;border:1px solid #fed7aa;border-radius:var(--r);padding:.8rem;font-size:12px;color:#92400e;margin-bottom:.75rem}
+.toast{position:fixed;bottom:20px;right:20px;background:var(--bg2);border:1px solid #bbf7d0;color:var(--green);font-size:12px;font-weight:600;padding:8px 14px;border-radius:var(--r);opacity:0;transition:opacity .3s;pointer-events:none;box-shadow:var(--shm)}
+.toast.del{border-color:#fecaca;color:var(--red)}
+@media(max-width:600px){.page{padding:1rem}.topbar{padding:0 1rem}.g2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<nav class="topbar">
+  <div class="logo">Diplom-is<span>/ Produksjon</span></div>
+  <div class="tsep"></div>
+  <a href="index.html" class="nl">Dashboard</a>
+  <a href="innstillinger.html" class="nl on">Innstillinger</a>
+  <div class="clk" id="clk">--:--:--</div>
+</nav>
+<main class="page">
+
+  <div class="sec">Firebase-tilkobling</div>
+  <div class="card">
+    <div class="ct"><div class="ca" style="background:var(--accent)"></div>Databasekonfigurasjon</div>
+    <div class="how">Slik setter du opp:<ol><li>Gå til <strong>console.firebase.google.com</strong></li><li>Realtime Database → Create database → test mode</li><li>Tannhjul → Project settings → <code>&lt;/&gt;</code> → Registrer app</li><li>Kopier kun JSON-objektet (fra <code>{</code> til <code>}</code>) og lim inn under</li></ol></div>
+    <div class="lbl">Firebase config JSON</div>
+    <textarea class="cfg" id="fb-cfg" placeholder='{ "apiKey": "...", "databaseURL": "https://...", ... }'></textarea>
+    <div class="dbst" id="dbst" style="color:var(--text3)">Ikke konfigurert</div>
+    <div style="margin-top:8px;display:flex;gap:7px"><button class="bp" onclick="saveCfg()">Koble til og lagre</button><button class="bg" onclick="clearCfg()">Koble fra</button></div>
+  </div>
+
+  <div class="sec">Globale standardverdier</div>
+  <div class="card">
+    <div class="ct"><div class="ca" style="background:var(--accent)"></div>Standardmål — brukes for linjer uten egne mål</div>
+    <div class="g2">
+      <div>
+        <div class="lbl">Nedetidsmål (min/dag)</div>
+        <div class="row"><input type="number" id="g-goal" value="30" min="1"/><button class="bp" onclick="saveG('goal')">Lagre</button></div>
+      </div>
+      <div>
+        <div class="lbl">OEE-mål (%)</div>
+        <div class="row"><input type="number" id="g-oee" value="97" min="1" max="100"/><button class="bp" onclick="saveG('oee')">Lagre</button></div>
+      </div>
+      <div>
+        <div class="lbl">Standard arbeidsdaglengde (timer)</div>
+        <div class="row"><input type="number" id="g-hours" value="8" min="1" max="24" step="0.5"/><button class="bp" onclick="saveG('hours')">Lagre</button></div>
+        <div class="fb">Brukes for OEE-beregning når linje ikke har produksjonsplan</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec">Planlagte stopp</div>
+  <div class="card">
+    <div class="ct"><div class="ca" style="background:var(--purple)"></div>Planlagte stoppårsaker — vises på alle maskiner</div>
+    <div class="chips" id="planned-chips"></div>
+    <div class="row" style="max-width:420px"><input type="text" id="new-plan" placeholder="Ny planlagt stoppårsak..." onkeydown="if(event.key==='Enter')addPlan()"/><button class="bpur" onclick="addPlan()">+ Legg til</button></div>
+  </div>
+
+  <div class="sec">Generelle årsaker</div>
+  <div class="card">
+    <div class="ct"><div class="ca" style="background:var(--blue)"></div>Generelle årsaker — vises på alle maskiner</div>
+    <p style="font-size:12px;color:var(--text2);margin-bottom:.6rem">Felles årsaker for alle linjer og maskiner: elektrisk feil, mekanisk feil, limsøl, operatørfeil osv.</p>
+    <div class="chips" id="general-chips"></div>
+    <div class="row" style="max-width:420px"><input type="text" id="new-gen" placeholder="Ny generell årsak..." onkeydown="if(event.key==='Enter')addGen()"/><button class="bp" onclick="addGen()">+ Legg til</button></div>
+  </div>
+
+  <div class="sec">Linjer — produksjonsplan, mål, maskiner og årsaker</div>
+  <div id="lines-c"></div>
+
+</main>
+<div class="toast" id="toast"></div>
+<script>
+const LINES=['Løp 1','Løp 2','Løp 3','Rollo','Koba','Glacier','Krokan'];
+let db=null,S={globalGoal:30,oeeGoal:97,defaultDayHours:8,lineGoals:{},oeeGoals:{},prodPlan:{},machines:{},causes:{},generalCauses:[],plannedStops:[]};
+function lk(l){return l.replace(/[\s\/]/g,'_');}
+function mk(l,m){return lk(l)+'__'+m.replace(/[\s\/]/g,'_');}
+setInterval(()=>{document.getElementById('clk').textContent=new Date().toLocaleTimeString('no-NO');},1000);
+document.getElementById('clk').textContent=new Date().toLocaleTimeString('no-NO');
+
+function tryInit(){
+  const raw=localStorage.getItem('firebaseConfig');
+  if(!raw){renderAll();return;}
+  try{
+    if(!firebase.apps.length)firebase.initializeApp(JSON.parse(raw));
+    db=firebase.database();
+    db.ref('settings').on('value',snap=>{
+      if(snap.exists())S=Object.assign({globalGoal:30,oeeGoal:97,defaultDayHours:8,lineGoals:{},oeeGoals:{},prodPlan:{},machines:{},causes:{},generalCauses:[],plannedStops:[]},snap.val());
+      renderAll();
+    });
+    document.getElementById('dbst').textContent='✓ Koblet til Firebase';
+    document.getElementById('dbst').style.color='var(--green)';
+    document.getElementById('fb-cfg').value=JSON.stringify(JSON.parse(raw),null,2);
+  }catch(e){document.getElementById('dbst').textContent='✕ '+e.message;document.getElementById('dbst').style.color='var(--red)';renderAll();}
+}
+function saveCfg(){try{const p=JSON.parse(document.getElementById('fb-cfg').value.trim());if(!p.apiKey||!p.databaseURL)throw new Error('Mangler apiKey eller databaseURL');localStorage.setItem('firebaseConfig',JSON.stringify(p));location.reload();}catch(e){document.getElementById('dbst').textContent='✕ '+e.message;document.getElementById('dbst').style.color='var(--red)';}}
+function clearCfg(){localStorage.removeItem('firebaseConfig');location.reload();}
+async function save(){if(!db){showT('Ikke koblet til Firebase',true);return;}await db.ref('settings').set(S);showT('Lagret');}
+function saveG(t){
+  if(t==='goal'){const v=parseInt(document.getElementById('g-goal').value);if(v>0){S.globalGoal=v;save();}}
+  else if(t==='oee'){const v=parseInt(document.getElementById('g-oee').value);if(v>0&&v<=100){S.oeeGoal=v;save();}}
+  else if(t==='hours'){const v=parseFloat(document.getElementById('g-hours').value);if(v>0){S.defaultDayHours=v;save();}}
+}
+function setLineGoal(line,t){const k=t==='oee'?'oeeGoals':'lineGoals';const id=(t==='oee'?'oeeg-':'goal-')+lk(line);const v=parseInt(document.getElementById(id).value);if(v>0){if(!S[k])S[k]={};S[k][lk(line)]=v;save();}}
+function clearLineGoal(line,t){const k=t==='oee'?'oeeGoals':'lineGoals';if(S[k])delete S[k][lk(line)];save();}
+function setProdPlan(line){
+  const key=lk(line);
+  const wh=parseFloat(document.getElementById('pp-wh-'+key).value);
+  if(!wh||wh<=0)return;
+  if(!S.prodPlan)S.prodPlan={};
+  S.prodPlan[key]={weekHours:wh};
+  save();
+}
+function addMachine(line){const inp=document.getElementById('nm-'+lk(line));const v=inp.value.trim();if(!v)return;if(!S.machines)S.machines={};const k=lk(line);if(!S.machines[k])S.machines[k]=[];if(!S.machines[k].includes(v)){S.machines[k].push(v);save();}inp.value='';}
+function removeMachine(line,machine){const k=lk(line);if(S.machines?.[k]){S.machines[k]=S.machines[k].filter(m=>m!==machine);const mk2=mk(line,machine);if(S.causes?.[mk2])delete S.causes[mk2];save();}}
+function addCause(line,machine){const k=mk(line,machine);const inp=document.getElementById('nc-'+k);const v=inp.value.trim();if(!v)return;if(!S.causes)S.causes={};if(!S.causes[k])S.causes[k]=[];if(!S.causes[k].includes(v)){S.causes[k].push(v);save();}inp.value='';}
+function removeCause(line,machine,cause){const k=mk(line,machine);if(S.causes?.[k]){S.causes[k]=S.causes[k].filter(c=>c!==cause);save();}}
+function addPlan(){const inp=document.getElementById('new-plan');const v=inp.value.trim();if(!v)return;if(!S.plannedStops)S.plannedStops=[];if(!S.plannedStops.includes(v)){S.plannedStops.push(v);save();}inp.value='';}
+function removePlan(p){S.plannedStops=(S.plannedStops||[]).filter(x=>x!==p);save();}
+function addGen(){const inp=document.getElementById('new-gen');const v=inp.value.trim();if(!v)return;if(!S.generalCauses)S.generalCauses=[];if(!S.generalCauses.includes(v)){S.generalCauses.push(v);save();}inp.value='';}
+function removeGen(c){S.generalCauses=(S.generalCauses||[]).filter(x=>x!==c);save();}
+
+function renderAll(){
+  document.getElementById('g-goal').value=S.globalGoal||30;
+  document.getElementById('g-oee').value=S.oeeGoal||97;
+  document.getElementById('g-hours').value=S.defaultDayHours||8;
+  // planned
+  const pc=document.getElementById('planned-chips');pc.innerHTML='';
+  const ps=S.plannedStops||[];
+  if(!ps.length)pc.innerHTML='<span style="font-size:11px;color:var(--text3)">Ingen enda.</span>';
+  else ps.forEach(p=>{const s=document.createElement('span');s.className='chip cp';s.innerHTML=`${p} <button class="cd" onclick="removePlan('${p.replace(/'/g,"\\'")}')">✕</button>`;pc.appendChild(s);});
+  // general
+  const gc=document.getElementById('general-chips');gc.innerHTML='';
+  const gen=S.generalCauses||[];
+  if(!gen.length)gc.innerHTML='<span style="font-size:11px;color:var(--text3)">Ingen enda.</span>';
+  else gen.forEach(c=>{const s=document.createElement('span');s.className='chip cb';s.innerHTML=`${c} <button class="cd" onclick="removeGen('${c.replace(/'/g,"\\'")}')">✕</button>`;gc.appendChild(s);});
+  renderLines();
+}
+
+function renderLines(){
+  const c=document.getElementById('lines-c');c.innerHTML='';
+  LINES.forEach(line=>{
+    const key=lk(line);
+    const lg=S.lineGoals?.[key],og=S.oeeGoals?.[key];
+    const pp=S.prodPlan?.[key];
+    const machines=S.machines?.[key]||[];
+    const div=document.createElement('div');div.className='card';
+    div.innerHTML=`<div class="ct"><div class="ca" style="background:var(--accent)"></div>${line}</div>
+      <div class="g2" style="margin-bottom:.75rem">
+        <div>
+          <div class="lbl">Produksjonsplan — planlagte timer per uke</div>
+          <div class="row">
+            <input type="number" id="pp-wh-${key}" value="${pp?.weekHours??''}" placeholder="${S.defaultDayHours||8}t/dag × 5 dager" min="1" max="168" step="0.5"/>
+            <button class="bteal" onclick="setProdPlan('${line}')">Sett plan</button>
+          </div>
+          <div class="${pp?'ok':'fb'}">${pp?'Plan: '+pp.weekHours+'t/uke → '+(pp.weekHours/5).toFixed(1)+'t/dag':'Bruker standard: '+((S.defaultDayHours||8)*5)+'t/uke'}</div>
+        </div>
+        <div>
+          <div class="lbl">Nedetidsmål (min/dag)</div>
+          <div class="row">${lg?`<button class="bg" style="font-size:10px;padding:3px 7px" onclick="clearLineGoal('${line}','goal')">↺</button>`:''}
+            <input type="number" id="goal-${key}" value="${lg??''}" placeholder="${S.globalGoal||30} (globalt)" min="1"/>
+            <button class="bp" onclick="setLineGoal('${line}','goal')">Sett</button>
+          </div>
+          <div class="${lg?'ok':'fb'}">${lg?'Eget: '+lg+' min':'Globalt: '+(S.globalGoal||30)+' min'}</div>
+        </div>
+        <div>
+          <div class="lbl">OEE-mål (%)</div>
+          <div class="row">${og?`<button class="bg" style="font-size:10px;padding:3px 7px" onclick="clearLineGoal('${line}','oee')">↺</button>`:''}
+            <input type="number" id="oeeg-${key}" value="${og??''}" placeholder="${S.oeeGoal||97} (globalt)" min="1" max="100"/>
+            <button class="bp" onclick="setLineGoal('${line}','oee')">Sett</button>
+          </div>
+          <div class="${og?'ok':'fb'}">${og?'Eget: '+og+'%':'Globalt: '+(S.oeeGoal||97)+'%'}</div>
+        </div>
+      </div>
+      <div class="sep"></div>
+      <div class="lbl" style="margin-bottom:5px">Maskiner på ${line}</div>
+      <div id="ml-${key}"></div>
+      <div class="row" style="max-width:380px;margin-top:5px">
+        <input type="text" id="nm-${key}" placeholder="Legg til maskin på ${line}..." onkeydown="if(event.key==='Enter')addMachine('${line}')"/>
+        <button class="bgrn" onclick="addMachine('${line}')">+ Maskin</button>
+      </div>`;
+    c.appendChild(div);
+    const ml=div.querySelector('#ml-'+key);
+    if(!machines.length){ml.innerHTML='<div style="font-size:11px;color:var(--text3);padding:2px 0">Ingen maskiner enda.</div>';}
+    else machines.forEach(machine=>{
+      const mkey=mk(line,machine);
+      const causes=S.causes?.[mkey]||[];
+      const mb=document.createElement('div');mb.className='mblock';
+      mb.innerHTML=`<div class="mhdr"><div class="mname">⚙ ${machine}</div><button class="bg" style="font-size:10px;padding:3px 8px;color:var(--red);border-color:#fecaca" onclick="removeMachine('${line}','${machine.replace(/'/g,"\\'")}')">Fjern</button></div>
+        <div class="lbl">Egne årsaker for ${machine}:</div>
+        <div class="chips" id="cc-${mkey}"></div>
+        <div class="row" style="max-width:380px">
+          <input type="text" id="nc-${mkey}" placeholder="Ny årsak..." onkeydown="if(event.key==='Enter')addCause('${line}','${machine.replace(/'/g,"\\'")}')"/>
+          <button class="bp" onclick="addCause('${line}','${machine.replace(/'/g,"\\'")}')">+ Årsak</button>
+        </div>`;
+      ml.appendChild(mb);
+      const cc=mb.querySelector('#cc-'+mkey);
+      if(!causes.length)cc.innerHTML='<span style="font-size:11px;color:var(--text3)">Ingen egne årsaker enda.</span>';
+      else causes.forEach(cause=>{const s=document.createElement('span');s.className='chip cb';s.innerHTML=`${cause} <button class="cd" onclick="removeCause('${line}','${machine.replace(/'/g,"\\'")}','${cause.replace(/'/g,"\\'")}')">✕</button>`;cc.appendChild(s);});
+    });
+  });
+}
+function showT(msg,isErr=false){const t=document.getElementById('toast');t.textContent=(isErr?'✕ ':'✓ ')+msg;t.className='toast'+(isErr?' del':'');t.style.opacity='1';setTimeout(()=>t.style.opacity='0',2500);}
+tryInit();
+</script>
+</body>
+</html>
