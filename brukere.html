@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Brukere — Diplom-is</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#f4f6f9;--bg2:#fff;--bg3:#eef0f4;--border:#e2e6ed;--border2:#cdd2db;--text:#18202e;--text2:#4a5568;--text3:#8a95a8;--accent:#e63329;--accent2:#ff5c52;--blue:#2563eb;--green:#16a34a;--amber:#d97706;--red:#dc2626;--purple:#7c3aed;--font:'IBM Plex Sans',sans-serif;--mono:'IBM Plex Mono',monospace;--r:8px;--rl:12px;--sh:0 1px 3px rgba(0,0,0,.07);--shm:0 4px 20px rgba(0,0,0,.10)}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;font-size:14px}
+.topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 1.5rem;height:56px;display:flex;align-items:center;gap:.75rem;position:sticky;top:0;z-index:100;box-shadow:var(--sh)}
+.logo{font-size:15px;font-weight:600;color:var(--accent)}.logo span{color:var(--text3);font-weight:400;font-size:12px;margin-left:3px}
+.tsep{width:1px;height:20px;background:var(--border)}
+.nl{font-size:13px;color:var(--text2);text-decoration:none;padding:5px 11px;border-radius:var(--r);font-weight:500;transition:all .15s}
+.nl:hover{background:var(--bg3)}.nl.on{background:var(--bg3);color:var(--accent)}
+.tr{margin-left:auto;display:flex;align-items:center;gap:10px}
+.ubadge{font-size:12px;color:var(--text2);font-family:var(--mono);background:var(--bg3);padding:4px 10px;border-radius:99px}
+.lbtn{font-size:12px;color:var(--text3);background:none;border:1px solid var(--border);border-radius:var(--r);padding:4px 10px;cursor:pointer;transition:all .15s}
+.lbtn:hover{color:var(--red);border-color:#fecaca}
+.page{max-width:1000px;margin:0 auto;padding:1.5rem}
+.sec{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:.65rem;font-family:var(--mono);margin-top:1.25rem}
+.sec:first-child{margin-top:0}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:1.1rem 1.25rem;box-shadow:var(--sh);margin-bottom:.75rem}
+.ct{font-size:13px;font-weight:600;color:var(--text);margin-bottom:.85rem;display:flex;align-items:center;gap:8px}
+.ca{width:3px;height:14px;border-radius:2px;flex-shrink:0}
+.fr{margin-bottom:.85rem}
+label{display:block;font-size:10px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+input,select{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text);padding:8px 10px;font-family:var(--font);font-size:13px;outline:none;transition:border-color .15s}
+input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(230,51,41,.08)}
+.fg{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.bp{background:var(--accent);border:none;border-radius:var(--r);color:#fff;font-size:13px;font-weight:600;padding:9px 18px;cursor:pointer;transition:background .15s}
+.bp:hover{background:var(--accent2)}
+.bg{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text2);font-size:12px;font-weight:500;padding:7px 12px;cursor:pointer;transition:all .15s}
+.bg:hover{background:var(--border)}
+.err{background:#fef2f2;border:1px solid #fecaca;border-radius:var(--r);padding:7px 11px;font-size:12px;color:var(--red);margin-bottom:.75rem;display:none}
+.ok-msg{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:var(--r);padding:7px 11px;font-size:12px;color:var(--green);margin-bottom:.75rem;display:none}
+/* USER GRID */
+.user-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:.75rem}
+.ucard{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:1rem;box-shadow:var(--sh)}
+.ucard-hdr{display:flex;align-items:flex-start;gap:10px;margin-bottom:.75rem}
+.avatar{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;flex-shrink:0;color:#fff}
+.uname{font-size:13px;font-weight:600;color:var(--text)}
+.uemail{font-size:11px;color:var(--text3);font-family:var(--mono);margin-top:1px;word-break:break-all}
+.rbadge{display:inline-block;font-size:10px;font-family:var(--mono);padding:2px 7px;border-radius:3px;font-weight:600;text-transform:uppercase;margin-top:4px}
+.rb-master{background:#fef2f2;color:var(--red);border:1px solid #fecaca}
+.rb-leder{background:#eff6ff;color:var(--blue);border:1px solid #bfdbfe}
+.rb-op{background:#f0fdf4;color:var(--green);border:1px solid #bbf7d0}
+.ucard-body{font-size:12px;color:var(--text2);margin-bottom:.75rem;line-height:1.5}
+.lines-list{display:flex;flex-wrap:wrap;gap:3px;margin-top:4px}
+.lchip{font-size:10px;background:var(--bg3);border:1px solid var(--border);border-radius:3px;padding:1px 6px;color:var(--text2);font-family:var(--mono)}
+.ucard-actions{display:flex;gap:6px}
+.edit-btn{flex:1;padding:6px;border:1px solid var(--border);background:var(--bg3);border-radius:var(--r);cursor:pointer;font-size:12px;font-weight:500;color:var(--text2);transition:all .15s}
+.edit-btn:hover{background:var(--border)}
+.del-btn{padding:6px 10px;border:1px solid #fecaca;background:#fef2f2;border-radius:var(--r);cursor:pointer;font-size:12px;font-weight:500;color:var(--red);transition:all .15s}
+.del-btn:hover{background:var(--red);color:#fff}
+/* MODAL */
+.mover{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:200;align-items:center;justify-content:center;padding:1rem}
+.mover.on{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:1.5rem;width:440px;max-width:100%;box-shadow:var(--shm);max-height:90vh;overflow-y:auto}
+.modal h3{font-size:15px;font-weight:600;margin-bottom:1rem}
+.line-checks{display:grid;grid-template-columns:repeat(2,1fr);gap:4px;margin-top:5px}
+.lc{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;padding:4px 6px;border-radius:5px;transition:background .1s}
+.lc:hover{background:var(--bg3)}
+.lc input[type=checkbox]{width:14px;height:14px;accent-color:var(--accent);flex-shrink:0}
+.mbtns{display:flex;gap:8px;margin-top:1rem}
+.mcan{flex:1;padding:9px;border:1px solid var(--border);background:var(--bg3);border-radius:var(--r);cursor:pointer;font-size:13px;color:var(--text2)}
+.mcan:hover{background:var(--border)}
+.msav{flex:2;padding:9px;border:none;background:var(--accent);border-radius:var(--r);cursor:pointer;font-size:13px;font-weight:600;color:#fff}
+.msav:hover{background:var(--accent2)}
+.pw-toggle{font-size:12px;color:var(--blue);cursor:pointer;margin-top:.5rem;display:inline-block}
+.pw-sec{display:none;margin-top:.75rem;padding:.75rem;background:var(--bg3);border-radius:var(--r)}
+.toast{position:fixed;bottom:20px;right:20px;background:var(--bg2);border:1px solid #bbf7d0;color:var(--green);font-size:12px;font-weight:600;padding:8px 14px;border-radius:var(--r);opacity:0;transition:opacity .3s;pointer-events:none;box-shadow:var(--shm)}
+.toast.del{border-color:#fecaca;color:var(--red)}
+@media(max-width:600px){.page{padding:1rem}.topbar{padding:0 1rem}.fg{grid-template-columns:1fr}.user-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<nav class="topbar">
+  <div class="logo">Diplom-is<span>/ Produksjon</span></div>
+  <div class="tsep"></div>
+  <a href="index.html" class="nl">Dashboard</a>
+  <a href="innstillinger.html" class="nl">Innstillinger</a>
+  <a href="brukere.html" class="nl on">Brukere</a>
+  <div class="tr">
+    <div class="ubadge" id="ubadge">—</div>
+    <button class="lbtn" onclick="logout()">Logg ut</button>
+  </div>
+</nav>
+
+<main class="page">
+  <div class="sec">Opprett ny bruker</div>
+  <div class="card">
+    <div class="ct"><div class="ca" style="background:var(--accent)"></div>Ny bruker</div>
+    <div class="err" id="cerr"></div>
+    <div class="ok-msg" id="cok"></div>
+    <div class="fg">
+      <div class="fr"><label>Navn</label><input type="text" id="new-name" placeholder="Ola Nordmann"/></div>
+      <div class="fr"><label>E-post</label><input type="email" id="new-email" placeholder="ola@diplom-is.no"/></div>
+      <div class="fr"><label>Passord</label><input type="password" id="new-pass" placeholder="Minst 8 tegn"/></div>
+      <div class="fr"><label>Rolle</label>
+        <select id="new-role" onchange="onRoleChange('new-role','line-sec')">
+          <option value="linjeoperator">Linjeoperatør</option>
+          <option value="leder">Leder</option>
+          <option value="master">Master</option>
+        </select>
+      </div>
+    </div>
+    <div id="line-sec" class="fr">
+      <label>Linjetilgang (for linjeoperatør)</label>
+      <div class="line-checks" id="new-line-checks"></div>
+    </div>
+    <button class="bp" onclick="createUser()">Opprett bruker</button>
+  </div>
+
+  <div class="sec">Eksisterende brukere</div>
+  <div class="user-grid" id="user-grid">
+    <div style="color:var(--text3);font-size:13px;padding:.5rem">Laster brukere...</div>
+  </div>
+</main>
+
+<!-- Edit modal -->
+<div class="mover" id="edit-modal">
+  <div class="modal">
+    <h3>Rediger bruker</h3>
+    <div class="fr"><label>Navn</label><input type="text" id="edit-name"/></div>
+    <div class="fr"><label>E-post (kan ikke endres)</label><input type="email" id="edit-email" disabled style="opacity:.45"/></div>
+    <div class="fr"><label>Rolle</label>
+      <select id="edit-role" onchange="onRoleChange('edit-role','edit-line-sec')">
+        <option value="linjeoperator">Linjeoperatør</option>
+        <option value="leder">Leder</option>
+        <option value="master">Master</option>
+      </select>
+    </div>
+    <div id="edit-line-sec" class="fr">
+      <label>Linjetilgang</label>
+      <div class="line-checks" id="edit-line-checks"></div>
+    </div>
+    <span class="pw-toggle" onclick="togglePW()">🔑 Endre passord</span>
+    <div class="pw-sec" id="pw-sec">
+      <label style="margin-bottom:5px">Nytt passord (minst 8 tegn)</label>
+      <input type="password" id="edit-pw" placeholder="Nytt passord"/>
+      <div style="font-size:11px;color:var(--text3);margin-top:4px">Passordendring trer i kraft neste gang brukeren logger inn.</div>
+    </div>
+    <div class="mbtns">
+      <button class="mcan" onclick="closeEdit()">Avbryt</button>
+      <button class="msav" onclick="saveEdit()">Lagre</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const LINES=['Løp 1','Løp 2','Løp 3','Rollo','Koba','Glacier','Krokan'];
+const AVATAR_COLORS=['#e63329','#2563eb','#16a34a','#d97706','#7c3aed','#0d9488','#db2777'];
+let db=null,auth=null,currentUser=null,currentProfile=null,editingUid=null;
+
+// ── FIREBASE CONFIG ──
+const FIREBASE_CONFIG={
+  apiKey:"AIzaSyCL4x1KNwgeDxqTFeP32BndJgH4B5MworQ",
+  authDomain:"messystem-f14dd.firebaseapp.com",
+  databaseURL:"https://messystem-f14dd-default-rtdb.firebaseio.com",
+  projectId:"messystem-f14dd",
+  storageBucket:"messystem-f14dd.firebasestorage.app",
+  messagingSenderId:"1001051250309",
+  appId:"1:1001051250309:web:0b2d82db50e8fd24ce93ec"
+};
+
+async function init(){
+  if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+  localStorage.setItem('firebaseConfig',JSON.stringify(FIREBASE_CONFIG));
+  db=firebase.database(); auth=firebase.auth();
+  auth.onAuthStateChanged(async user=>{
+    if(!user){window.location.href='login.html';return;}
+    currentUser=user;
+    const snap=await db.ref('users/'+user.uid).once('value');
+    if(!snap.exists()){auth.signOut();window.location.href='login.html';return;}
+    currentProfile=snap.val();
+    if(currentProfile.role!=='master'){window.location.href='index.html';return;}
+    document.getElementById('ubadge').textContent=currentProfile.name+' · Master';
+    buildChecks('new-line-checks',[]);
+    loadUsers();
+  });
+}
+
+function buildChecks(containerId,selected){
+  const c=document.getElementById(containerId);if(!c)return;c.innerHTML='';
+  LINES.forEach(line=>{
+    const safeId='lc-'+containerId+'-'+line.replace(/\s+/g,'-');
+    const lbl=document.createElement('label');lbl.className='lc';lbl.htmlFor=safeId;
+    const cb=document.createElement('input');cb.type='checkbox';cb.id=safeId;cb.value=line;cb.checked=selected.includes(line);
+    lbl.appendChild(cb);lbl.appendChild(document.createTextNode(' '+line));
+    c.appendChild(lbl);
+  });
+}
+
+function getChecked(containerId){
+  return LINES.filter(line=>{
+    const safeId='lc-'+containerId+'-'+line.replace(/\s+/g,'-');
+    const el=document.getElementById(safeId);
+    return el&&el.checked;
+  });
+}
+
+function onRoleChange(roleId,secId){
+  const role=document.getElementById(roleId).value;
+  const sec=document.getElementById(secId);
+  if(sec) sec.style.display=role==='linjeoperator'?'block':'none';
+}
+onRoleChange('new-role','line-sec');
+
+function showErr(id,msg){const el=document.getElementById(id);el.textContent=msg;el.style.display='block';}
+function hideMsg(id){const el=document.getElementById(id);if(el)el.style.display='none';}
+
+async function createUser(){
+  const name=document.getElementById('new-name').value.trim();
+  const email=document.getElementById('new-email').value.trim();
+  const pass=document.getElementById('new-pass').value;
+  const role=document.getElementById('new-role').value;
+  const lines=role==='linjeoperator'?getChecked('new-line-checks'):[];
+  hideMsg('cerr');hideMsg('cok');
+  if(!name||!email||!pass){showErr('cerr','Fyll inn navn, e-post og passord.');return;}
+  if(pass.length<8){showErr('cerr','Passordet må være minst 8 tegn.');return;}
+  if(role==='linjeoperator'&&lines.length===0){showErr('cerr','Velg minst én linje for linjeoperatør.');return;}
+  try{
+    // Use secondary app to avoid signing out current user
+    const secApp=firebase.initializeApp(FIREBASE_CONFIG,'tmp-'+Date.now());
+    const cred=await secApp.auth().createUserWithEmailAndPassword(email,pass);
+    const uid=cred.user.uid;
+    await secApp.auth().signOut();
+    await secApp.delete();
+    await db.ref('users/'+uid).set({name,email,role,lines,createdAt:Date.now(),createdBy:currentUser.uid});
+    const ok=document.getElementById('cok');
+    ok.textContent='✓ Bruker "'+name+'" opprettet.';ok.style.display='block';
+    document.getElementById('new-name').value='';
+    document.getElementById('new-email').value='';
+    document.getElementById('new-pass').value='';
+    showT('Bruker opprettet');
+    loadUsers();
+  }catch(e){
+    const msgs={'auth/email-already-in-use':'E-posten er allerede i bruk.','auth/weak-password':'For svakt passord.','auth/invalid-email':'Ugyldig e-postadresse.'};
+    showErr('cerr',msgs[e.code]||e.message);
+  }
+}
+
+function loadUsers(){
+  // Use on() to get real-time updates
+  db.ref('users').on('value',snap=>{
+    const grid=document.getElementById('user-grid');
+    grid.innerHTML='';
+    if(!snap.exists()){
+      grid.innerHTML='<div style="color:var(--text3);font-size:13px">Ingen brukere.</div>';
+      return;
+    }
+    const users=[];
+    snap.forEach(child=>users.push({uid:child.key,...child.val()}));
+    // Sort: master first, then leder, then linjeoperator, then alphabetically
+    const order={master:0,leder:1,linjeoperator:2};
+    users.sort((a,b)=>(order[a.role]??3)-(order[b.role]??3)||(a.name||'').localeCompare(b.name||''));
+
+    users.forEach((u,i)=>{
+      const initials=(u.name||'?').split(' ').map(w=>w[0]).toUpperCase().slice(0,2).join('');
+      const color=AVATAR_COLORS[i%AVATAR_COLORS.length];
+      const roleLbl=u.role==='master'?'Master':u.role==='leder'?'Leder':'Linjeoperatør';
+      const rbCls=u.role==='master'?'rb-master':u.role==='leder'?'rb-leder':'rb-op';
+      const linesHtml=u.role==='linjeoperator'&&u.lines?.length
+        ?'<div class="lines-list">'+u.lines.map(l=>'<span class="lchip">'+l+'</span>').join('')+'</div>'
+        :'';
+      const bodyText=u.role==='linjeoperator'
+        ?'Linjer: '+linesHtml
+        :u.role==='leder'
+        ?'Alle linjer — rapporter og oversikt'
+        :'Full tilgang til hele systemet';
+      const isSelf=u.uid===currentUser.uid;
+      const card=document.createElement('div');
+      card.className='ucard';
+      card.innerHTML=`
+        <div class="ucard-hdr">
+          <div class="avatar" style="background:${color}">${initials}</div>
+          <div style="min-width:0">
+            <div class="uname">${u.name||'—'}</div>
+            <div class="uemail">${u.email||'—'}</div>
+            <div class="rbadge ${rbCls}">${roleLbl}</div>
+          </div>
+        </div>
+        <div class="ucard-body">${bodyText}</div>
+        <div class="ucard-actions">
+          <button class="edit-btn" onclick="openEdit('${u.uid}')">Rediger</button>
+          ${isSelf
+            ?'<span style="font-size:11px;color:var(--text3);padding:6px 4px">Deg selv</span>'
+            :`<button class="del-btn" onclick="deleteUser('${u.uid}','${(u.name||'').replace(/'/g,"\\'")}')">Slett</button>`
+          }
+        </div>`;
+      grid.appendChild(card);
+    });
+  });
+}
+
+function openEdit(uid){
+  editingUid=uid;
+  db.ref('users/'+uid).once('value').then(snap=>{
+    const u=snap.val();
+    document.getElementById('edit-name').value=u.name||'';
+    document.getElementById('edit-email').value=u.email||'';
+    document.getElementById('edit-role').value=u.role||'linjeoperator';
+    document.getElementById('edit-pw').value='';
+    document.getElementById('pw-sec').style.display='none';
+    buildChecks('edit-line-checks',u.lines||[]);
+    onRoleChange('edit-role','edit-line-sec');
+    document.getElementById('edit-modal').classList.add('on');
+  });
+}
+function closeEdit(){document.getElementById('edit-modal').classList.remove('on');editingUid=null;}
+function togglePW(){const s=document.getElementById('pw-sec');s.style.display=s.style.display==='none'?'block':'none';}
+
+async function saveEdit(){
+  if(!editingUid)return;
+  const name=document.getElementById('edit-name').value.trim();
+  const role=document.getElementById('edit-role').value;
+  const lines=role==='linjeoperator'?getChecked('edit-line-checks'):[];
+  const newPw=document.getElementById('edit-pw').value;
+  if(!name){showT('Skriv inn et navn',true);return;}
+  await db.ref('users/'+editingUid).update({name,role,lines});
+  if(newPw){
+    if(newPw.length<8){showT('Passordet må være minst 8 tegn',true);return;}
+    await db.ref('pwResets/'+editingUid).set({newPw,requestedAt:Date.now(),requestedBy:currentUser.uid});
+  }
+  showT('Bruker oppdatert');
+  closeEdit();
+}
+
+async function deleteUser(uid,name){
+  if(!confirm('Slett brukeren "'+name+'"? Dette kan ikke angres.'))return;
+  await db.ref('users/'+uid).remove();
+  showT('Bruker slettet',true);
+}
+
+function logout(){auth.signOut().then(()=>window.location.href='login.html');}
+function showT(msg,isErr=false){
+  const t=document.getElementById('toast');
+  t.textContent=(isErr?'✕ ':'✓ ')+msg;
+  t.className='toast'+(isErr?' del':'');
+  t.style.opacity='1';
+  setTimeout(()=>t.style.opacity='0',3000);
+}
+document.getElementById('edit-modal').addEventListener('click',function(e){if(e.target===this)closeEdit();});
+init();
+</script>
+</body>
+</html>
