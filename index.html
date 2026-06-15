@@ -266,26 +266,26 @@ td:first-child{font-family:var(--mono);font-size:11px;color:var(--text3)}
   <h2>Oversikt</h2>
   <div style="display:flex;align-items:center;gap:8px;margin-bottom:.65rem;flex-wrap:wrap">
     <div class="tabs" id="main-tabs" style="margin-bottom:0">
-      <button class="tab on" onclick="showMainView('oee',this)">OEE-utvikling</button>
-      <button class="tab" onclick="showMainView('prod',this)">Produksjon</button>
+      <button class="tab" onclick="showMainView('oee',this)">OEE-utvikling</button>
+      <button class="tab on" onclick="showMainView('prod',this)">Produksjon</button>
     </div>
-    <div class="tabs" id="oee-tabs" style="margin-bottom:0">
+    <div class="tabs" id="oee-tabs" style="margin-bottom:0;display:none">
       <button class="tab on" onclick="showOEE('wtd',this)">Uke</button>
       <button class="tab" onclick="showOEE('mtd',this)">Måned</button>
       <button class="tab" onclick="showOEE('ytd',this)">År</button>
     </div>
-    <div class="tabs" id="prod-tabs" style="margin-bottom:0;display:none">
+    <div class="tabs" id="prod-tabs" style="margin-bottom:0">
       <button class="tab on" onclick="showProd('day',this)">I dag</button>
       <button class="tab" onclick="showProd('week',this)">Uke</button>
       <button class="tab" onclick="showProd('month',this)">Måned</button>
     </div>
   </div>
-  <div class="card" id="oee-card">
+  <div class="card" id="oee-card" style="display:none">
     <div class="ct"><div class="ca" style="background:var(--purple)"></div><span id="oee-title">OEE denne uken (%)</span></div>
     <div class="cw"><canvas id="ch-oee"></canvas></div>
   </div>
 
-  <div class="prod-view" id="pv-main">
+  <div class="prod-view on" id="pv-main">
     <div class="card">
       <div class="ct"><div class="ca" style="background:var(--green)"></div><span id="prod-chart-title">Produksjon i dag — alle linjer</span></div>
       <div class="line-bars" id="prod-line-bars"></div>
@@ -404,6 +404,7 @@ const db=firebase.database(), auth=firebase.auth();
 let EVENTS=[], SETTINGS={globalGoal:30,oeeGoal:97,defaultDayHours:8,lineGoals:{},oeeGoals:{},machines:{},causes:{},generalCauses:[],plannedStops:[],prodPlan:{}};
 let filterLine='Alle', myProfile=null, delId=null, delAll=false, charts={}, oeeMode='wtd';
 let dateFrom=null, dateTo=null, datePreset='week';
+let PROD_ALL={}, ACTIVE_PROD={};
 
 // ── CLOCK ──
 setInterval(()=>{document.getElementById('clk').textContent=new Date().toLocaleTimeString('no-NO');},1000);
@@ -555,6 +556,21 @@ eventsRef.off('value');
 settingsRef.on('value', handleSettings);
 eventsRef.on('value', handleEvents);
 
+// ── PRODUCTION + ACTIVE PRODUCT LISTENERS (for OEE engine) ──
+const prodRef=db.ref('production'), activeRef=db.ref('active_product');
+prodRef.off('value');
+prodRef.on('value',snap=>{
+  const m={};
+  if(snap.exists())snap.forEach(ds=>{const date=ds.key;m[date]={};ds.forEach(ls=>{m[date][ls.key]=(ls.val()&&ls.val().count)||0;});});
+  PROD_ALL=m; renderAll();
+});
+activeRef.off('value');
+activeRef.on('value',snap=>{
+  const m={};
+  if(snap.exists())snap.forEach(ls=>{m[ls.key]=(ls.val()&&ls.val().product)||null;});
+  ACTIVE_PROD=m; renderAll();
+});
+
 // ── SET DEFAULTS ──
 (()=>{
   const n=new Date();
@@ -649,6 +665,66 @@ async function submit(){
   document.getElementById('b-omst').style.display='none';document.getElementById('b-plan').style.display='none';
 }
 
+// ── OEE ENGINE (output-based: builds from 0) ──
+// OEE = produsert (stk) / (teknisk kapasitet × planlagt tid som har gått)
+const _WD=['sun','mon','tue','wed','thu','fri','sat']; // JS getDay(): 0=søndag
+function _defaultSched(){return{mon:{on:true,start:'06:00',end:'00:00'},tue:{on:true,start:'00:00',end:'00:00'},wed:{on:true,start:'00:00',end:'00:00'},thu:{on:true,start:'00:00',end:'00:00'},fri:{on:true,start:'00:00',end:'22:30'},sat:{on:false,start:'06:00',end:'22:30'},sun:{on:false,start:'06:00',end:'22:30'},breaks:[]};}
+function getSched(line){const k=lk(line);const s=SETTINGS.schedule?.[k];const d=_defaultSched();if(!s)return d;['mon','tue','wed','thu','fri','sat','sun'].forEach(dk=>{if(s[dk])d[dk]=Object.assign({},d[dk],s[dk]);});d.breaks=Array.isArray(s.breaks)?s.breaks:[];return d;}
+function _tmin(t){if(!t)return 0;const p=String(t).split(':');return (parseInt(p[0])||0)*60+(parseInt(p[1])||0);}
+function _dmin(day){if(!day||!day.on)return 0;const s=_tmin(day.start);const e=(day.end==='00:00'||day.end==='24:00')?1440:_tmin(day.end);return Math.max(0,e-s);}
+function _brkmin(sched){return (sched.breaks||[]).reduce((a,b)=>a+Math.max(0,_tmin(b.end)-_tmin(b.start)),0);}
+function dateKeyOf(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
+
+function plannedMinForDate(line,dateObj){
+  const sched=getSched(line);
+  const day=sched[_WD[dateObj.getDay()]];
+  if(!day||!day.on)return 0;
+  const full=Math.max(0,_dmin(day)-_brkmin(sched));
+  const now=new Date();
+  const sameDay=dateObj.toDateString()===now.toDateString();
+  if(!sameDay)return dateObj>now?0:full;
+  // I dag: planlagt tid som har gått innenfor produksjonsvinduet
+  const wStart=_tmin(day.start);
+  const wEnd=(day.end==='00:00'||day.end==='24:00')?1440:_tmin(day.end);
+  const nowMin=now.getHours()*60+now.getMinutes();
+  let elapsed=Math.max(0,Math.min(nowMin,wEnd)-wStart);
+  let eb=0;
+  (sched.breaks||[]).forEach(b=>{const lo=Math.max(_tmin(b.start),wStart),hi=Math.min(_tmin(b.end),Math.min(nowMin,wEnd));if(hi>lo)eb+=hi-lo;});
+  return Math.max(0,elapsed-eb);
+}
+
+function lineProduct(line){
+  const k=lk(line);
+  const prods=SETTINGS.products?.[k]||[];
+  const active=ACTIVE_PROD[k];
+  let p=prods.find(x=>x.name===active&&x.teknKapasitet>0&&x.stkPerDpack>0&&x.eskerPerDpack>0);
+  if(!p)p=prods.find(x=>x.teknKapasitet>0&&x.stkPerDpack>0&&x.eskerPerDpack>0);
+  return p||null;
+}
+function eskerFor(line,dateKey){const d=PROD_ALL[dateKey];return d?(d[lk(line)]||0):0;}
+
+// Aggregert output-OEE for en linje over et sett datoer
+function oeeOutput(line,dateObjs){
+  const p=lineProduct(line);
+  if(!p)return null;
+  let totStk=0,totMax=0;
+  dateObjs.forEach(d=>{
+    const pm=plannedMinForDate(line,d);
+    if(pm<=0)return;
+    const esker=eskerFor(line,dateKeyOf(d));
+    totStk+=(esker/p.eskerPerDpack)*p.stkPerDpack;
+    totMax+=p.teknKapasitet*(pm/60);
+  });
+  if(totMax<=0)return null;
+  return Math.max(0,Math.min(100,totStk/totMax*100));
+}
+function oeeOutputAvg(lines,dateObjs){
+  const vals=lines.map(l=>oeeOutput(l,dateObjs)).filter(v=>v!==null);
+  return vals.length?vals.reduce((s,v)=>s+v,0)/vals.length:null;
+}
+function daysThisWeek(){const n=new Date();const mon=new Date(n);mon.setDate(n.getDate()-((n.getDay()+6)%7));mon.setHours(12,0,0,0);const a=[];for(let i=0;i<7;i++){const d=new Date(mon);d.setDate(mon.getDate()+i);a.push(d);}return a;}
+function daysThisMonth(){const n=new Date();const dim=new Date(n.getFullYear(),n.getMonth()+1,0).getDate();const a=[];for(let i=1;i<=dim;i++)a.push(new Date(n.getFullYear(),n.getMonth(),i,12,0,0));return a;}
+
 // ── RENDER ALL — debounced to prevent double renders ──
 let _renderTimer=null;
 function renderAll(){
@@ -666,36 +742,18 @@ function _doRenderAll(){
   const goal=getGoal(line);
   const oeeGoal=getOEEGoal(line);
 
-  // OEE: if "Alle", average across all lines
+  // OEE — output-based: builds from 0 through the day
+  const LINES_ALL=['Løp 1','Løp 2','Løp 3','Rollo','Koba','Glacier','Krokan'];
+  const wkDays=daysThisWeek(), moDays=daysThisMonth(), tdy=[new Date()];
   let oeeDay,oeeWTD,oeeMTD;
   if(!line){
-    // Average OEE across all lines that have plan set, weighted by plan hours
-    const LINES_ALL=['Løp 1','Løp 2','Løp 3','Rollo','Koba','Glacier','Krokan'];
-    const dayOEEs=LINES_ALL.map(ln=>{
-      const planMin=getDayPlanMin(ln);
-      const evts=todayE.filter(e=>e.line===ln);
-      return calcOEE(evts,planMin);
-    }).filter(v=>v!==null);
-    oeeDay=dayOEEs.length?dayOEEs.reduce((s,v)=>s+v,0)/dayOEEs.length:null;
-    const wtdOEEs=LINES_ALL.map(ln=>{
-      const dow=Math.min(5,Math.max(1,(new Date().getDay()+6)%7+1));
-      const planMin=getDayPlanMin(ln)*dow;
-      const evts=wtdE.filter(e=>e.line===ln);
-      return calcOEE(evts,planMin);
-    }).filter(v=>v!==null);
-    oeeWTD=wtdOEEs.length?wtdOEEs.reduce((s,v)=>s+v,0)/wtdOEEs.length:null;
-    const mtdOEEs=LINES_ALL.map(ln=>{
-      const planMin=getDayPlanMin(ln)*new Date().getDate();
-      const evts=mtdE.filter(e=>e.line===ln);
-      return calcOEE(evts,planMin);
-    }).filter(v=>v!==null);
-    oeeMTD=mtdOEEs.length?mtdOEEs.reduce((s,v)=>s+v,0)/mtdOEEs.length:null;
+    oeeDay=oeeOutputAvg(LINES_ALL,tdy);
+    oeeWTD=oeeOutputAvg(LINES_ALL,wkDays);
+    oeeMTD=oeeOutputAvg(LINES_ALL,moDays);
   }else{
-    const planDay=getDayPlanMin(line);
-    const dow=Math.min(5,Math.max(1,(new Date().getDay()+6)%7+1));
-    oeeDay=calcOEE(todayE,planDay);
-    oeeWTD=calcOEE(wtdE,planDay*dow);
-    oeeMTD=calcOEE(mtdE,planDay*new Date().getDate());
+    oeeDay=oeeOutput(line,tdy);
+    oeeWTD=oeeOutput(line,wkDays);
+    oeeMTD=oeeOutput(line,moDays);
   }
 
   // KPIs
@@ -707,7 +765,7 @@ function _doRenderAll(){
   document.getElementById('k-oee-sub').textContent='Mål: '+oeeGoal+'%';
   document.getElementById('k-week').textContent=wtdE.length;
 
-  renderHist(fil);renderTable(fil);renderCharts(fil);renderOEE(fil);renderMachines(fil);renderHeatmap(fil);
+  renderHist(fil);renderTable(fil);renderCharts(fil);if(mainView==='oee'){renderOEE(fil);}else{renderProdView();}renderMachines(fil);renderHeatmap(fil);
   updateUnhandledBanner();
 }
 
@@ -759,11 +817,9 @@ function renderOEE(fil){
   const LINES_ALL=['Løp 1','Løp 2','Løp 3','Rollo','Koba','Glacier','Krokan'];
   let labels=[],data=[];
 
-  function getOEEForDay(evts_day,ln){
-    if(ln){return calcOEE(evts_day.filter(e=>e.line===ln),getDayPlanMin(ln));}
-    // Average all lines
-    const vals=LINES_ALL.map(l=>calcOEE(evts_day.filter(e=>e.line===l),getDayPlanMin(l))).filter(v=>v!==null);
-    return vals.length?vals.reduce((s,v)=>s+v,0)/vals.length:null;
+  function getOEEForDay(dateObj,ln){
+    if(ln)return oeeOutput(ln,[dateObj]);
+    return oeeOutputAvg(LINES_ALL,[dateObj]);
   }
 
   if(oeeMode==='wtd'){
@@ -773,8 +829,7 @@ function renderOEE(fil){
       const d=new Date(s);d.setDate(s.getDate()+i);
       labels.push(days[i]+' '+pad(d.getDate())+'.'+pad(d.getMonth()+1));
       if(d>n){data.push(null);continue;} // future — skip
-      const dayEvts=fil.filter(e=>new Date(e.ts).toDateString()===d.toDateString());
-      const v=getOEEForDay(dayEvts,line);
+      const v=getOEEForDay(d,line);
       data.push(v!==null?parseFloat(v.toFixed(1)):null);
     }
     document.getElementById('oee-title').textContent='OEE denne uken (%)';
@@ -784,8 +839,7 @@ function renderOEE(fil){
       const d=new Date(n.getFullYear(),n.getMonth(),i);
       labels.push(pad(i)+'.'+pad(n.getMonth()+1));
       if(d>n){data.push(null);continue;} // future — skip
-      const dayEvts=fil.filter(e=>new Date(e.ts).toDateString()===d.toDateString());
-      const v=getOEEForDay(dayEvts,line);
+      const v=getOEEForDay(d,line);
       data.push(v!==null?parseFloat(v.toFixed(1)):null);
     }
     document.getElementById('oee-title').textContent='OEE denne måneden (%)';
@@ -795,9 +849,8 @@ function renderOEE(fil){
       labels.push(mN[i]);
       const mEvts=fil.filter(e=>{const d=new Date(e.ts);return d.getFullYear()===n.getFullYear()&&d.getMonth()===i;});
       const dInM=new Date(n.getFullYear(),i+1,0).getDate();
-      let v;
-      if(line){v=calcOEE(mEvts,getDayPlanMin(line)*dInM);}
-      else{const vals=LINES_ALL.map(l=>calcOEE(mEvts.filter(e=>e.line===l),getDayPlanMin(l)*dInM)).filter(v=>v!==null);v=vals.length?vals.reduce((s,v)=>s+v,0)/vals.length:null;}
+      const monthDays=[];for(let dd=1;dd<=dInM;dd++)monthDays.push(new Date(n.getFullYear(),i,dd,12,0,0));
+      let v=line?oeeOutput(line,monthDays):oeeOutputAvg(LINES_ALL,monthDays);
       data.push(v!==null?parseFloat(v.toFixed(1)):null);
     }
     document.getElementById('oee-title').textContent='OEE dette året (%)';
@@ -1011,7 +1064,7 @@ setInterval(()=>{
 },10000);
 
 // ── MAIN VIEW SWITCHER ──
-let mainView='oee', prodMode='day', selectedProdLine=null;
+let mainView='prod', prodMode='day', selectedProdLine=null;
 
 function showMainView(view, btn){
   mainView=view;
@@ -1048,6 +1101,8 @@ function renderProdView(){
   const titleEl=document.getElementById('prod-chart-title');
   if(!el)return;
   const LINES_ALL=['Løp 1','Løp 2','Løp 3','Rollo','Koba','Glacier','Krokan'];
+  const VIEW_LINES=filterLine==='Alle'?LINES_ALL:[filterLine];
+  const lineLabel=filterLine==='Alle'?'alle linjer':filterLine;
   const now=new Date();
   const pad2=n=>String(n).padStart(2,'0');
 
@@ -1060,15 +1115,15 @@ function renderProdView(){
     const resetToday=new Date(now);resetToday.setHours(rh,rm,0,0);
     const d=now<resetToday?new Date(now.getTime()-86400000):now;
     dateKeys=[d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate())];
-    if(titleEl)titleEl.textContent='Produksjon i dag — alle linjer';
+    if(titleEl)titleEl.textContent='Produksjon i dag — '+lineLabel;
   }else if(prodMode==='week'){
     const s=new Date(now);s.setDate(now.getDate()-((now.getDay()+6)%7));s.setHours(0,0,0,0);
     for(let i=0;i<7;i++){const d=new Date(s);d.setDate(s.getDate()+i);dateKeys.push(d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()));}
-    if(titleEl)titleEl.textContent='Produksjon denne uken — alle linjer';
+    if(titleEl)titleEl.textContent='Produksjon denne uken — '+lineLabel;
   }else{
     const days=new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
     for(let i=1;i<=days;i++){dateKeys.push(now.getFullYear()+'-'+pad2(now.getMonth()+1)+'-'+pad2(i));}
-    if(titleEl)titleEl.textContent='Produksjon denne måneden — alle linjer';
+    if(titleEl)titleEl.textContent='Produksjon denne måneden — '+lineLabel;
   }
 
   // Fetch production data from Firebase
@@ -1089,7 +1144,7 @@ function renderProdView(){
     // Build totals per line
     const lineTotals={};
     let maxTotal=0;
-    LINES_ALL.forEach(line=>{
+    VIEW_LINES.forEach(line=>{
       const key=line.replace(/[\s\/]/g,'_');
       const lineData=prodData[key]||[];
       const total=dateKeys.reduce((sum,d)=>{
@@ -1102,14 +1157,14 @@ function renderProdView(){
 
     // Render line cards
     el.innerHTML='';
-    LINES_ALL.forEach(line=>{
+    VIEW_LINES.forEach(line=>{
       const key=line.replace(/[\s\/]/g,'_');
       const {total}=lineTotals[key]||{total:0};
       const products=SETTINGS.products?.[key]||[];
       const pct=maxTotal>0?Math.round(total/maxTotal*100):0;
       const card=document.createElement('div');
       card.className='line-bar-card'+(selectedProdLine===line?' sel':'');
-      card.onclick=()=>{selectedProdLine=selectedProdLine===line?null:line;renderProdChart(prodData,dateKeys,LINES_ALL);renderProdView();};
+      card.onclick=()=>{selectedProdLine=selectedProdLine===line?null:line;renderProdChart(prodData,dateKeys,VIEW_LINES);renderProdView();};
       card.innerHTML='<div class="lbc-name">'+line+'</div>'
         +'<div class="lbc-val">'+total.toLocaleString('no-NO')+'</div>'
         +'<div class="lbc-sub">esker'+(products.length&&total>0?' ≈ '+calcDpack(total,products)+' dpack':'')+'</div>'
@@ -1118,7 +1173,7 @@ function renderProdView(){
     });
 
     // Render chart
-    renderProdChart(prodData,dateKeys,LINES_ALL);
+    renderProdChart(prodData,dateKeys,VIEW_LINES);
   }).catch(e=>console.error('Prod data error:',e));
 }
 
