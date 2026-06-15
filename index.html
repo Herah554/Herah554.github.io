@@ -514,6 +514,7 @@ auth.onAuthStateChanged(async user=>{
         fline.value=lines[0];
         onLine();
       }
+      if(filterLine&&filterLine!=='Alle')updateProductSelector(filterLine);
     }
   }catch(e){console.error(e);}
 });
@@ -527,6 +528,10 @@ function handleSettings(snap){
     SETTINGS=Object.assign({globalGoal:30,oeeGoal:97,defaultDayHours:8,lineGoals:{},oeeGoals:{},machines:{},causes:{},generalCauses:[],plannedStops:[],prodPlan:{}},snap.val());
   }
   onLine();renderAll();
+  // Fill the operator's "Velg produkt" dropdown from the product database
+  if(myProfile&&myProfile.role==='linjeoperator'&&filterLine&&filterLine!=='Alle'){
+    updateProductSelector(filterLine);
+  }
 }
 
 function handleEvents(snap){
@@ -985,7 +990,7 @@ function updateProductSelector(line){
   sel.innerHTML='<option value="">— Velg produkt —</option>';
   products.forEach(p=>{
     const o=document.createElement('option');
-    o.value=p.name;o.textContent=p.name+' ('+p.eskerPerDpack+' esk/dpack)';
+    o.value=p.name;o.textContent=p.name+(p.artNr?' · '+p.artNr:'');
     sel.appendChild(o);
   });
   // Load saved active product
