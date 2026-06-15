@@ -79,6 +79,14 @@ input:focus,select:focus{border-color:var(--accent)}
 .padd input,.padd select{font-size:12px}
 .padd .pa-artnr{width:80px}.padd .pa-name{flex:2;min-width:180px}.padd .pa-group{width:110px}
 .padd .pa-num{width:95px;text-align:right}
+/* LINE SCHEDULE */
+.g2b{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:.4rem}
+.sched{border-collapse:collapse;font-size:12px}
+.sched td{padding:3px 6px}
+.sched .day{font-weight:600;color:var(--text);width:42px;font-family:var(--mono)}
+.sched input[type=time]{padding:5px 7px;font-size:12px;width:108px}
+.sched input[type=checkbox]{width:auto;cursor:pointer}
+.sched tr.off .day,.sched tr.off input[type=time]{opacity:.4}
 </style>
 </head>
 <body>
@@ -191,6 +199,8 @@ input:focus,select:focus{border-color:var(--accent)}
   </div>
 
   <h2>Linjer</h2>
+  <div class="lbl" style="margin-bottom:6px">Vis innstillinger for linje (huk av for å åpne):</div>
+  <div class="lfilter" id="line-lfilter"></div>
   <div id="lines-c"></div>
 
 </main>
@@ -202,7 +212,7 @@ const FB={apiKey:"AIzaSyCL4x1KNwgeDxqTFeP32BndJgH4B5MworQ",authDomain:"messystem
 if(!firebase.apps.length)firebase.initializeApp(FB);
 localStorage.setItem('firebaseConfig',JSON.stringify(FB));
 const db=firebase.database(),auth=firebase.auth();
-let S={globalGoal:30,oeeGoal:97,defaultDayHours:8,resetTime:'00:00',lineGoals:{},oeeGoals:{},prodPlan:{},machines:{},causes:{},generalCauses:[],plannedStops:[],products:{}};
+let S={globalGoal:30,oeeGoal:97,defaultDayHours:8,resetTime:'00:00',lineGoals:{},oeeGoals:{},prodPlan:{},machines:{},causes:{},generalCauses:[],plannedStops:[],products:{},schedule:{}};
 
 function lk(l){return(l||'').replace(/[\s\/]/g,'_');}
 function mk(l,m){return lk(l)+'__'+lk(m);}
@@ -215,7 +225,7 @@ auth.onAuthStateChanged(async user=>{
 });
 
 db.ref('settings').on('value',snap=>{
-  if(snap.exists())S=Object.assign({globalGoal:30,oeeGoal:97,defaultDayHours:8,resetTime:'00:00',lineGoals:{},oeeGoals:{},prodPlan:{},machines:{},causes:{},generalCauses:[],plannedStops:[],products:{}},snap.val());
+  if(snap.exists())S=Object.assign({globalGoal:30,oeeGoal:97,defaultDayHours:8,resetTime:'00:00',lineGoals:{},oeeGoals:{},prodPlan:{},machines:{},causes:{},generalCauses:[],plannedStops:[],products:{},schedule:{}},snap.val());
   // Fill global fields
   document.getElementById('g-hours').value=S.defaultDayHours||8;
   document.getElementById('g-goal').value=S.globalGoal||30;
@@ -225,6 +235,7 @@ db.ref('settings').on('value',snap=>{
   document.getElementById('reset-hint').textContent=rt==='00:00'?'Nullstiller ved midnatt (00:00)':'Nullstiller kl. '+rt+' — operatøren ser ny dag fra dette tidspunktet';
   renderPlanned();
   renderGen();
+  renderLineFilter();
   renderLines();
   renderProductFilter();
   renderProducts();
@@ -291,13 +302,16 @@ function removeGen(g){
 function renderLines(){
   const container=document.getElementById('lines-c');
   container.innerHTML='';
+  if(lineFilter.size===0){
+    container.innerHTML='<div class="fb" style="margin-top:0">Huk av en linje over for å se og endre innstillingene.</div>';
+    return;
+  }
   LINES.forEach(line=>{
+    if(!lineFilter.has(line))return;
     const key=lk(line);
     const lg=S.lineGoals?.[key];
     const og=S.oeeGoals?.[key];
-    const pp=S.prodPlan?.[key];
     const machines=S.machines?.[key]||[];
-    const products=S.products?.[key]||[];
 
     const div=document.createElement('div');
     div.className='card';
@@ -305,15 +319,7 @@ function renderLines(){
     // Build HTML
     div.innerHTML=`
       <div class="ct"><div class="ca" style="background:var(--accent)"></div>${line}</div>
-      <div class="g2">
-        <div>
-          <div class="lbl">Produksjonsplan (timer/uke)</div>
-          <div class="row">
-            <input type="number" id="pp-wh-${key}" value="${pp?.weekHours||''}" placeholder="${(S.defaultDayHours||8)*5}t/uke" min="1" max="168" step="0.5"/>
-            <button class="bteal" onclick="setProdPlan('${line}')">Sett plan</button>
-          </div>
-          <div class="${pp?'ok':'fb'}">${pp?'Plan: '+pp.weekHours+'t/uke = '+(pp.weekHours/5).toFixed(1)+'t/dag':'Standard: '+((S.defaultDayHours||8)*5)+'t/uke'}</div>
-        </div>
+      <div class="g2b">
         <div>
           <div class="lbl">Nedetidsmål (min/dag)</div>
           <div class="row">
@@ -335,20 +341,29 @@ function renderLines(){
       </div>
 
       <div class="sep"></div>
+      <div class="lbl" style="margin-bottom:6px">⏱ Produksjonstid — når ${line} kjører (slutt 00:00 = midnatt/døgnskille)</div>
+      <div id="sched-${key}"></div>
+      <div class="row" style="margin-top:8px">
+        <button class="bteal" onclick="saveSchedule('${line}')">Lagre produksjonstid</button>
+        <span class="fb" id="sched-sum-${key}" style="margin-top:0"></span>
+      </div>
+
+      <div class="sep"></div>
+      <div class="lbl" style="margin-bottom:6px">⏸ Planlagt stopptid på ${line} (trekkes fra OEE-tid)</div>
+      <div class="chips" id="brk-${key}"></div>
+      <div class="row" style="max-width:480px;margin-top:4px">
+        <input type="text" id="bl-${key}" placeholder="Navn (f.eks. Vask, Lunsj)" style="flex:2"/>
+        <input type="time" id="bs-${key}"/>
+        <input type="time" id="be-${key}"/>
+        <button class="bgrn" onclick="addBreak('${line}')">+ Stopp</button>
+      </div>
+
+      <div class="sep"></div>
       <div class="lbl" style="margin-bottom:6px">🛠 Maskiner på ${line}</div>
       <div id="ml-${key}"></div>
       <div class="row" style="max-width:380px;margin-top:6px">
         <input type="text" id="nm-${key}" placeholder="Legg til maskin..." onkeydown="if(event.key==='Enter')addMachine('${line}')"/>
         <button class="bgrn" onclick="addMachine('${line}')">+ Maskin</button>
-      </div>
-
-      <div class="sep"></div>
-      <div class="lbl" style="margin-bottom:6px">📦 Produkter på ${line} (for dpack-teller)</div>
-      <div id="pl-${key}"></div>
-      <div class="row" style="max-width:500px;margin-top:6px">
-        <input type="text" id="pn-${key}" placeholder="Produktnavn..." style="flex:2"/>
-        <input type="number" id="pe-${key}" placeholder="Esker/dpack" min="1" style="flex:1;min-width:110px"/>
-        <button class="bgrn" onclick="addProduct('${line}')">+ Produkt</button>
       </div>`;
 
     container.appendChild(div);
@@ -386,18 +401,143 @@ function renderLines(){
       });
     }
 
-    // Render products
-    const pl=div.querySelector('#pl-'+key);
-    if(!products.length){
-      pl.innerHTML='<div style="font-size:11px;color:var(--text3);padding:2px 0">Ingen produkter enda.</div>';
-    } else {
-      products.forEach((p,i)=>{
-        const s=document.createElement('span');s.className='chip cb';
-        s.innerHTML='📦 '+p.name+' ('+p.eskerPerDpack+' esk/dpack) <button class="cd" onclick="removeProduct(\''+line.replace(/'/g,"\\'")+'\','+i+')">✕</button>';
-        pl.appendChild(s);
-      });
-    }
+    // Render schedule + planned stop time
+    renderSchedule(key);
+    renderBreaks(line);
   });
+}
+
+// ── LINE FILTER + PRODUCTION SCHEDULE ──
+let lineFilter=new Set();
+
+function renderLineFilter(){
+  const c=document.getElementById('line-lfilter');if(!c)return;
+  c.innerHTML='';
+  LINES.forEach(line=>{
+    const on=lineFilter.has(line);
+    const b=document.createElement('button');
+    b.className='lchk'+(on?' on':'');
+    b.innerHTML='<span class="dot"></span>'+line;
+    b.onclick=()=>{lineFilter.has(line)?lineFilter.delete(line):lineFilter.add(line);renderLineFilter();renderLines();};
+    c.appendChild(b);
+  });
+}
+
+const DAYS=[['mon','Man'],['tue','Tir'],['wed','Ons'],['thu','Tor'],['fri','Fre'],['sat','Lør'],['sun','Søn']];
+function defaultSchedule(){
+  return {
+    mon:{on:true,start:'06:00',end:'00:00'},
+    tue:{on:true,start:'00:00',end:'00:00'},
+    wed:{on:true,start:'00:00',end:'00:00'},
+    thu:{on:true,start:'00:00',end:'00:00'},
+    fri:{on:true,start:'00:00',end:'22:30'},
+    sat:{on:false,start:'06:00',end:'22:30'},
+    sun:{on:false,start:'06:00',end:'22:30'},
+    breaks:[]
+  };
+}
+function getSchedule(key){
+  const s=S.schedule?.[key];
+  const d=defaultSchedule();
+  if(!s)return d;
+  DAYS.forEach(([k])=>{if(s[k])d[k]=Object.assign({},d[k],s[k]);});
+  d.breaks=Array.isArray(s.breaks)?s.breaks:[];
+  return d;
+}
+function toMin(t){if(!t)return 0;const p=t.split(':');return (parseInt(p[0])||0)*60+(parseInt(p[1])||0);}
+function dayMinutes(d){if(!d||!d.on)return 0;const s=toMin(d.start);const e=(d.end==='00:00'||d.end==='24:00')?1440:toMin(d.end);return Math.max(0,e-s);}
+function breakMinutes(b){if(!b)return 0;return Math.max(0,toMin(b.end)-toMin(b.start));}
+function schedWeekMin(sched){
+  const totBrk=(sched.breaks||[]).reduce((a,b)=>a+breakMinutes(b),0);
+  let tot=0;
+  DAYS.forEach(([k])=>{if(sched[k]&&sched[k].on)tot+=Math.max(0,dayMinutes(sched[k])-totBrk);});
+  return tot;
+}
+
+function renderSchedule(key){
+  const c=document.getElementById('sched-'+key);if(!c)return;
+  const sched=getSchedule(key);
+  let html='<table class="sched"><tbody>';
+  DAYS.forEach(([dk,dn])=>{
+    const d=sched[dk];
+    html+='<tr class="'+(d.on?'':'off')+'" id="schedrow-'+key+'-'+dk+'">'
+      +'<td style="width:22px"><input type="checkbox" id="sd-on-'+key+'-'+dk+'" '+(d.on?'checked':'')+' onchange="onSchedToggle(\''+key+'\',\''+dk+'\')"/></td>'
+      +'<td class="day">'+dn+'</td>'
+      +'<td><input type="time" id="sd-s-'+key+'-'+dk+'" value="'+d.start+'" onchange="updateSchedSummary(\''+key+'\')"/></td>'
+      +'<td style="color:var(--text3)">–</td>'
+      +'<td><input type="time" id="sd-e-'+key+'-'+dk+'" value="'+d.end+'" onchange="updateSchedSummary(\''+key+'\')"/></td>'
+      +'</tr>';
+  });
+  html+='</tbody></table>';
+  c.innerHTML=html;
+  updateSchedSummary(key);
+}
+function onSchedToggle(key,dk){
+  const row=document.getElementById('schedrow-'+key+'-'+dk);
+  const on=document.getElementById('sd-on-'+key+'-'+dk).checked;
+  if(row)row.className=on?'':'off';
+  updateSchedSummary(key);
+}
+function readScheduleFromInputs(key){
+  const sched={breaks:getSchedule(key).breaks||[]};
+  DAYS.forEach(([dk])=>{
+    sched[dk]={
+      on:document.getElementById('sd-on-'+key+'-'+dk).checked,
+      start:document.getElementById('sd-s-'+key+'-'+dk).value||'00:00',
+      end:document.getElementById('sd-e-'+key+'-'+dk).value||'00:00'
+    };
+  });
+  return sched;
+}
+function updateSchedSummary(key){
+  const el=document.getElementById('sched-sum-'+key);if(!el)return;
+  const wkMin=schedWeekMin(readScheduleFromInputs(key));
+  el.textContent='Planlagt: '+(wkMin/60).toFixed(1)+' t/uke ('+wkMin+' min)';
+}
+function saveSchedule(line){
+  const key=lk(line);
+  const sched=readScheduleFromInputs(key);
+  const wkH=+(schedWeekMin(sched)/60).toFixed(2);
+  const updates={};
+  updates['settings/schedule/'+key]=sched;
+  updates['settings/prodPlan/'+key]={weekHours:wkH};
+  db.ref().update(updates).then(()=>showT('Produksjonstid lagret for '+line));
+}
+
+function renderBreaks(line){
+  const key=lk(line);
+  const c=document.getElementById('brk-'+key);if(!c)return;
+  const brks=getSchedule(key).breaks||[];
+  c.innerHTML='';
+  if(!brks.length){c.innerHTML='<span style="font-size:11px;color:var(--text3)">Ingen planlagt stopptid.</span>';return;}
+  brks.forEach((b,i)=>{
+    const s=document.createElement('span');s.className='chip';
+    s.innerHTML='⏸ '+esc(b.label||'Stopp')+' '+b.start+'–'+b.end+' ('+breakMinutes(b)+'m) <button class="cd" onclick="removeBreak(\''+line.replace(/'/g,"\\'")+'\','+i+')">✕</button>';
+    c.appendChild(s);
+  });
+}
+function addBreak(line){
+  const key=lk(line);
+  const label=document.getElementById('bl-'+key).value.trim();
+  const start=document.getElementById('bs-'+key).value;
+  const end=document.getElementById('be-'+key).value;
+  if(!label){showT('Skriv inn navn på stoppet',true);return;}
+  if(!start||!end){showT('Velg start- og sluttid',true);return;}
+  if(toMin(end)<=toMin(start)){showT('Sluttid må være etter starttid',true);return;}
+  const brks=[...(getSchedule(key).breaks||[])];
+  brks.push({label,start,end});
+  db.ref('settings/schedule/'+key+'/breaks').set(brks).then(()=>{
+    showT('Stopptid lagt til');
+    document.getElementById('bl-'+key).value='';
+    document.getElementById('bs-'+key).value='';
+    document.getElementById('be-'+key).value='';
+  });
+}
+function removeBreak(line,idx){
+  const key=lk(line);
+  const brks=[...(getSchedule(key).breaks||[])];
+  brks.splice(idx,1);
+  db.ref('settings/schedule/'+key+'/breaks').set(brks).then(()=>showT('Stopptid fjernet',true));
 }
 
 // ── PRODPLAN ──
