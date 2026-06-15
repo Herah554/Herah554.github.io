@@ -48,6 +48,7 @@ select:focus,input:focus{border-color:var(--accent)}
 .btn:hover{opacity:.9}
 /* KPI CARDS */
 .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:1rem}
+.kpis.k5{grid-template-columns:repeat(5,1fr)}
 .kpi{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:.8rem 1rem;box-shadow:var(--sh);position:relative;overflow:hidden}
 .kpi::after{content:'';position:absolute;top:0;left:0;right:0;height:3px}
 .kpi.green::after{background:var(--green)}.kpi.red::after{background:var(--red)}.kpi.blue::after{background:var(--blue)}.kpi.amber::after{background:var(--amber)}
@@ -77,6 +78,23 @@ td:first-child{font-family:var(--mono);font-size:11px;color:var(--text3);white-s
 .loading{color:var(--text3);font-size:13px;text-align:center;padding:2rem}
 @media(max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}.g2,.g3{grid-template-columns:1fr}}
 @media(max-width:600px){.page{padding:1rem}nav{padding:0 1rem}}
+/* PRINT / PDF */
+.btn-print{background:var(--bg2);border:1px solid var(--border);color:var(--text2);border-radius:var(--r);font-size:13px;font-weight:600;padding:8px 16px;cursor:pointer;align-self:flex-end}
+.btn-print:hover{border-color:var(--accent);color:var(--accent)}
+#print-header{display:none}
+@media print{
+  nav,.ctrl-bar,.no-print{display:none!important}
+  body{background:#fff;font-size:12px}
+  .page{max-width:none;padding:0}
+  .card{box-shadow:none;border-color:#ccc;break-inside:avoid;page-break-inside:avoid}
+  .kpi{box-shadow:none;border-color:#ccc}
+  .cw{height:200px}.cw-lg{height:230px}
+  h2{margin-top:.5rem}
+  #print-header{display:block!important;margin-bottom:1rem;padding-bottom:.6rem;border-bottom:2px solid var(--accent)}
+  #print-header .ph-title{font-size:18px;font-weight:600;color:var(--accent)}
+  #print-header .ph-sub{font-size:12px;color:#444;margin-top:2px}
+  @page{margin:14mm}
+}
 </style>
 </head>
 <body>
@@ -129,7 +147,10 @@ td:first-child{font-family:var(--mono);font-size:11px;color:var(--text3);white-s
         <option>Rollo</option><option>Koba</option><option>Glacier</option><option>Krokan</option>
       </select>
     </div>
+    <button class="btn-print no-print" onclick="window.print()" title="Velg «Lagre som PDF» i utskriftsdialogen">🖨 Skriv ut / PDF</button>
   </div>
+
+  <div id="print-header"><div class="ph-title">Diplom-is — Produksjonsrapport</div><div class="ph-sub" id="ph-sub"></div></div>
 
   <div id="report-content"><div class="loading">Laster data...</div></div>
 </main>
@@ -140,7 +161,8 @@ if(!firebase.apps.length) firebase.initializeApp(FB);
 localStorage.setItem('firebaseConfig',JSON.stringify(FB));
 const db=firebase.database(), auth=firebase.auth();
 
-let EVENTS=[], SETTINGS={defaultDayHours:8,oeeGoal:97,oeeGoals:{},prodPlan:{}};
+let EVENTS=[], SETTINGS={defaultDayHours:8,oeeGoal:97,oeeGoals:{},prodPlan:{},products:{},schedule:{}};
+let PROD_ALL={}, ACTIVE_PROD={};
 let charts={};
 const LINES=['Løp 1','Løp 2','Løp 3','Rollo','Koba','Glacier','Krokan'];
 const MONTHS=['Januar','Februar','Mars','April','Mai','Juni','Juli','August','September','Oktober','November','Desember'];
@@ -183,6 +205,58 @@ function getMonWeek(year,week){
   return d;
 }
 
+// ── OEE ENGINE (output-based) + PRODUKSJON ──
+const _WD=['sun','mon','tue','wed','thu','fri','sat'];
+function _defaultSched(){return{mon:{on:true,start:'06:00',end:'00:00'},tue:{on:true,start:'00:00',end:'00:00'},wed:{on:true,start:'00:00',end:'00:00'},thu:{on:true,start:'00:00',end:'00:00'},fri:{on:true,start:'00:00',end:'22:30'},sat:{on:false,start:'06:00',end:'22:30'},sun:{on:false,start:'06:00',end:'22:30'},breaks:[]};}
+function getSched(line){const k=lk(line);const s=SETTINGS.schedule?.[k];const d=_defaultSched();if(!s)return d;['mon','tue','wed','thu','fri','sat','sun'].forEach(dk=>{if(s[dk])d[dk]=Object.assign({},d[dk],s[dk]);});d.breaks=Array.isArray(s.breaks)?s.breaks:[];return d;}
+function _tmin(t){if(!t)return 0;const p=String(t).split(':');return (parseInt(p[0])||0)*60+(parseInt(p[1])||0);}
+function _dmin(day){if(!day||!day.on)return 0;const s=_tmin(day.start);const e=(day.end==='00:00'||day.end==='24:00')?1440:_tmin(day.end);return Math.max(0,e-s);}
+function _brkmin(sched){return (sched.breaks||[]).reduce((a,b)=>a+Math.max(0,_tmin(b.end)-_tmin(b.start)),0);}
+function dateKeyOf(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
+function plannedMinForDate(line,dateObj){
+  const sched=getSched(line);
+  const day=sched[_WD[dateObj.getDay()]];
+  if(!day||!day.on)return 0;
+  const full=Math.max(0,_dmin(day)-_brkmin(sched));
+  const now=new Date();
+  const sameDay=dateObj.toDateString()===now.toDateString();
+  if(!sameDay)return dateObj>now?0:full;
+  const wStart=_tmin(day.start);
+  const wEnd=(day.end==='00:00'||day.end==='24:00')?1440:_tmin(day.end);
+  const nowMin=now.getHours()*60+now.getMinutes();
+  let elapsed=Math.max(0,Math.min(nowMin,wEnd)-wStart),eb=0;
+  (sched.breaks||[]).forEach(b=>{const lo=Math.max(_tmin(b.start),wStart),hi=Math.min(_tmin(b.end),Math.min(nowMin,wEnd));if(hi>lo)eb+=hi-lo;});
+  return Math.max(0,elapsed-eb);
+}
+function lineProduct(line){
+  const k=lk(line);const prods=SETTINGS.products?.[k]||[];const active=ACTIVE_PROD[k];
+  let p=prods.find(x=>x.name===active&&x.teknKapasitet>0&&x.stkPerDpack>0&&x.eskerPerDpack>0);
+  if(!p)p=prods.find(x=>x.teknKapasitet>0&&x.stkPerDpack>0&&x.eskerPerDpack>0);
+  return p||null;
+}
+function eskerFor(line,dateKey){const d=PROD_ALL[dateKey];return d?(d[lk(line)]||0):0;}
+function oeeOutput(line,dateObjs){
+  const p=lineProduct(line);if(!p)return null;
+  let totStk=0,totMax=0;
+  dateObjs.forEach(d=>{const pm=plannedMinForDate(line,d);if(pm<=0)return;const esker=eskerFor(line,dateKeyOf(d));totStk+=(esker/p.eskerPerDpack)*p.stkPerDpack;totMax+=p.teknKapasitet*(pm/60);});
+  if(totMax<=0)return null;
+  return Math.max(0,Math.min(100,totStk/totMax*100));
+}
+function oeeForDates(line,dateObjs){
+  if(line&&line!=='Alle')return oeeOutput(line,dateObjs);
+  const vals=LINES.map(l=>oeeOutput(l,dateObjs)).filter(v=>v!==null);
+  return vals.length?vals.reduce((s,v)=>s+v,0)/vals.length:null;
+}
+function eskerForDates(line,dateObjs){
+  let tot=0;const lines=(line&&line!=='Alle')?[line]:LINES;
+  dateObjs.forEach(d=>{const dk=dateKeyOf(d);lines.forEach(l=>tot+=eskerFor(l,dk));});
+  return tot;
+}
+function daysOfMonth(year,month){const dim=new Date(year,month+1,0).getDate();const a=[];for(let i=1;i<=dim;i++)a.push(new Date(year,month,i,12,0,0));return a;}
+function daysOfYear(year){const a=[];for(let m=0;m<12;m++){const dim=new Date(year,m+1,0).getDate();for(let i=1;i<=dim;i++)a.push(new Date(year,m,i,12,0,0));}return a;}
+function daysOfWeek(year,week){const mon=getMonWeek(year,week);const a=[];for(let i=0;i<7;i++){const d=new Date(mon);d.setDate(mon.getDate()+i);d.setHours(12,0,0,0);a.push(d);}return a;}
+function fmtNum(n){return (n||0).toLocaleString('no-NO');}
+
 auth.onAuthStateChanged(async user=>{
   if(!user){location.href='login.html';return;}
   const snap=await db.ref('users/'+user.uid).once('value');
@@ -193,8 +267,18 @@ auth.onAuthStateChanged(async user=>{
 });
 
 db.ref('settings').on('value',snap=>{
-  if(snap.exists()) SETTINGS=Object.assign({defaultDayHours:8,oeeGoal:97,oeeGoals:{},prodPlan:{}},snap.val());
+  if(snap.exists()) SETTINGS=Object.assign({defaultDayHours:8,oeeGoal:97,oeeGoals:{},prodPlan:{},products:{},schedule:{}},snap.val());
   render();
+});
+db.ref('production').on('value',snap=>{
+  const m={};
+  if(snap.exists())snap.forEach(ds=>{const date=ds.key;m[date]={};ds.forEach(ls=>{m[date][ls.key]=(ls.val()&&ls.val().count)||0;});});
+  PROD_ALL=m; render();
+});
+db.ref('active_product').on('value',snap=>{
+  const m={};
+  if(snap.exists())snap.forEach(ls=>{m[ls.key]=(ls.val()&&ls.val().product)||null;});
+  ACTIVE_PROD=m; render();
 });
 db.ref('events').on('value',snap=>{
   EVENTS=[];
@@ -229,6 +313,8 @@ function render(){
   const month=parseInt(document.getElementById('sel-month').value);
   const line=document.getElementById('sel-line').value;
   const year2=parseInt(document.getElementById('sel-year2').value)||year-1;
+  const ph=document.getElementById('ph-sub');
+  if(ph){const t={year:'Årsoversikt '+year,month:'Måned: '+MONTHS[month]+' '+year,week:'Ukeoversikt '+MONTHS[month]+' '+year,compare:'Sammenligning '+year+' vs '+year2}[mode]||'';ph.textContent=t+'  ·  Linje: '+line+'  ·  Skrevet ut '+new Date().toLocaleDateString('no-NO');}
   // Show/hide controls
   document.getElementById('grp-month').style.display=(mode==='month'||mode==='week')?'flex':'none';
   document.getElementById('grp-compare').style.display=mode==='compare'?'flex':'none';
@@ -249,39 +335,41 @@ function renderYear(year,line){
   const evts=getEvtsFor(year,null,line==='Alle'?null:line);
   const totalMin=evts.reduce((s,e)=>s+e.duration,0);
   const totalEvents=evts.length;
-  // OEE year-to-date
-  const ytdDays=year<now.getFullYear()?365:now.getDate()+(Array.from({length:now.getMonth()},(_,i)=>new Date(year,i+1,0).getDate()).reduce((s,d)=>s+d,0));
-  const planMin=getDayPlanMin(line==='Alle'?null:line)*ytdDays;
-  const oeeYTD=calcOEE(evts,planMin);
+  // OEE year-to-date (output-based) + produsert
+  const oeeYTD=oeeForDates(line,daysOfYear(year));
+  const producedYear=eskerForDates(line,daysOfYear(year));
   // Monthly data
   const mLabels=MONTHS.map((_,i)=>MONTHS[i].slice(0,3));
-  const mOEE=[],mNd=[],mCnt=[];
+  const mOEE=[],mNd=[],mCnt=[],mProd=[];
   for(let m=0;m<12;m++){
     const isF=year===now.getFullYear()&&m>now.getMonth();
-    if(isF){mOEE.push(null);mNd.push(null);mCnt.push(null);continue;}
-    const dInM=(year===now.getFullYear()&&m===now.getMonth())?now.getDate():new Date(year,m+1,0).getDate();
+    if(isF){mOEE.push(null);mNd.push(null);mCnt.push(null);mProd.push(null);continue;}
     const mEvts=evts.filter(e=>new Date(e.ts).getMonth()===m);
-    let oee;
-    if(line&&line!=='Alle'){oee=calcOEE(mEvts,getDayPlanMin(line)*dInM);}
-    else{const vals=LINES.map(l=>calcOEE(mEvts.filter(e=>e.line===l),getDayPlanMin(l)*dInM)).filter(v=>v!==null);oee=vals.length?vals.reduce((s,v)=>s+v,0)/vals.length:null;}
+    const oee=oeeForDates(line,daysOfMonth(year,m));
     mOEE.push(oee!==null?parseFloat(oee.toFixed(1)):null);
     mNd.push(mEvts.reduce((s,e)=>s+e.duration,0));
     mCnt.push(mEvts.length);
+    mProd.push(eskerForDates(line,daysOfMonth(year,m)));
   }
   // Top causes
   const cm={};evts.forEach(e=>cm[e.cause]=(cm[e.cause]||0)+e.duration);
   const topCauses=Object.entries(cm).sort((a,b)=>b[1]-a[1]).slice(0,5);
 
   const html=`
-    <div class="kpis">
+    <div class="kpis k5">
       <div class="kpi green"><div class="klbl">OEE ${year}</div><div class="kval" style="color:${oeeYTD!==null?(oeeYTD>=oeeGoal?'var(--green)':oeeYTD>=90?'var(--amber)':'var(--red)'):'var(--text3)'}">${oeeYTD!==null?oeeYTD.toFixed(1)+'%':'—'}</div><div class="ksub">Mål: ${oeeGoal}%</div></div>
+      <div class="kpi blue" style="--after:var(--green)"><div class="klbl">Produsert</div><div class="kval" style="font-size:18px;padding-top:2px;color:var(--green)">${fmtNum(producedYear)}</div><div class="ksub">esker ${year}</div></div>
       <div class="kpi red"><div class="klbl">Total nedetid</div><div class="kval" style="color:var(--red)">${fmtD(totalMin)}</div><div class="ksub">${year}</div></div>
       <div class="kpi blue"><div class="klbl">Hendelser</div><div class="kval">${totalEvents}</div><div class="ksub">Registrerte stopp ${year}</div></div>
       <div class="kpi amber"><div class="klbl">Snitt per uke</div><div class="kval" style="font-size:16px;padding-top:4px">${fmtD(Math.round(totalMin/52))}</div><div class="ksub">Nedetid per uke</div></div>
     </div>
     <div class="g2">
       <div class="card"><div class="ct"><div class="ca" style="background:var(--purple)"></div>OEE per måned — ${year} (%)</div><div class="cw-lg"><canvas id="ch-oee-year"></canvas></div></div>
+      <div class="card"><div class="ct"><div class="ca" style="background:var(--green)"></div>Produsert per måned — ${year} (esker)</div><div class="cw-lg"><canvas id="ch-prod-year"></canvas></div></div>
+    </div>
+    <div class="g2">
       <div class="card"><div class="ct"><div class="ca" style="background:var(--accent)"></div>Nedetid per måned — ${year}</div><div class="cw-lg"><canvas id="ch-nd-year"></canvas></div></div>
+      <div class="card"><div class="ct"><div class="ca" style="background:var(--blue)"></div>Hendelser per måned — ${year}</div><div class="cw-lg"><canvas id="ch-cnt-year"></canvas></div></div>
     </div>
     <div class="g2">
       <div class="card"><div class="ct"><div class="ca" style="background:var(--amber)"></div>Topp årsaker ${year}</div>
@@ -289,7 +377,7 @@ function renderYear(year,line){
           ${topCauses.map(([cause,min])=>`<tr><td style="color:var(--text2)">${cause}</td><td style="font-family:var(--mono);font-weight:500">${fmtD(min)}</td><td><div style="height:6px;background:var(--bg3);border-radius:99px;min-width:80px"><div style="height:100%;width:${totalMin?Math.round(min/totalMin*100):0}%;background:var(--amber);border-radius:99px"></div></div></td></tr>`).join('')}
         </tbody></table></div>
       </div>
-      <div class="card"><div class="ct"><div class="ca" style="background:var(--blue)"></div>Hendelser per måned — ${year}</div><div class="cw-lg"><canvas id="ch-cnt-year"></canvas></div></div>
+      <div></div>
     </div>`;
   document.getElementById('report-content').innerHTML=html;
 
@@ -298,6 +386,7 @@ function renderYear(year,line){
   charts.oeeYear=new Chart(document.getElementById('ch-oee-year'),{type:'line',data:{labels:mLabels,datasets:[{data:mOEE,borderColor:oeeColors,backgroundColor:mOEE.map(v=>v===null?'transparent':v>=oeeGoal?GREEN+'22':v>=90?AMBER+'22':RED+'22'),borderWidth:2,pointBackgroundColor:oeeColors,pointRadius:5,fill:true,tension:0.3,spanGaps:true}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y===null?'Ingen data':c.parsed.y+'%'}}},scales:{x:{grid:{color:GRID},ticks:{font:{size:11}}},y:{grid:{color:GRID},min:0,max:100,ticks:{callback:v=>v+'%',font:{size:11}}}}}});
   charts.ndYear=new Chart(document.getElementById('ch-nd-year'),{type:'bar',data:{labels:mLabels,datasets:[{data:mNd,backgroundColor:mNd.map(v=>v===null?'transparent':v>240?RED+'cc':v>120?AMBER+'cc':'var(--blue)cc'),borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmtD(c.parsed.y)}}},scales:{x:{grid:{color:'rgba(0,0,0,0)'},ticks:{font:{size:11}}},y:{grid:{color:GRID},beginAtZero:true,ticks:{callback:v=>fmtD(v),font:{size:11}}}}}});
   charts.cntYear=new Chart(document.getElementById('ch-cnt-year'),{type:'bar',data:{labels:mLabels,datasets:[{data:mCnt,backgroundColor:'var(--blue)cc',borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y+' hendelser'}}},scales:{x:{grid:{color:'rgba(0,0,0,0)'},ticks:{font:{size:11}}},y:{grid:{color:GRID},beginAtZero:true,ticks:{stepSize:1,font:{size:11}}}}}});
+  charts.prodYear=new Chart(document.getElementById('ch-prod-year'),{type:'bar',data:{labels:mLabels,datasets:[{data:mProd,backgroundColor:GREEN+'cc',borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>(c.parsed.y||0).toLocaleString('no-NO')+' esker'}}},scales:{x:{grid:{color:'rgba(0,0,0,0)'},ticks:{font:{size:11}}},y:{grid:{color:GRID},beginAtZero:true,ticks:{font:{size:11}}}}}});
 }
 
 // ── MONTH VIEW ──
@@ -309,33 +398,33 @@ function renderMonth(year,month,line){
   const isCurrentMonth=(year===now.getFullYear()&&month===now.getMonth());
   const totalMin=evts.reduce((s,e)=>s+e.duration,0);
   // Daily data
-  const dLabels=[],dOEE=[],dNd=[];
+  const dLabels=[],dOEE=[],dNd=[],dProd=[];
   for(let d=1;d<=daysInM;d++){
-    const dt=new Date(year,month,d);
-    if(isCurrentMonth&&dt>now){dLabels.push(pad(d));dOEE.push(null);dNd.push(null);continue;}
+    const dt=new Date(year,month,d,12,0,0);
     dLabels.push(pad(d));
-    const dEvts=evts.filter(e=>{const ed=new Date(e.ts);return ed.getDate()===d;});
-    const nd=dEvts.reduce((s,e)=>s+e.duration,0);
-    let oee;
-    if(line&&line!=='Alle'){oee=calcOEE(dEvts,getDayPlanMin(line));}
-    else{const vals=LINES.map(l=>calcOEE(dEvts.filter(e=>e.line===l),getDayPlanMin(l))).filter(v=>v!==null);oee=vals.length?vals.reduce((s,v)=>s+v,0)/vals.length:null;}
+    if(isCurrentMonth&&dt>now){dOEE.push(null);dNd.push(null);dProd.push(null);continue;}
+    const dEvts=evts.filter(e=>new Date(e.ts).getDate()===d);
+    const oee=oeeForDates(line,[dt]);
     dOEE.push(oee!==null?parseFloat(oee.toFixed(1)):null);
-    dNd.push(nd);
+    dNd.push(dEvts.reduce((s,e)=>s+e.duration,0));
+    dProd.push(eskerForDates(line,[dt]));
   }
-  const planMin=getDayPlanMin(line==='Alle'?null:line)*(isCurrentMonth?now.getDate():daysInM);
-  const oeeM=calcOEE(evts,planMin);
+  const oeeM=oeeForDates(line,daysOfMonth(year,month));
+  const producedMonth=eskerForDates(line,daysOfMonth(year,month));
   // Causes
   const cm={};evts.forEach(e=>cm[e.cause]=(cm[e.cause]||0)+e.duration);
   const topC=Object.entries(cm).sort((a,b)=>b[1]-a[1]).slice(0,5);
 
   const html=`
-    <div class="kpis">
+    <div class="kpis k5">
       <div class="kpi green"><div class="klbl">OEE ${MONTHS[month]}</div><div class="kval" style="color:${oeeM!==null?(oeeM>=oeeGoal?'var(--green)':oeeM>=90?'var(--amber)':'var(--red)'):'var(--text3)'}">${oeeM!==null?oeeM.toFixed(1)+'%':'—'}</div><div class="ksub">Mål: ${oeeGoal}%</div></div>
+      <div class="kpi blue"><div class="klbl">Produsert</div><div class="kval" style="font-size:18px;padding-top:2px;color:var(--green)">${fmtNum(producedMonth)}</div><div class="ksub">esker ${MONTHS[month]}</div></div>
       <div class="kpi red"><div class="klbl">Total nedetid</div><div class="kval" style="color:var(--red)">${fmtD(totalMin)}</div><div class="ksub">${MONTHS[month]} ${year}</div></div>
       <div class="kpi blue"><div class="klbl">Hendelser</div><div class="kval">${evts.length}</div><div class="ksub">Denne måneden</div></div>
       <div class="kpi amber"><div class="klbl">Verste dag</div><div class="kval" style="font-size:16px;padding-top:4px">${fmtD(Math.max(...dNd.filter(v=>v!==null),0))}</div><div class="ksub">Maks nedetid på én dag</div></div>
     </div>
     <div class="card"><div class="ct"><div class="ca" style="background:var(--purple)"></div>OEE per dag — ${MONTHS[month]} ${year} (%)</div><div class="cw-lg"><canvas id="ch-oee-m"></canvas></div></div>
+    <div class="card"><div class="ct"><div class="ca" style="background:var(--green)"></div>Produsert per dag — ${MONTHS[month]} ${year} (esker)</div><div class="cw"><canvas id="ch-prod-m"></canvas></div></div>
     <div class="g2">
       <div class="card"><div class="ct"><div class="ca" style="background:var(--accent)"></div>Nedetid per dag</div><div class="cw"><canvas id="ch-nd-m"></canvas></div></div>
       <div class="card"><div class="ct"><div class="ca" style="background:var(--amber)"></div>Topp årsaker</div>
@@ -349,6 +438,7 @@ function renderMonth(year,month,line){
   const oeeC=dOEE.map(v=>v===null?'transparent':v>=oeeGoal?GREEN:v>=90?AMBER:RED);
   charts.oeeMon=new Chart(document.getElementById('ch-oee-m'),{type:'line',data:{labels:dLabels,datasets:[{data:dOEE,borderColor:oeeC,backgroundColor:dOEE.map(v=>v===null?'transparent':v>=oeeGoal?GREEN+'22':v>=90?AMBER+'22':RED+'22'),borderWidth:2,pointBackgroundColor:oeeC,pointRadius:3,fill:true,tension:0.3,spanGaps:true}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y===null?'Ingen data':c.parsed.y+'%'}}},scales:{x:{grid:{color:GRID},ticks:{font:{size:9},maxTicksLimit:15}},y:{grid:{color:GRID},min:0,max:100,ticks:{callback:v=>v+'%',font:{size:10}}}}}});
   charts.ndMon=new Chart(document.getElementById('ch-nd-m'),{type:'bar',data:{labels:dLabels,datasets:[{data:dNd,backgroundColor:dNd.map(v=>v===null?'transparent':v>240?RED+'cc':v>60?AMBER+'cc':'var(--blue)cc'),borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmtD(c.parsed.y)}}},scales:{x:{grid:{color:'rgba(0,0,0,0)'},ticks:{font:{size:9},maxTicksLimit:15}},y:{grid:{color:GRID},beginAtZero:true,ticks:{callback:v=>fmtD(v),font:{size:10}}}}}});
+  charts.prodMon=new Chart(document.getElementById('ch-prod-m'),{type:'bar',data:{labels:dLabels,datasets:[{data:dProd,backgroundColor:GREEN+'cc',borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>(c.parsed.y||0).toLocaleString('no-NO')+' esker'}}},scales:{x:{grid:{color:'rgba(0,0,0,0)'},ticks:{font:{size:9},maxTicksLimit:15}},y:{grid:{color:GRID},beginAtZero:true,ticks:{font:{size:10}}}}}});
 }
 
 // ── WEEK VIEW ──
@@ -368,10 +458,9 @@ function renderWeek(year,month,line){
   const rows=weeks.map(wk=>{
     const wEvts=weekMap[wk];
     const nd=wEvts.reduce((s,e)=>s+e.duration,0);
-    const planMin=getDayPlanMin(line==='Alle'?null:line)*5;
-    let oee;
-    if(line&&line!=='Alle'){oee=calcOEE(wEvts,planMin);}
-    else{const vals=LINES.map(l=>calcOEE(wEvts.filter(e=>e.line===l),getDayPlanMin(l)*5)).filter(v=>v!==null);oee=vals.length?vals.reduce((s,v)=>s+v,0)/vals.length:null;}
+    const wkDays=daysOfWeek(year,parseInt(wk));
+    const oee=oeeForDates(line,wkDays);
+    const produced=eskerForDates(line,wkDays);
     const oeeStr=oee!==null?oee.toFixed(1)+'%':'—';
     const oeeBadge=oee===null?'ba':oee>=oeeGoal?'bg':'br';
     const cm={};wEvts.forEach(e=>cm[e.cause]=(cm[e.cause]||0)+e.duration);
@@ -379,20 +468,21 @@ function renderWeek(year,month,line){
     const mon=getMonWeek(year,parseInt(wk));
     const sun=new Date(mon);sun.setDate(mon.getDate()+6);
     const dateStr=pad(mon.getDate())+'.'+pad(mon.getMonth()+1)+' — '+pad(sun.getDate())+'.'+pad(sun.getMonth()+1);
-    return {wk,nd,oee,oeeStr,oeeBadge,wEvts,topC,dateStr};
+    return {wk,nd,oee,oeeStr,oeeBadge,wEvts,topC,dateStr,produced};
   });
   const html=`<div class="card"><div class="ct"><div class="ca" style="background:var(--blue)"></div>Ukeoversikt — ${MONTHS[month]} ${year}</div>
-    <div class="tw"><table><thead><tr><th>Uke</th><th>Periode</th><th>OEE</th><th>Nedetid</th><th>Hendelser</th><th>Topp årsak</th></tr></thead><tbody>
+    <div class="tw"><table><thead><tr><th>Uke</th><th>Periode</th><th>OEE</th><th>Produsert</th><th>Nedetid</th><th>Hendelser</th><th>Topp årsak</th></tr></thead><tbody>
       ${rows.map(r=>`
         <tr class="week-row" onclick="toggleWeek('wk-${r.wk}')">
           <td>Uke ${r.wk}</td>
           <td>${r.dateStr}</td>
           <td><span class="badge ${r.oeeBadge}">${r.oeeStr}</span></td>
+          <td style="font-family:var(--mono);font-weight:500;color:var(--green)">${fmtNum(r.produced)}</td>
           <td style="font-family:var(--mono);font-weight:500">${fmtD(r.nd)}</td>
           <td>${r.wEvts.length}</td>
           <td style="color:var(--text2)">${r.topC[0]?r.topC[0][0]+'  ('+fmtD(r.topC[0][1])+')':'—'}</td>
         </tr>
-        <tr class="week-detail" id="wk-${r.wk}"><td colspan="6">
+        <tr class="week-detail" id="wk-${r.wk}"><td colspan="7">
           <div style="padding:.5rem">
             <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:.4rem">Hendelser denne uken:</div>
             ${r.wEvts.sort((a,b)=>b.ts-a.ts).map(e=>`<div style="display:flex;gap:10px;padding:4px 0;border-bottom:1px solid var(--border);font-size:11px"><span style="font-family:var(--mono);color:var(--text3);width:90px;flex-shrink:0">${new Date(e.ts).toLocaleDateString('no-NO')} ${pad(new Date(e.ts).getHours())}:${pad(new Date(e.ts).getMinutes())}</span><span style="color:var(--text2)">${e.machine||'—'}</span><span style="color:var(--text2)">${e.cause}</span><span style="font-family:var(--mono);font-weight:500">${fmtD(e.duration)}</span></div>`).join('')}
@@ -413,22 +503,15 @@ function renderCompare(year,year2,line){
   function getMonthOEE(evts,yr,m){
     const isF=(yr===now.getFullYear()&&m>now.getMonth());
     if(isF)return null;
-    const dInM=(yr===now.getFullYear()&&m===now.getMonth())?now.getDate():new Date(yr,m+1,0).getDate();
-    const mEvts=evts.filter(e=>new Date(e.ts).getMonth()===m);
-    if(line&&line!=='Alle'){return calcOEE(mEvts,getDayPlanMin(line)*dInM);}
-    const vals=LINES.map(l=>calcOEE(mEvts.filter(e=>e.line===l),getDayPlanMin(l)*dInM)).filter(v=>v!==null);
-    return vals.length?vals.reduce((s,v)=>s+v,0)/vals.length:null;
+    return oeeForDates(line,daysOfMonth(yr,m));
   }
   function getMonthNd(evts,m){return evts.filter(e=>new Date(e.ts).getMonth()===m).reduce((s,e)=>s+e.duration,0);}
   const oee1=Array.from({length:12},(_,m)=>getMonthOEE(evts1,year,m)).map(v=>v!==null?parseFloat(v.toFixed(1)):null);
   const oee2=Array.from({length:12},(_,m)=>getMonthOEE(evts2,year2,m)).map(v=>v!==null?parseFloat(v.toFixed(1)):null);
   const nd1=Array.from({length:12},(_,m)=>getMonthNd(evts1,m));
   const nd2=Array.from({length:12},(_,m)=>getMonthNd(evts2,m));
-  const ytdDays1=(year===now.getFullYear())?now.getDate()+(Array.from({length:now.getMonth()},(_,i)=>new Date(year,i+1,0).getDate()).reduce((s,d)=>s+d,0)):365;
-  const ytdDays2=(year2===now.getFullYear())?now.getDate()+(Array.from({length:now.getMonth()},(_,i)=>new Date(year2,i+1,0).getDate()).reduce((s,d)=>s+d,0)):365;
-  const p1=getDayPlanMin(line==='Alle'?null:line);
-  const oeeYTD1=calcOEE(evts1,p1*ytdDays1);
-  const oeeYTD2=calcOEE(evts2,p1*ytdDays2);
+  const oeeYTD1=oeeForDates(line,daysOfYear(year));
+  const oeeYTD2=oeeForDates(line,daysOfYear(year2));
   const nd1Total=evts1.reduce((s,e)=>s+e.duration,0);
   const nd2Total=evts2.reduce((s,e)=>s+e.duration,0);
   const diff=oeeYTD1!==null&&oeeYTD2!==null?oeeYTD1-oeeYTD2:null;
