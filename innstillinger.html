@@ -54,6 +54,31 @@ input:focus,select:focus{border-color:var(--accent)}
 .toast.e{border-color:#fecaca;color:var(--red)}
 @media(max-width:800px){.g2{grid-template-columns:1fr 1fr}.page{padding:1rem}}
 @media(max-width:500px){.g2{grid-template-columns:1fr}nav{padding:0 1rem}}
+/* PRODUCT DATABASE */
+.lfilter{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.lchk{display:inline-flex;align-items:center;gap:5px;background:var(--bg3);border:1px solid var(--border);border-radius:99px;padding:4px 12px;font-size:12px;color:var(--text2);cursor:pointer;user-select:none}
+.lchk.on{background:#eff6ff;border-color:#bfdbfe;color:var(--blue);font-weight:600}
+.lchk .dot{width:7px;height:7px;border-radius:50%;background:var(--text3)}
+.lchk.on .dot{background:var(--blue)}
+.pcount{font-size:11px;color:var(--text3);font-family:var(--mono);margin-bottom:8px}
+.ptbl-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--r)}
+.ptbl{width:100%;border-collapse:collapse;font-size:12px;min-width:820px}
+.ptbl th{font-size:9px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--text3);text-align:left;padding:6px 7px;border-bottom:1px solid var(--border);background:var(--bg3);white-space:nowrap;position:sticky;top:0}
+.ptbl td{padding:4px 7px;border-bottom:1px solid var(--border);vertical-align:middle}
+.ptbl tr:last-child td{border-bottom:none}
+.ptbl tr:hover td{background:var(--bg3)}
+.ptbl input{width:100%;padding:5px 6px;font-size:12px;background:var(--bg2);border:1px solid var(--border);border-radius:6px}
+.ptbl input:focus{border-color:var(--accent)}
+.ptbl input.num{text-align:right}
+.pi-line{font-family:var(--mono);font-size:11px;color:var(--text2);white-space:nowrap;font-weight:600}
+.pi-save{background:var(--green);border:none;border-radius:6px;color:#fff;font-size:12px;font-weight:600;padding:5px 8px;cursor:pointer}
+.pi-save:hover{opacity:.9}
+.pi-del{background:none;border:none;color:var(--text3);font-size:13px;cursor:pointer;padding:4px 6px;border-radius:4px}
+.pi-del:hover{background:#fef2f2;color:var(--red)}
+.padd{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.padd input,.padd select{font-size:12px}
+.padd .pa-artnr{width:80px}.padd .pa-name{flex:2;min-width:180px}.padd .pa-group{width:110px}
+.padd .pa-num{width:95px;text-align:right}
 </style>
 </head>
 <body>
@@ -130,6 +155,41 @@ input:focus,select:focus{border-color:var(--accent)}
     </div>
   </div>
 
+  <h2>Produktdatabase (OEE-grunndata)</h2>
+  <div class="card">
+    <div class="ct"><div class="ca" style="background:var(--teal)"></div>Produkter — Art.nr, kapasitet og OEE-parametre</div>
+    <div class="lbl" style="margin-bottom:6px">Vis linjer (huk av for å filtrere):</div>
+    <div class="lfilter" id="prod-lfilter"></div>
+    <div class="pcount" id="prod-count">—</div>
+    <div class="ptbl-wrap">
+      <table class="ptbl" id="prod-table">
+        <thead><tr>
+          <th>Linje</th><th>Art.nr</th><th>Produktnavn</th><th>Gruppe</th>
+          <th>Esk/dpack</th><th>Stk/dpack</th><th>Tekn.kap (stk/t)</th><th>Live (dpack/t)</th><th></th>
+        </tr></thead>
+        <tbody id="prod-tbody"></tbody>
+      </table>
+    </div>
+    <div class="sep"></div>
+    <div class="lbl" style="margin-bottom:6px">➕ Legg til nytt produkt</div>
+    <div class="padd">
+      <select id="pa-line" class="pa-group"></select>
+      <input type="text" id="pa-artnr" class="pa-artnr" placeholder="Art.nr"/>
+      <input type="text" id="pa-name" class="pa-name" placeholder="Produktnavn" oninput="autoStk()"/>
+      <input type="text" id="pa-group" class="pa-group" placeholder="Gruppe"/>
+      <input type="number" id="pa-epd" class="pa-num" placeholder="Esk/dpack" min="1"/>
+      <input type="number" id="pa-spd" class="pa-num" placeholder="Stk/dpack" min="1"/>
+      <input type="number" id="pa-kap" class="pa-num" placeholder="Tekn.kap" min="1"/>
+      <input type="number" id="pa-live" class="pa-num" placeholder="Live" min="1"/>
+      <button class="bgrn" onclick="addProductFull()">+ Legg til</button>
+    </div>
+    <div class="sep"></div>
+    <div class="row">
+      <button class="bg" onclick="importGlacier()">⬇ Importer Glacier-grunndata (17 produkter)</button>
+    </div>
+    <div class="fb" style="margin-top:8px">Stk/dpack fylles automatisk fra produktnavnet (kan overstyres). Esk/dpack settes til 1 ved import — kontroller mot PLS-tellingen.</div>
+  </div>
+
   <h2>Linjer</h2>
   <div id="lines-c"></div>
 
@@ -166,6 +226,8 @@ db.ref('settings').on('value',snap=>{
   renderPlanned();
   renderGen();
   renderLines();
+  renderProductFilter();
+  renderProducts();
 });
 
 function saveGlobal(){
@@ -418,6 +480,167 @@ function removeProduct(line,idx){
   const arr=[...(S.products?.[key]||[])];
   arr.splice(idx,1);
   db.ref('settings/products/'+key).set(arr).then(()=>showT('Produkt fjernet',true));
+}
+
+// ── PRODUCT DATABASE (OEE grunndata) ──
+let prodFilter=new Set(LINES);
+
+function esc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
+
+// Les ut stk per dpack fra produktnavn: "6 STK X 4"=24, "6X5"=30, "X16"=16, "16STK"=16
+function parseStkPerDpack(name){
+  if(!name)return '';
+  const s=name.toUpperCase();
+  let m=s.match(/(\d+)\s*STK\s*X\s*(\d+)/);  if(m)return parseInt(m[1])*parseInt(m[2]);
+  m=s.match(/(\d+)\s*X\s*(\d+)/);            if(m)return parseInt(m[1])*parseInt(m[2]);
+  m=s.match(/X\s*(\d+)\b/);                  if(m)return parseInt(m[1]);
+  m=s.match(/(\d+)\s*STK/);                  if(m)return parseInt(m[1]);
+  return '';
+}
+
+function fillAddLineSelect(){
+  const sel=document.getElementById('pa-line');
+  if(!sel||sel.options.length)return;
+  LINES.forEach(l=>{const o=document.createElement('option');o.value=l;o.textContent=l;sel.appendChild(o);});
+}
+
+function renderProductFilter(){
+  fillAddLineSelect();
+  const c=document.getElementById('prod-lfilter');if(!c)return;
+  c.innerHTML='';
+  LINES.forEach(line=>{
+    const on=prodFilter.has(line);
+    const cnt=(S.products?.[lk(line)]||[]).length;
+    const b=document.createElement('button');
+    b.className='lchk'+(on?' on':'');
+    b.innerHTML='<span class="dot"></span>'+line+' ('+cnt+')';
+    b.onclick=()=>{prodFilter.has(line)?prodFilter.delete(line):prodFilter.add(line);renderProductFilter();renderProducts();};
+    c.appendChild(b);
+  });
+}
+
+function renderProducts(){
+  const tb=document.getElementById('prod-tbody');if(!tb)return;
+  tb.innerHTML='';
+  let count=0;
+  LINES.forEach(line=>{
+    if(!prodFilter.has(line))return;
+    const key=lk(line);
+    (S.products?.[key]||[]).forEach((p,i)=>{
+      count++;
+      const tr=document.createElement('tr');
+      const b='p-'+key+'-'+i+'-';
+      tr.innerHTML=
+        '<td class="pi-line">'+line+'</td>'
+        +'<td><input id="'+b+'artnr" value="'+esc(p.artNr)+'" style="max-width:80px"/></td>'
+        +'<td><input id="'+b+'name" value="'+esc(p.name)+'"/></td>'
+        +'<td><input id="'+b+'group" value="'+esc(p.group)+'" style="max-width:110px"/></td>'
+        +'<td><input id="'+b+'epd" class="num" type="number" min="1" value="'+(p.eskerPerDpack||'')+'" style="max-width:80px"/></td>'
+        +'<td><input id="'+b+'spd" class="num" type="number" min="1" value="'+(p.stkPerDpack||'')+'" style="max-width:80px"/></td>'
+        +'<td><input id="'+b+'kap" class="num" type="number" min="1" value="'+(p.teknKapasitet||'')+'" style="max-width:95px"/></td>'
+        +'<td><input id="'+b+'live" class="num" type="number" min="1" value="'+(p.liveHastighet||'')+'" style="max-width:80px"/></td>'
+        +'<td style="white-space:nowrap"><button class="pi-save" onclick="saveProductRow(\''+key+'\','+i+')">💾</button> '
+        +'<button class="pi-del" onclick="deleteProduct(\''+key+'\','+i+')">✕</button></td>';
+      tb.appendChild(tr);
+    });
+  });
+  if(!count)tb.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:1.2rem">Ingen produkter for valgte linjer.</td></tr>';
+  const lbl=document.getElementById('prod-count');
+  if(lbl)lbl.textContent=count+' produkt'+(count===1?'':'er')+' vist ('+prodFilter.size+' av '+LINES.length+' linjer valgt)';
+}
+
+function saveProductRow(key,i){
+  const g=f=>document.getElementById('p-'+key+'-'+i+'-'+f);
+  const arr=[...(S.products?.[key]||[])];
+  if(!arr[i])return;
+  const name=g('name').value.trim();
+  if(!name){showT('Navn kan ikke være tomt',true);return;}
+  arr[i]={
+    artNr:g('artnr').value.trim(),
+    name,
+    group:g('group').value.trim(),
+    eskerPerDpack:parseInt(g('epd').value)||0,
+    stkPerDpack:parseInt(g('spd').value)||0,
+    teknKapasitet:parseInt(g('kap').value)||0,
+    liveHastighet:parseInt(g('live').value)||0
+  };
+  db.ref('settings/products/'+key).set(arr).then(()=>showT('Lagret: '+name));
+}
+
+function deleteProduct(key,i){
+  const arr=[...(S.products?.[key]||[])];
+  const nm=arr[i]?.name||'';
+  if(!confirm('Slette produktet "'+nm+'"?'))return;
+  arr.splice(i,1);
+  db.ref('settings/products/'+key).set(arr).then(()=>showT('Produkt slettet',true));
+}
+
+function autoStk(){
+  const spd=document.getElementById('pa-spd');
+  if(spd&&!spd.value){const v=parseStkPerDpack(document.getElementById('pa-name').value);if(v)spd.value=v;}
+}
+
+function addProductFull(){
+  const line=document.getElementById('pa-line').value;
+  const key=lk(line);
+  const name=document.getElementById('pa-name').value.trim();
+  if(!name){showT('Skriv inn produktnavn',true);return;}
+  const arr=[...(S.products?.[key]||[])];
+  if(arr.find(p=>p.name===name)){showT('Produktet finnes allerede på '+line,true);return;}
+  let spd=parseInt(document.getElementById('pa-spd').value);
+  if(!spd)spd=parseStkPerDpack(name)||0;
+  arr.push({
+    artNr:document.getElementById('pa-artnr').value.trim(),
+    name,
+    group:document.getElementById('pa-group').value.trim(),
+    eskerPerDpack:parseInt(document.getElementById('pa-epd').value)||1,
+    stkPerDpack:spd,
+    teknKapasitet:parseInt(document.getElementById('pa-kap').value)||0,
+    liveHastighet:parseInt(document.getElementById('pa-live').value)||0
+  });
+  db.ref('settings/products/'+key).set(arr).then(()=>{
+    showT('Produkt "'+name+'" lagt til på '+line);
+    ['pa-artnr','pa-name','pa-group','pa-epd','pa-spd','pa-kap','pa-live'].forEach(x=>document.getElementById(x).value='');
+    if(!prodFilter.has(line)){prodFilter.add(line);renderProductFilter();}
+  });
+}
+
+const GLACIER_SEED=[
+  {artNr:'00873',name:'DIPLOM-IS BÅTIS 6 STK X 4',group:'Multipack',stkPerDpack:24,teknKapasitet:7000,liveHastighet:220},
+  {artNr:'07517',name:'LION KING SIZE 8 STK',group:'Små-is',stkPerDpack:8,teknKapasitet:7000,liveHastighet:600},
+  {artNr:'11674',name:'ROYAL MINI KARAMELL 6X5 RA MB',group:'Multipack',stkPerDpack:30,teknKapasitet:9500,liveHastighet:270},
+  {artNr:'11888',name:'ROYAL MAGI 16 STK RA MB',group:'Små-is',stkPerDpack:16,teknKapasitet:11000,liveHastighet:500},
+  {artNr:'11934',name:'ROYAL TRIPPEL 16STK',group:'Små-is',stkPerDpack:16,teknKapasitet:11000,liveHastighet:500},
+  {artNr:'11935',name:'ROYAL MANDEL 16STK RA MB',group:'Små-is',stkPerDpack:16,teknKapasitet:11000,liveHastighet:530},
+  {artNr:'11936',name:'ROYAL MØRK 16STK RA MB',group:'Små-is',stkPerDpack:16,teknKapasitet:11000,liveHastighet:520},
+  {artNr:'11939',name:'ROYAL PISTASJ 16STK RA MB',group:'Små-is',stkPerDpack:16,teknKapasitet:11000,liveHastighet:450},
+  {artNr:'12038',name:'FRUITERO 80% JORDB&BRING 20STK',group:'Små-is',stkPerDpack:20,teknKapasitet:9500,liveHastighet:450},
+  {artNr:'12040',name:'FRUITERO 80% MANGO MP 6STK X 5',group:'Multipack',stkPerDpack:30,teknKapasitet:9000,liveHastighet:320},
+  {artNr:'12041',name:'ROYAL JORDB HVIT 16 STK RA MB',group:'Små-is',stkPerDpack:16,teknKapasitet:9000,liveHastighet:220},
+  {artNr:'12066',name:'ROYAL TRIPPEL LAKRIS 16ST RAMB',group:'Små-is',stkPerDpack:16,teknKapasitet:11000,liveHastighet:500},
+  {artNr:'12157',name:'DREAM MANGO & PASJON 100ML X16',group:'Små-is',stkPerDpack:16,teknKapasitet:9500,liveHastighet:450},
+  {artNr:'12158',name:'DREAM MANGO&PASJON MINI 70MLX5',group:'Multipack',stkPerDpack:5,teknKapasitet:11000,liveHastighet:475},
+  {artNr:'12192',name:'ROYAL TROPISK 90ML 16STK',group:'Multipack',stkPerDpack:16,teknKapasitet:9500,liveHastighet:250},
+  {artNr:'12193',name:'ROYAL SITRON MØRK 16STK',group:'Små-is',stkPerDpack:16,teknKapasitet:9500,liveHastighet:450},
+  {artNr:'12194',name:'GIGANT SALTKARAMELL 240ML 8STK',group:'Små-is',stkPerDpack:8,teknKapasitet:7000,liveHastighet:600}
+];
+
+function importGlacier(){
+  if(!confirm('Importere 17 Glacier-produkter fra grunndata? Produkter som allerede finnes hoppes over. Esk/dpack settes til 1 og må kontrolleres.'))return;
+  const key=lk('Glacier');
+  const arr=[...(S.products?.[key]||[])];
+  const have=new Set(arr.map(p=>p.name));
+  let added=0;
+  GLACIER_SEED.forEach(s=>{
+    if(have.has(s.name))return;
+    arr.push({artNr:s.artNr,name:s.name,group:s.group,eskerPerDpack:1,stkPerDpack:s.stkPerDpack,teknKapasitet:s.teknKapasitet,liveHastighet:s.liveHastighet});
+    added++;
+  });
+  if(!added){showT('Alle Glacier-produkter finnes allerede',true);return;}
+  db.ref('settings/products/'+key).set(arr).then(()=>{
+    showT(added+' Glacier-produkter importert');
+    prodFilter.add('Glacier');renderProductFilter();renderProducts();
+  });
 }
 
 function showT(msg,isE=false){
