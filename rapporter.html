@@ -230,17 +230,18 @@ function plannedMinForDate(line,dateObj){
 }
 function lineProduct(line){
   const k=lk(line);const prods=SETTINGS.products?.[k]||[];const active=ACTIVE_PROD[k];
-  let p=prods.find(x=>x.name===active&&x.teknKapasitet>0&&x.stkPerDpack>0&&x.eskerPerDpack>0);
-  if(!p)p=prods.find(x=>x.teknKapasitet>0&&x.stkPerDpack>0&&x.eskerPerDpack>0);
+  let p=prods.find(x=>x.name===active&&x.teknKapasitet>0&&x.stkPerDpack>0);
+  if(!p)p=prods.find(x=>x.teknKapasitet>0&&x.stkPerDpack>0);
   return p||null;
 }
 function eskerFor(line,dateKey){const d=PROD_ALL[dateKey];return d?(d[lk(line)]||0):0;}
 function oeeOutput(line,dateObjs){
   const p=lineProduct(line);if(!p)return null;
-  let totStk=0,totMax=0;
-  dateObjs.forEach(d=>{const pm=plannedMinForDate(line,d);if(pm<=0)return;const esker=eskerFor(line,dateKeyOf(d));totStk+=(esker/p.eskerPerDpack)*p.stkPerDpack;totMax+=p.teknKapasitet*(pm/60);});
+  const maxDpackPerHour=p.teknKapasitet/p.stkPerDpack;
+  let totDpack=0,totMax=0;
+  dateObjs.forEach(d=>{const pm=plannedMinForDate(line,d);if(pm<=0)return;totDpack+=eskerFor(line,dateKeyOf(d));totMax+=maxDpackPerHour*(pm/60);});
   if(totMax<=0)return null;
-  return Math.max(0,Math.min(100,totStk/totMax*100));
+  return Math.max(0,Math.min(100,totDpack/totMax*100));
 }
 function oeeForDates(line,dateObjs){
   if(line&&line!=='Alle')return oeeOutput(line,dateObjs);

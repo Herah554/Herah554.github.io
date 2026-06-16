@@ -698,22 +698,23 @@ function lineProduct(line){
   const k=lk(line);
   const prods=SETTINGS.products?.[k]||[];
   const active=ACTIVE_PROD[k];
-  let p=prods.find(x=>x.name===active&&x.liveHastighet>0);
-  if(!p)p=prods.find(x=>x.liveHastighet>0);
+  let p=prods.find(x=>x.name===active&&x.teknKapasitet>0&&x.stkPerDpack>0);
+  if(!p)p=prods.find(x=>x.teknKapasitet>0&&x.stkPerDpack>0);
   return p||null;
 }
 function eskerFor(line,dateKey){const d=PROD_ALL[dateKey];return d?(d[lk(line)]||0):0;}
 
-// Aggregert OEE for en linje: telte dpack / (live dpack/t × planlagt tid). PLS-tellingen = antall dpack.
+// Aggregert OEE: telte dpack / (maks dpk/t × planlagt tid). Maks dpk/t = teknisk kapasitet ÷ stk per dpack.
 function oeeOutput(line,dateObjs){
   const p=lineProduct(line);
   if(!p)return null;
+  const maxDpackPerHour=p.teknKapasitet/p.stkPerDpack;
   let totDpack=0,totMax=0;
   dateObjs.forEach(d=>{
     const pm=plannedMinForDate(line,d);
     if(pm<=0)return;
     totDpack+=eskerFor(line,dateKeyOf(d));
-    totMax+=p.liveHastighet*(pm/60);
+    totMax+=maxDpackPerHour*(pm/60);
   });
   if(totMax<=0)return null;
   return Math.max(0,Math.min(100,totDpack/totMax*100));
