@@ -257,6 +257,31 @@ function daysOfYear(year){const a=[];for(let m=0;m<12;m++){const dim=new Date(ye
 function daysOfWeek(year,week){const mon=getMonWeek(year,week);const a=[];for(let i=0;i<7;i++){const d=new Date(mon);d.setDate(mon.getDate()+i);d.setHours(12,0,0,0);a.push(d);}return a;}
 function fmtNum(n){return (n||0).toLocaleString('no-NO');}
 
+// ── NEDETID-FORDELING (klippet mot planlagt produksjonstid) ──
+function prodIntervalsForDate(line,dateObj){
+  const sched=getSched(line);
+  const day=sched[_WD[dateObj.getDay()]];
+  if(!day||!day.on)return [];
+  const base=new Date(dateObj.getFullYear(),dateObj.getMonth(),dateObj.getDate()).getTime();
+  const s=_tmin(day.start), e=(day.end==='00:00'||day.end==='24:00')?1440:_tmin(day.end);
+  if(e<=s)return [];
+  let iv=[[s,e]];
+  (sched.breaks||[]).forEach(b=>{const bs=_tmin(b.start),be=_tmin(b.end);if(be<=bs)return;iv=iv.flatMap(([is,ie])=>{if(be<=is||bs>=ie)return[[is,ie]];const o=[];if(bs>is)o.push([is,bs]);if(be<ie)o.push([be,ie]);return o;});});
+  return iv.map(([is,ie])=>[base+is*60000,base+ie*60000]);
+}
+function downtimeOnDate(line,dateObj){
+  const iv=prodIntervalsForDate(line,dateObj);
+  if(!iv.length)return 0;
+  let mins=0;
+  EVENTS.forEach(ev=>{if(ev.line!==line)return;const a=ev.ts,b=ev.ts+(ev.duration||0)*60000;iv.forEach(([is,ie])=>{const lo=Math.max(a,is),hi=Math.min(b,ie);if(hi>lo)mins+=(hi-lo)/60000;});});
+  return Math.round(mins);
+}
+function downtimeForDates(line,dateObjs){
+  const lines=(line&&line!=='Alle')?[line]:LINES;
+  let t=0;dateObjs.forEach(d=>lines.forEach(l=>t+=downtimeOnDate(l,d)));
+  return Math.round(t);
+}
+
 auth.onAuthStateChanged(async user=>{
   if(!user){location.href='login.html';return;}
   const snap=await db.ref('users/'+user.uid).once('value');
@@ -347,7 +372,7 @@ function renderYear(year,line){
     const mEvts=evts.filter(e=>new Date(e.ts).getMonth()===m);
     const oee=oeeForDates(line,daysOfMonth(year,m));
     mOEE.push(oee!==null?parseFloat(oee.toFixed(1)):null);
-    mNd.push(mEvts.reduce((s,e)=>s+e.duration,0));
+    mNd.push(downtimeForDates(line,daysOfMonth(year,m)));
     mCnt.push(mEvts.length);
     mProd.push(eskerForDates(line,daysOfMonth(year,m)));
   }
@@ -406,7 +431,7 @@ function renderMonth(year,month,line){
     const dEvts=evts.filter(e=>new Date(e.ts).getDate()===d);
     const oee=oeeForDates(line,[dt]);
     dOEE.push(oee!==null?parseFloat(oee.toFixed(1)):null);
-    dNd.push(dEvts.reduce((s,e)=>s+e.duration,0));
+    dNd.push(downtimeForDates(line,[dt]));
     dProd.push(eskerForDates(line,[dt]));
   }
   const oeeM=oeeForDates(line,daysOfMonth(year,month));
@@ -457,8 +482,8 @@ function renderWeek(year,month,line){
   if(!weeks.length){document.getElementById('report-content').innerHTML='<div class="card"><div style="color:var(--text3);text-align:center;padding:2rem">Ingen data for valgt periode.</div></div>';return;}
   const rows=weeks.map(wk=>{
     const wEvts=weekMap[wk];
-    const nd=wEvts.reduce((s,e)=>s+e.duration,0);
     const wkDays=daysOfWeek(year,parseInt(wk));
+    const nd=downtimeForDates(line,wkDays);
     const oee=oeeForDates(line,wkDays);
     const produced=eskerForDates(line,wkDays);
     const oeeStr=oee!==null?oee.toFixed(1)+'%':'—';
@@ -505,11 +530,11 @@ function renderCompare(year,year2,line){
     if(isF)return null;
     return oeeForDates(line,daysOfMonth(yr,m));
   }
-  function getMonthNd(evts,m){return evts.filter(e=>new Date(e.ts).getMonth()===m).reduce((s,e)=>s+e.duration,0);}
+  function getMonthNd(yr,m){return downtimeForDates(line,daysOfMonth(yr,m));}
   const oee1=Array.from({length:12},(_,m)=>getMonthOEE(evts1,year,m)).map(v=>v!==null?parseFloat(v.toFixed(1)):null);
   const oee2=Array.from({length:12},(_,m)=>getMonthOEE(evts2,year2,m)).map(v=>v!==null?parseFloat(v.toFixed(1)):null);
-  const nd1=Array.from({length:12},(_,m)=>getMonthNd(evts1,m));
-  const nd2=Array.from({length:12},(_,m)=>getMonthNd(evts2,m));
+  const nd1=Array.from({length:12},(_,m)=>getMonthNd(year,m));
+  const nd2=Array.from({length:12},(_,m)=>getMonthNd(year2,m));
   const oeeYTD1=oeeForDates(line,daysOfYear(year));
   const oeeYTD2=oeeForDates(line,daysOfYear(year2));
   const nd1Total=evts1.reduce((s,e)=>s+e.duration,0);
