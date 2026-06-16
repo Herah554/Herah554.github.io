@@ -1,0 +1,1420 @@
+<!DOCTYPE html>
+<!-- v1781269331 -->
+<html lang="no">
+<head>
+<meta charset="UTF-8"/>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+<meta http-equiv="Pragma" content="no-cache"/>
+<meta http-equiv="Expires" content="0"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Diplom-is — Produksjon</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f4f6f9;--bg2:#fff;--bg3:#eef0f4;--border:#e2e6ed;
+  --text:#18202e;--text2:#4a5568;--text3:#8a95a8;
+  --red:#dc2626;--amber:#d97706;--green:#16a34a;--blue:#2563eb;--purple:#7c3aed;--teal:#0d9488;
+  --accent:#e63329;
+  --font:'IBM Plex Sans',sans-serif;--mono:'IBM Plex Mono',monospace;
+  --r:8px;--rl:12px;--sh:0 1px 4px rgba(0,0,0,.08);--shm:0 4px 20px rgba(0,0,0,.12);
+}
+body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14px;min-height:100vh}
+nav{background:var(--bg2);border-bottom:1px solid var(--border);height:54px;display:flex;align-items:center;padding:0 1.5rem;gap:.4rem;position:sticky;top:0;z-index:50;box-shadow:var(--sh)}
+.logo{font-weight:600;font-size:15px;color:var(--accent);margin-right:.3rem}.logo span{font-weight:400;font-size:12px;color:var(--text3)}
+.nl{font-size:13px;color:var(--text2);text-decoration:none;padding:5px 10px;border-radius:var(--r);font-weight:500;white-space:nowrap}
+.nl:hover{background:var(--bg3)}.nl.on{color:var(--accent);background:var(--bg3)}
+.ml{margin-left:auto;display:flex;align-items:center;gap:8px}
+.ubadge{font-size:11px;font-family:var(--mono);background:var(--bg3);padding:3px 9px;border-radius:99px;color:var(--text2);white-space:nowrap}
+.lout{font-size:12px;background:none;border:1px solid var(--border);border-radius:var(--r);padding:4px 9px;cursor:pointer;color:var(--text3);white-space:nowrap}
+.lout:hover{border-color:#fecaca;color:var(--red)}
+.clk{font-family:var(--mono);font-size:12px;color:var(--text3);white-space:nowrap}
+/* PRODUCTION VIEW */
+.prod-view{display:none}.prod-view.on{display:block}
+.line-bars{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;margin-bottom:.75rem}
+.line-bar-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:.85rem 1rem;box-shadow:var(--sh);cursor:pointer;transition:border-color .15s}
+.line-bar-card:hover{border-color:var(--accent)}
+.line-bar-card.sel{border-color:var(--accent);background:#fef2f2}
+.lbc-name{font-size:11px;font-weight:600;color:var(--text);margin-bottom:6px;font-family:var(--mono);text-transform:uppercase}
+.lbc-val{font-size:20px;font-weight:600;color:var(--text);line-height:1}
+.lbc-sub{font-size:10px;color:var(--text3);margin-top:2px}
+.lbc-bar{height:4px;background:var(--bg3);border-radius:99px;margin-top:8px}
+.lbc-bar-fill{height:100%;border-radius:99px;background:var(--accent);transition:width .5s}
+/* PRODUCTION COUNTER */
+.prod-card{background:rgba(255,255,255,.15);border-radius:var(--r);padding:.6rem 1rem;min-width:120px;text-align:center}
+.prod-card-val{font-size:28px;font-weight:600;line-height:1}
+.prod-card-lbl{font-size:11px;opacity:.8;margin-top:2px}
+.prod-select{background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.3);border-radius:var(--r);color:#fff;padding:6px 10px;font-family:var(--font);font-size:13px;outline:none;cursor:pointer}
+.prod-select option{background:#e63329;color:#fff}
+/* LINE OPERATOR BANNER */
+.op-banner{background:linear-gradient(135deg,var(--accent) 0%,#ff7043 100%);color:#fff;padding:.85rem 1.5rem;display:none;align-items:center;gap:12px}
+.op-banner-line{font-size:18px;font-weight:600}
+.op-banner-sub{font-size:12px;opacity:.85}
+.prod-status{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.2);border-radius:99px;padding:4px 12px;font-size:12px;font-weight:500}
+.prod-dot{width:8px;height:8px;border-radius:50%;background:#fff;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.page{max-width:1300px;margin:0 auto;padding:1.25rem 1.5rem}
+h2{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin:1rem 0 .55rem;font-family:var(--mono)}
+h2:first-child{margin-top:0}
+/* FILTER */
+.fbar{display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-bottom:.9rem}
+.fb{padding:4px 12px;border-radius:99px;font-size:12px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:var(--bg2);color:var(--text2);white-space:nowrap}
+.fb.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn-da{background:#fff;border:1px solid var(--red);color:var(--red);border-radius:var(--r);font-size:11px;font-weight:600;padding:4px 10px;cursor:pointer;margin-left:auto;white-space:nowrap}
+.btn-da:hover{background:var(--red);color:#fff}
+/* KPI */
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:1rem}
+.kpi{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:.8rem 1rem;box-shadow:var(--sh);position:relative;overflow:hidden}
+.kpi::after{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.kpi.red::after{background:var(--red)}.kpi.amber::after{background:var(--amber)}
+.kpi.green::after{background:var(--green)}.kpi.blue::after{background:var(--blue)}.kpi.purple::after{background:var(--purple)}
+.klbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;font-family:var(--mono);margin-bottom:4px}
+.kval{font-size:20px;font-weight:600;line-height:1;margin-bottom:3px}
+.ksub{font-size:10px;color:var(--text3)}
+/* TABS */
+.tabs{display:flex;gap:3px;background:var(--bg3);border-radius:var(--r);padding:3px;width:fit-content;margin-bottom:.65rem;flex-wrap:wrap}
+.tab{padding:4px 12px;border-radius:6px;font-size:11px;font-weight:500;cursor:pointer;border:none;background:transparent;color:var(--text2)}
+.tab.on{background:var(--bg2);color:var(--text);box-shadow:var(--sh)}
+.cp{display:none}.cp.on{display:block}
+/* CARD */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:1rem 1.1rem;box-shadow:var(--sh);margin-bottom:.75rem}
+.ct{font-size:12px;font-weight:600;color:var(--text);margin-bottom:.7rem;display:flex;align-items:center;gap:7px}
+.ca{width:3px;height:13px;border-radius:2px;flex-shrink:0}
+.cw{position:relative;height:200px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:.75rem}
+/* FORM */
+.fg{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.fr{margin-bottom:8px}
+label{display:block;font-size:10px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
+select,input,textarea{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text);padding:7px 9px;font-family:var(--font);font-size:13px;outline:none;transition:border-color .15s}
+select:focus,input:focus,textarea:focus{border-color:var(--accent)}
+select:disabled{opacity:.4;cursor:not-allowed}
+textarea{resize:vertical;min-height:55px}
+.btn-reg{width:100%;margin-top:.5rem;background:var(--accent);border:none;border-radius:var(--r);color:#fff;font-size:13px;font-weight:600;padding:9px;cursor:pointer}
+.btn-reg:hover{opacity:.9}
+/* HISTORY */
+.hist{display:flex;flex-direction:column;gap:6px;max-height:420px;overflow-y:auto;padding-right:2px}
+.hist::-webkit-scrollbar{width:3px}
+.hist::-webkit-scrollbar-thumb{background:var(--border);border-radius:99px}
+.ei{display:flex;align-items:flex-start;gap:8px;padding:8px 10px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border)}
+.edot{width:7px;height:7px;border-radius:50%;margin-top:5px;flex-shrink:0}
+.einfo{flex:1;min-width:0}
+.en{font-size:12px;font-weight:500;color:var(--text)}
+.em{font-size:10px;color:var(--text3);font-family:var(--mono);margin-top:2px;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.ec{font-size:11px;color:var(--text2);margin-top:2px}
+.dbtn{background:none;border:none;cursor:pointer;color:var(--text3);padding:2px 5px;border-radius:3px;font-size:12px;flex-shrink:0}
+.dbtn:hover{background:#fef2f2;color:var(--red)}
+/* BADGES */
+.badge{display:inline-block;font-size:9px;font-family:var(--mono);padding:1px 5px;border-radius:3px;font-weight:600;text-transform:uppercase}
+.br{background:#fef2f2;color:var(--red);border:1px solid #fecaca}
+.ba{background:#fffbeb;color:var(--amber);border:1px solid #fde68a}
+.bb{background:#eff6ff;color:var(--blue);border:1px solid #bfdbfe}
+.bg2c{background:#f0fdf4;color:var(--green);border:1px solid #bbf7d0}
+.bpu{background:#f5f3ff;color:var(--purple);border:1px solid #ddd6fe}
+/* TABLE */
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th{font-size:10px;font-family:var(--mono);text-transform:uppercase;color:var(--text3);padding:5px 8px;text-align:left;border-bottom:1px solid var(--border)}
+td{padding:7px 8px;font-size:12px;border-bottom:1px solid var(--border);color:var(--text2);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--bg3)}
+td:first-child{font-family:var(--mono);font-size:11px;color:var(--text3)}
+.rdel{background:none;border:none;cursor:pointer;color:var(--text3);padding:2px 5px;border-radius:3px;font-size:11px}
+.rdel:hover{background:#fef2f2;color:var(--red)}
+/* MACHINE BREAKDOWN */
+.mblock{border:1px solid var(--border);border-radius:var(--r);margin-bottom:.5rem;overflow:hidden}
+.mhdr{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg3);cursor:pointer;user-select:none}
+.mhdr:hover{background:#e4e7ed}
+.mhdr-l{font-size:13px;font-weight:600;color:var(--text)}
+.mhdr-r{display:flex;align-items:center;gap:10px;font-size:11px;color:var(--text3);font-family:var(--mono)}
+.mdetail{display:none}
+/* DATE FILTER */
+.date-filter{display:flex;align-items:center;gap:8px;margin-bottom:.75rem;flex-wrap:wrap}
+.date-filter input[type=date]{width:auto;padding:5px 8px;font-size:12px}
+.date-preset{padding:4px 10px;border-radius:var(--r);font-size:11px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:var(--bg2);color:var(--text2)}
+.date-preset.on{background:var(--blue);border-color:var(--blue);color:#fff}
+/* HEATMAP */
+.hmg{display:grid;grid-template-columns:32px repeat(10,1fr);gap:2px}
+.hmc{border-radius:3px;height:20px;display:flex;align-items:center;justify-content:center;font-size:9px;font-family:var(--mono)}
+.hml{display:flex;align-items:center;justify-content:flex-end;padding-right:4px;font-size:9px;color:var(--text3);font-family:var(--mono)}
+/* BANNERS */
+.ban{display:none;border-radius:var(--r);padding:6px 10px;font-size:11px;margin-bottom:8px}
+.ban-g{background:#f0fdf4;border:1px solid #bbf7d0;color:#166534}
+.ban-p{background:#f5f3ff;border:1px solid #ddd6fe;color:#6d28d9}
+.dur-hint{font-size:10px;color:var(--text3);margin-top:2px;min-height:13px}
+/* MODAL */
+.mover{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:200;align-items:center;justify-content:center}
+.mover.on{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:1.25rem;width:340px;box-shadow:var(--shm)}
+.modal h3{font-size:14px;font-weight:600;margin-bottom:6px}
+.modal p{font-size:12px;color:var(--text2);margin-bottom:1rem}
+.mbtns{display:flex;gap:7px}
+.mcan{flex:1;padding:8px;border:1px solid var(--border);background:var(--bg3);border-radius:var(--r);cursor:pointer;font-size:12px;color:var(--text2)}
+.mcon{flex:1;padding:8px;border:none;background:var(--red);border-radius:var(--r);cursor:pointer;font-size:12px;font-weight:600;color:#fff}
+/* TOAST */
+.unhandled-banner{display:none;background:#fffbeb;border-bottom:2px solid var(--amber);padding:.6rem 1.5rem;align-items:center;gap:10px}
+.unhandled-banner.on{display:flex}
+.ub-icon{font-size:16px}
+.ub-text{font-size:13px;font-weight:500;color:#92400e}
+.ub-count{background:var(--amber);color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;font-family:var(--mono)}
+.ub-btn{margin-left:auto;background:var(--amber);border:none;border-radius:var(--r);color:#fff;font-size:12px;font-weight:600;padding:6px 14px;cursor:pointer}
+.ub-btn:hover{opacity:.9}
+/* HANDLE MODAL */
+.hmodal{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:1.25rem;width:520px;max-width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.18)}
+.hmodal h3{font-size:15px;font-weight:600;margin-bottom:.3rem}
+.hmodal-sub{font-size:12px;color:var(--text3);margin-bottom:1rem}
+.he-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:.85rem 1rem;margin-bottom:.6rem}
+.he-hdr{display:flex;align-items:center;gap:8px;margin-bottom:.65rem}
+.he-dot{width:8px;height:8px;border-radius:50%;background:var(--amber);flex-shrink:0}
+.he-title{font-size:13px;font-weight:600;color:var(--text)}
+.he-meta{font-size:10px;color:var(--text3);font-family:var(--mono);margin-left:auto}
+.he-fr{margin-bottom:7px}
+.he-lbl{font-size:10px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
+.he-sel{width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);color:var(--text);padding:7px 9px;font-family:var(--font);font-size:13px;outline:none}
+.he-sel:focus{border-color:var(--accent)}
+.he-inp{width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);color:var(--text);padding:7px 9px;font-family:var(--font);font-size:13px;outline:none;resize:vertical;min-height:50px}
+.he-inp:focus{border-color:var(--accent)}
+.he-btns{display:flex;gap:7px;margin-top:.75rem}
+.he-skip{flex:1;padding:7px;border:1px solid var(--border);background:var(--bg2);border-radius:var(--r);cursor:pointer;font-size:12px;color:var(--text2)}
+.he-skip:hover{background:var(--border)}
+.he-save{flex:2;padding:7px;border:none;background:var(--green);border-radius:var(--r);cursor:pointer;font-size:12px;font-weight:600;color:#fff}
+.he-save:hover{opacity:.9}
+.he-done{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:var(--r);padding:6px 10px;font-size:11px;color:var(--green);text-align:center;font-weight:500}
+.toast{position:fixed;bottom:18px;right:18px;background:var(--bg2);border:1px solid #bbf7d0;color:var(--green);font-size:12px;font-weight:600;padding:8px 14px;border-radius:var(--r);opacity:0;transition:opacity .3s;pointer-events:none;box-shadow:var(--shm)}
+.toast.e{border-color:#fecaca;color:var(--red)}
+@media(max-width:1000px){.kpis{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:700px){.kpis{grid-template-columns:repeat(2,1fr)}.g2{grid-template-columns:1fr}.page{padding:1rem}nav{padding:0 1rem}.fg{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<nav>
+  <div class="logo">Diplom-is<span> / Produksjon</span></div>
+  <a href="index.html" class="nl on">Dashboard</a>
+  <a href="rapporter.html" class="nl" id="nav-rap" style="display:none">Rapporter</a>
+  <a href="innstillinger.html" class="nl" id="nav-set" style="display:none">Innstillinger</a>
+  <a href="brukere.html" class="nl" id="nav-usr" style="display:none">Brukere</a>
+  <div class="ml">
+    <div class="clk" id="clk">--:--:--</div>
+    <div class="ubadge" id="ubadge">—</div>
+    <button class="lout" onclick="signout()">Logg ut</button>
+  </div>
+</nav>
+
+<!-- Unhandled downtime banner -->
+<div class="unhandled-banner" id="unhandled-banner">
+  <span class="ub-icon">⚠️</span>
+  <span class="ub-text">Ubehandlede nedetider</span>
+  <span class="ub-count" id="ub-count">0</span>
+  <button class="ub-btn" onclick="openHandleModal()">Behandle nå →</button>
+</div>
+
+<!-- Operator banner — shown for linjeoperator -->
+<div class="op-banner" id="op-banner">
+  <div>
+    <div class="op-banner-line" id="op-line-name">—</div>
+    <div class="op-banner-sub" id="op-line-sub">Linjeoperatør</div>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px;margin-left:1rem">
+    <div>
+      <div style="font-size:10px;opacity:.75;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">Aktivt produkt</div>
+      <select class="prod-select" id="active-product" onchange="onProductChange()">
+        <option value="">— Velg produkt —</option>
+      </select>
+    </div>
+  </div>
+  <div class="prod-card" style="margin-left:.5rem">
+    <div class="prod-card-val" id="counter-dpack">—</div>
+    <div class="prod-card-lbl">Dpack i dag</div>
+  </div>
+  <div class="prod-card">
+    <div class="prod-card-val" id="counter-esker">—</div>
+    <div class="prod-card-lbl">Esker i dag</div>
+  </div>
+  <div class="prod-status" style="margin-left:auto">
+    <div class="prod-dot"></div>
+    <span id="prod-running-txt">Produksjon kjører</span>
+  </div>
+</div>
+
+<main class="page">
+  <h2 id="filter-sec-h">Filtrer</h2>
+  <div class="fbar" id="fbar">
+    <button class="fb on" onclick="setFilter('Alle',this)">Alle linjer</button>
+    <button class="fb" onclick="setFilter('Løp 1',this)">Løp 1</button>
+    <button class="fb" onclick="setFilter('Løp 2',this)">Løp 2</button>
+    <button class="fb" onclick="setFilter('Løp 3',this)">Løp 3</button>
+    <button class="fb" onclick="setFilter('Rollo',this)">Rollo</button>
+    <button class="fb" onclick="setFilter('Koba',this)">Koba</button>
+    <button class="fb" onclick="setFilter('Glacier',this)">Glacier</button>
+    <button class="fb" onclick="setFilter('Krokan',this)">Krokan</button>
+    <button class="btn-da" onclick="askDelAll()">Slett alle</button>
+  </div>
+
+  <h2>Nøkkeltall</h2>
+  <div class="kpis">
+    <div class="kpi red"><div class="klbl">Nedetid i dag</div><div class="kval" id="k-today">—</div><div class="ksub" id="k-goal">Mål: —</div></div>
+    <div class="kpi green"><div class="klbl">OEE i dag</div><div class="kval" id="k-oee">—</div><div class="ksub" id="k-oee-sub">—</div></div>
+    <div class="kpi blue"><div class="klbl">OEE denne uken</div><div class="kval" id="k-oee-wtd">—</div><div class="ksub">Week to date</div></div>
+    <div class="kpi purple"><div class="klbl">OEE denne måneden</div><div class="kval" id="k-oee-mtd">—</div><div class="ksub">Month to date</div></div>
+    <div class="kpi amber"><div class="klbl">Hendelser denne uke</div><div class="kval" id="k-week">—</div><div class="ksub">Registrerte stopp</div></div>
+  </div>
+
+  <h2>Oversikt</h2>
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:.65rem;flex-wrap:wrap">
+    <div class="tabs" id="main-tabs" style="margin-bottom:0">
+      <button class="tab" onclick="showMainView('oee',this)">OEE-utvikling</button>
+      <button class="tab on" onclick="showMainView('prod',this)">Produksjon</button>
+    </div>
+    <div class="tabs" id="oee-tabs" style="margin-bottom:0;display:none">
+      <button class="tab on" onclick="showOEE('wtd',this)">Uke</button>
+      <button class="tab" onclick="showOEE('mtd',this)">Måned</button>
+      <button class="tab" onclick="showOEE('ytd',this)">År</button>
+    </div>
+    <div class="tabs" id="prod-tabs" style="margin-bottom:0">
+      <button class="tab on" onclick="showProd('day',this)">I dag</button>
+      <button class="tab" onclick="showProd('week',this)">Uke</button>
+      <button class="tab" onclick="showProd('month',this)">Måned</button>
+    </div>
+  </div>
+  <div class="card" id="oee-card" style="display:none">
+    <div class="ct"><div class="ca" style="background:var(--purple)"></div><span id="oee-title">OEE denne uken (%)</span></div>
+    <div class="cw"><canvas id="ch-oee"></canvas></div>
+  </div>
+
+  <div class="prod-view on" id="pv-main">
+    <div class="card">
+      <div class="ct"><div class="ca" style="background:var(--green)"></div><span id="prod-chart-title">Produksjon i dag — alle linjer</span></div>
+      <div class="line-bars" id="prod-line-bars"></div>
+      <div class="cw"><canvas id="ch-prod"></canvas></div>
+    </div>
+  </div>
+
+  <h2>Nedetidsanalyse</h2>
+  <div class="tabs" id="nd-tabs">
+    <button class="tab on" onclick="showND('daily',this)">Daglig</button>
+    <button class="tab" onclick="showND('weekly',this)">Ukentlig</button>
+    <button class="tab" onclick="showND('causes',this)">Årsaker</button>
+    <button class="tab" onclick="showND('maskiner',this)">Maskiner</button>
+    <button class="tab" onclick="showND('heatmap',this)">Heatmap</button>
+  </div>
+  <div class="cp on" id="cp-daily"><div class="card"><div class="ct"><div class="ca" style="background:var(--accent)"></div>Nedetid per time i dag</div><div class="cw"><canvas id="ch-daily"></canvas></div></div></div>
+  <div class="cp" id="cp-weekly"><div class="card"><div class="ct"><div class="ca" style="background:var(--accent)"></div>Nedetid per dag denne uken</div><div class="cw"><canvas id="ch-weekly"></canvas></div></div></div>
+  <div class="cp" id="cp-causes">
+    <div class="g2">
+      <div class="card"><div class="ct"><div class="ca" style="background:var(--amber)"></div>Nedetid per maskin og årsak</div><div class="cw"><canvas id="ch-bar"></canvas></div></div>
+      <div class="card"><div class="ct"><div class="ca" style="background:var(--blue)"></div>Fordeling per årsak</div><div class="cw"><canvas id="ch-pie"></canvas></div></div>
+    </div>
+  </div>
+  <div class="cp" id="cp-maskiner">
+    <div class="card">
+      <div class="ct"><div class="ca" style="background:var(--teal)"></div>Maskiner — klikk for å se hendelser</div>
+      <div class="date-filter">
+        <button class="date-preset on" onclick="setDatePreset('week',this)">Denne uken</button>
+        <button class="date-preset" onclick="setDatePreset('month',this)">Denne måneden</button>
+        <button class="date-preset" onclick="setDatePreset('all',this)">Alle</button>
+        <span style="font-size:11px;color:var(--text3)">Egendefinert:</span>
+        <input type="date" id="date-from" onchange="setDatePreset('custom',null)"/>
+        <span style="font-size:11px;color:var(--text3)">—</span>
+        <input type="date" id="date-to" onchange="setDatePreset('custom',null)"/>
+      </div>
+      <div id="mach-list"></div>
+    </div>
+  </div>
+  <div class="cp" id="cp-heatmap">
+    <div class="card">
+      <div class="ct"><div class="ca" style="background:var(--purple)"></div>Heatmap — nedetid per dag og time</div>
+      <div style="display:grid;grid-template-columns:32px repeat(10,1fr);gap:2px;margin-bottom:3px;font-size:9px;color:var(--text3);font-family:var(--mono)">
+        <div></div><div style="text-align:center">06</div><div style="text-align:center">07</div><div style="text-align:center">08</div><div style="text-align:center">09</div><div style="text-align:center">10</div><div style="text-align:center">11</div><div style="text-align:center">12</div><div style="text-align:center">13</div><div style="text-align:center">14</div><div style="text-align:center">15</div>
+      </div>
+      <div class="hmg" id="hm"></div>
+    </div>
+  </div>
+
+  <h2>Registrer hendelse</h2>
+  <div class="g2">
+    <div class="card">
+      <div class="fr"><label>1. Linje</label>
+        <select id="f-line" onchange="onLine()">
+          <option value="">— Velg linje —</option>
+          <option>Løp 1</option><option>Løp 2</option><option>Løp 3</option>
+          <option>Rollo</option><option>Koba</option><option>Glacier</option><option>Krokan</option>
+        </select>
+      </div>
+      <div class="fr"><label>2. Maskin</label><select id="f-machine" onchange="onMachine()" disabled><option value="">— Velg linje først —</option></select></div>
+      <div class="fr"><label>3. Årsak</label><select id="f-cause" onchange="onCause()" disabled><option value="">— Velg maskin først —</option></select></div>
+      <div class="ban ban-g" id="b-omst">🔄 Omstilling — registreres på alle maskiner på linjen.</div>
+      <div class="ban ban-p" id="b-plan">📅 Planlagt stopp.</div>
+      <div class="fg">
+        <div class="fr"><label>Dato og tid</label><input type="datetime-local" id="f-time" step="60"/></div>
+        <div class="fr"><label>Varighet</label><input type="text" id="f-dur" placeholder="45m / 1t / 1t30m" oninput="onDur()"/><div class="dur-hint" id="dur-hint"></div></div>
+      </div>
+      <div class="fr"><label>Alvorlighetsgrad</label>
+        <select id="f-sev">
+          <option value="low">Lav — planlagt / mindre</option>
+          <option value="medium" selected>Middels — påvirker produksjon</option>
+          <option value="high">Høy — full stopp</option>
+        </select>
+      </div>
+      <div class="fr"><label>Kommentar</label><textarea id="f-com" placeholder="Hva skjedde?"></textarea></div>
+      <button class="btn-reg" onclick="submit()">Registrer hendelse</button>
+    </div>
+    <div class="card">
+      <div class="ct"><div class="ca" style="background:var(--accent)"></div>Siste hendelser</div>
+      <div class="hist" id="hist"><div style="color:var(--text3);font-size:12px;padding:.5rem 0">Ingen hendelser enda.</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="ct"><div class="ca" style="background:var(--accent)"></div>Hendelseslogg</div>
+    <div class="tw"><table><thead><tr><th>Tid</th><th>Linje</th><th>Maskin</th><th>Årsak</th><th>Varighet</th><th>Type</th><th>Kommentar</th><th></th></tr></thead><tbody id="tbl"><tr><td colspan="8" style="color:var(--text3);text-align:center;padding:1.5rem">Ingen hendelser enda</td></tr></tbody></table></div>
+  </div>
+</main>
+
+<!-- Handle modal -->
+<div class="mover" id="handle-modal">
+  <div class="hmodal">
+    <h3>⚠️ Ubehandlede nedetider</h3>
+    <div class="hmodal-sub" id="handle-sub">—</div>
+    <div id="handle-list"></div>
+    <div style="display:flex;gap:8px;margin-top:1rem">
+      <button style="flex:1;padding:9px;border:1px solid var(--border);background:var(--bg3);border-radius:var(--r);cursor:pointer;font-size:13px;color:var(--text2)" onclick="closeHandleModal()">Lukk</button>
+    </div>
+  </div>
+</div>
+
+<div class="mover" id="modal">
+  <div class="modal">
+    <h3 id="m-title">Slett?</h3><p id="m-desc"></p>
+    <div class="mbtns"><button class="mcan" onclick="closeM()">Avbryt</button><button class="mcon" id="m-btn" onclick="doDelete()">Slett</button></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const FB={apiKey:"AIzaSyCL4x1KNwgeDxqTFeP32BndJgH4B5MworQ",authDomain:"messystem-f14dd.firebaseapp.com",databaseURL:"https://messystem-f14dd-default-rtdb.firebaseio.com",projectId:"messystem-f14dd",storageBucket:"messystem-f14dd.firebasestorage.app",messagingSenderId:"1001051250309",appId:"1:1001051250309:web:0b2d82db50e8fd24ce93ec"};
+if(!firebase.apps.length) firebase.initializeApp(FB);
+localStorage.setItem('firebaseConfig',JSON.stringify(FB));
+const db=firebase.database(), auth=firebase.auth();
+
+// ── STATE ──
+let EVENTS=[], SETTINGS={globalGoal:30,oeeGoal:97,defaultDayHours:8,lineGoals:{},oeeGoals:{},machines:{},causes:{},generalCauses:[],plannedStops:[],prodPlan:{}};
+const LINES_ALL=['Løp 1','Løp 2','Løp 3','Rollo','Koba','Glacier','Krokan'];
+let filterLine='Alle', myProfile=null, delId=null, delAll=false, charts={}, oeeMode='wtd';
+let dateFrom=null, dateTo=null, datePreset='week';
+let PROD_ALL={}, ACTIVE_PROD={};
+
+// ── CLOCK ──
+setInterval(()=>{document.getElementById('clk').textContent=new Date().toLocaleTimeString('no-NO');},1000);
+document.getElementById('clk').textContent=new Date().toLocaleTimeString('no-NO');
+
+// ── UTILS ──
+const pad=n=>String(n).padStart(2,'0');
+function fmtD(m){if(!m&&m!==0)return'—';if(m<60)return m+'m';const h=Math.floor(m/60),r=m%60;return r?h+'t '+r+'m':h+'t';}
+function fmtT(ts){const d=new Date(ts);return pad(d.getDate())+'.'+pad(d.getMonth()+1)+' '+pad(d.getHours())+':'+pad(d.getMinutes());}
+function isToday(ts){return new Date(ts).toDateString()===new Date().toDateString();}
+function isWTD(ts){const d=new Date(ts),n=new Date(),s=new Date(n);s.setDate(n.getDate()-((n.getDay()+6)%7));s.setHours(0,0,0,0);return d>=s;}
+function isMTD(ts){const d=new Date(ts),n=new Date();return d.getMonth()===n.getMonth()&&d.getFullYear()===n.getFullYear();}
+function parseDur(s){
+  if(!s||!s.trim())return null;
+  s=s.trim().toLowerCase().replace(',','.');
+  let m=0;
+  const t=s.match(/(\d+\.?\d*)t/),mn=s.match(/(\d+\.?\d*)m/);
+  if(t)m+=parseFloat(t[1])*60;
+  if(mn)m+=parseFloat(mn[1]);
+  if(!t&&!mn){const n=parseFloat(s);if(!isNaN(n))m=n;}
+  return Math.round(m)||null;
+}
+function lk(l){return(l||'').replace(/[\s\/]/g,'_');}
+function isPlanned(c){return(SETTINGS.plannedStops||[]).includes(c);}
+function isOmst(c){return/omstilling/i.test(c);}
+function getMachines(line){return SETTINGS.machines?.[lk(line)]||[];}
+function getCauses(line,machine){
+  const gen=(SETTINGS.generalCauses||[]).map(c=>({n:c,t:'gen'}));
+  const cust=(SETTINGS.causes?.[lk(line)+'__'+lk(machine)]||[]).map(c=>({n:c,t:'cust'}));
+  const plan=(SETTINGS.plannedStops||[]).map(c=>({n:c,t:'plan'}));
+  return [...gen,...cust,...plan];
+}
+// Get filtered events — respects role, line filter
+function getFiltered(){
+  let evts=filterLine==='Alle'?[...EVENTS]:EVENTS.filter(e=>e.line===filterLine);
+  return evts;
+}
+// Get events filtered by date range (for machine view)
+function getDateFiltered(evts){
+  if(!dateFrom&&!dateTo)return evts;
+  return evts.filter(e=>{
+    const d=new Date(e.ts);d.setHours(0,0,0,0);
+    if(dateFrom&&d<dateFrom)return false;
+    if(dateTo&&d>dateTo)return false;
+    return true;
+  });
+}
+function getDayPlanMin(line){
+  if(!line||line==='Alle')return(SETTINGS.defaultDayHours||8)*60;
+  const wh=SETTINGS.prodPlan?.[lk(line)]?.weekHours;
+  return wh?(wh/5*60):(SETTINGS.defaultDayHours||8)*60;
+}
+function getOEEGoal(line){
+  if(!line||line==='Alle')return SETTINGS.oeeGoal||97;
+  return SETTINGS.oeeGoals?.[lk(line)]||SETTINGS.oeeGoal||97;
+}
+function getGoal(line){
+  if(!line||line==='Alle')return SETTINGS.globalGoal||30;
+  return SETTINGS.lineGoals?.[lk(line)]||SETTINGS.globalGoal||30;
+}
+function calcOEE(evts,planMin){
+  if(!planMin||planMin<=0)return null;
+  const nd=evts.reduce((s,e)=>s+e.duration,0);
+  return Math.max(0,Math.min(100,(planMin-nd)/planMin*100));
+}
+function sevInfo(s){return s==='high'?['var(--red)','br','Høy']:s==='medium'?['var(--amber)','ba','Middels']:['var(--blue)','bb','Lav'];}
+
+// ── AUTH ──
+auth.onAuthStateChanged(async user=>{
+  if(!user){location.href='login.html';return;}
+  try{
+    const snap=await db.ref('users/'+user.uid).once('value');
+    if(!snap.exists()){auth.signOut();location.href='login.html';return;}
+    myProfile=snap.val();
+    const role=myProfile.role;
+    document.getElementById('ubadge').textContent=myProfile.name+' · '+(role==='master'?'Master':role==='leder'?'Leder':'Operatør');
+    // Nav visibility
+    if(role==='master'||role==='leder'){
+      document.getElementById('nav-rap').style.display='';
+      document.getElementById('nav-set').style.display='';
+      document.getElementById('nav-usr').style.display='';
+    }
+    // Linjeoperatør: show banner, hide filter, lock to their lines
+    if(role==='linjeoperator'){
+      document.getElementById('fbar').style.display='none';
+      document.getElementById('filter-sec-h').style.display='none';
+      document.getElementById('nav-set').style.display='none';
+      document.getElementById('nav-usr').style.display='none';
+      const lines=myProfile.lines||[];
+      const banner=document.getElementById('op-banner');
+      banner.style.display='flex';
+      document.getElementById('op-line-name').textContent=lines.length===1?lines[0]:lines.join(', ');
+      document.getElementById('op-line-sub').textContent='Linjeoperatør'+(lines.length===1?' — '+lines[0]:'');
+      if(lines.length===1){
+        filterLine=lines[0];
+        // Lock line select in form
+        const fline=document.getElementById('f-line');
+        fline.innerHTML='<option value="'+lines[0]+'">'+lines[0]+'</option>';
+        fline.value=lines[0];
+        fline.disabled=true;
+        onLine();
+      } else if(lines.length>1){
+        // Multiple lines — show only those in filter
+        filterLine=lines[0];
+        const fline=document.getElementById('f-line');
+        fline.innerHTML='';
+        lines.forEach(l=>{const o=document.createElement('option');o.value=l;o.textContent=l;fline.appendChild(o);});
+        fline.value=lines[0];
+        onLine();
+      }
+      if(filterLine&&filterLine!=='Alle')updateProductSelector(filterLine);
+    }
+  }catch(e){console.error(e);}
+});
+
+// ── FIREBASE LISTENERS — set up once, guarded ──
+const eventsRef=db.ref('events');
+const settingsRef=db.ref('settings');
+
+function handleSettings(snap){
+  if(snap.exists()){
+    SETTINGS=Object.assign({globalGoal:30,oeeGoal:97,defaultDayHours:8,lineGoals:{},oeeGoals:{},machines:{},causes:{},generalCauses:[],plannedStops:[],prodPlan:{}},snap.val());
+  }
+  onLine();renderAll();
+  // Fill the operator's "Velg produkt" dropdown from the product database
+  if(myProfile&&myProfile.role==='linjeoperator'&&filterLine&&filterLine!=='Alle'){
+    updateProductSelector(filterLine);
+  }
+}
+
+function handleEvents(snap){
+  const seen=new Set();
+  const arr=[];
+  snap.forEach(child=>{
+    if(!seen.has(child.key)){
+      seen.add(child.key);
+      arr.push({id:child.key,...child.val()});
+    }
+  });
+  arr.sort((a,b)=>b.ts-a.ts);
+  EVENTS=arr;
+  // Small delay to ensure DOM is ready
+  requestAnimationFrame(()=>renderAll());
+}
+
+// Remove any existing listeners first, then attach once
+settingsRef.off('value');
+eventsRef.off('value');
+settingsRef.on('value', handleSettings);
+eventsRef.on('value', handleEvents);
+
+// ── PRODUCTION + ACTIVE PRODUCT LISTENERS (for OEE engine) ──
+const prodRef=db.ref('production'), activeRef=db.ref('active_product');
+prodRef.off('value');
+prodRef.on('value',snap=>{
+  const m={};
+  if(snap.exists())snap.forEach(ds=>{const date=ds.key;m[date]={};ds.forEach(ls=>{m[date][ls.key]=(ls.val()&&ls.val().count)||0;});});
+  PROD_ALL=m; renderAll();
+});
+activeRef.off('value');
+activeRef.on('value',snap=>{
+  const m={};
+  if(snap.exists())snap.forEach(ls=>{m[ls.key]=(ls.val()&&ls.val().product)||null;});
+  ACTIVE_PROD=m; renderAll();
+});
+
+// ── SET DEFAULTS ──
+(()=>{
+  const n=new Date();
+  document.getElementById('f-time').value=n.getFullYear()+'-'+pad(n.getMonth()+1)+'-'+pad(n.getDate())+'T'+pad(n.getHours())+':'+pad(n.getMinutes());
+  // Default date filter: this week Mon-Sun
+  initWeekFilter();
+})();
+function initWeekFilter(){
+  const n=new Date();
+  const mon=new Date(n);mon.setDate(n.getDate()-((n.getDay()+6)%7));mon.setHours(0,0,0,0);
+  const sun=new Date(mon);sun.setDate(mon.getDate()+6);
+  dateFrom=mon;dateTo=sun;
+  document.getElementById('date-from').value=mon.getFullYear()+'-'+pad(mon.getMonth()+1)+'-'+pad(mon.getDate());
+  document.getElementById('date-to').value=sun.getFullYear()+'-'+pad(sun.getMonth()+1)+'-'+pad(sun.getDate());
+}
+
+// ── DATE PRESET ──
+function setDatePreset(preset,btn){
+  datePreset=preset;
+  document.querySelectorAll('.date-preset').forEach(b=>b.classList.remove('on'));
+  if(btn)btn.classList.add('on');
+  const n=new Date();
+  if(preset==='week'){
+    initWeekFilter();
+  } else if(preset==='month'){
+    dateFrom=new Date(n.getFullYear(),n.getMonth(),1);
+    dateTo=new Date(n.getFullYear(),n.getMonth()+1,0);
+    document.getElementById('date-from').value=dateFrom.getFullYear()+'-'+pad(dateFrom.getMonth()+1)+'-01';
+    document.getElementById('date-to').value=dateTo.getFullYear()+'-'+pad(dateTo.getMonth()+1)+'-'+pad(dateTo.getDate());
+  } else if(preset==='all'){
+    dateFrom=null;dateTo=null;
+  } else if(preset==='custom'){
+    const f=document.getElementById('date-from').value;
+    const t=document.getElementById('date-to').value;
+    dateFrom=f?new Date(f):null;
+    dateTo=t?new Date(t):null;
+    if(dateTo)dateTo.setHours(23,59,59,999);
+    document.querySelectorAll('.date-preset').forEach(b=>b.classList.remove('on'));
+  }
+  renderMachines(getFiltered());
+}
+
+// ── FORM ──
+function onDur(){const v=parseDur(document.getElementById('f-dur').value);document.getElementById('dur-hint').textContent=v?'= '+fmtD(v):'';}
+function onLine(){
+  const line=document.getElementById('f-line').value;
+  const ms=document.getElementById('f-machine'),cs=document.getElementById('f-cause');
+  ms.innerHTML='<option value="">— Velg maskin —</option>';
+  cs.innerHTML='<option value="">— Velg maskin først —</option>';
+  cs.disabled=true;document.getElementById('b-omst').style.display='none';document.getElementById('b-plan').style.display='none';
+  if(!line){ms.disabled=true;return;}
+  ms.disabled=false;
+  const list=getMachines(line);
+  if(!list.length){ms.innerHTML='<option value="">— Ingen maskiner lagt til —</option>';ms.disabled=true;}
+  else list.forEach(m=>{const o=document.createElement('option');o.value=m;o.textContent=m;ms.appendChild(o);});
+}
+function onMachine(){
+  const line=document.getElementById('f-line').value,machine=document.getElementById('f-machine').value;
+  const cs=document.getElementById('f-cause');
+  cs.innerHTML='<option value="">— Velg årsak —</option>';
+  document.getElementById('b-omst').style.display='none';document.getElementById('b-plan').style.display='none';
+  if(!machine){cs.disabled=true;return;}
+  cs.disabled=false;
+  const causes=getCauses(line,machine);
+  if(!causes.length){cs.innerHTML='<option value="">— Ingen årsaker lagt til —</option>';cs.disabled=true;}
+  else causes.forEach(c=>{const o=document.createElement('option');o.value=c.n;o.textContent=c.t==='plan'?'📅 '+c.n:c.t==='gen'?'⚙ '+c.n:c.n;cs.appendChild(o);});
+}
+function onCause(){
+  const c=document.getElementById('f-cause').value;
+  document.getElementById('b-omst').style.display=isOmst(c)?'block':'none';
+  document.getElementById('b-plan').style.display=(isPlanned(c)&&!isOmst(c))?'block':'none';
+  if(isPlanned(c)||isOmst(c))document.getElementById('f-sev').value='low';
+}
+
+// ── SUBMIT ──
+async function submit(){
+  const line=document.getElementById('f-line').value,machine=document.getElementById('f-machine').value;
+  const cause=document.getElementById('f-cause').value,dur=parseDur(document.getElementById('f-dur').value);
+  const sev=document.getElementById('f-sev').value,com=document.getElementById('f-com').value.trim();
+  if(!line||!machine||!cause||!dur){showToast('Fyll inn linje, maskin, årsak og varighet',true);return;}
+  const ts=Date.now();
+  if(isOmst(cause)){
+    const ms=getMachines(line);const all=ms.length?ms:[machine];
+    await Promise.all(all.map(m=>db.ref('events').push({line,machine:m,cause,duration:dur,severity:'low',comment:com,ts,wholeLine:true})));
+    showToast('Omstilling på '+all.length+' maskiner');
+  }else{
+    await db.ref('events').push({line,machine,cause,duration:dur,severity:sev,comment:com,ts,wholeLine:false});
+    showToast('Hendelse registrert');
+  }
+  document.getElementById('f-cause').value='';document.getElementById('f-dur').value='';
+  document.getElementById('f-com').value='';document.getElementById('dur-hint').textContent='';
+  document.getElementById('b-omst').style.display='none';document.getElementById('b-plan').style.display='none';
+}
+
+// ── OEE ENGINE (output-based: builds from 0) ──
+// OEE = produsert (stk) / (teknisk kapasitet × planlagt tid som har gått)
+const _WD=['sun','mon','tue','wed','thu','fri','sat']; // JS getDay(): 0=søndag
+function _defaultSched(){return{mon:{on:true,start:'06:00',end:'00:00'},tue:{on:true,start:'00:00',end:'00:00'},wed:{on:true,start:'00:00',end:'00:00'},thu:{on:true,start:'00:00',end:'00:00'},fri:{on:true,start:'00:00',end:'22:30'},sat:{on:false,start:'06:00',end:'22:30'},sun:{on:false,start:'06:00',end:'22:30'},breaks:[]};}
+function getSched(line){const k=lk(line);const s=SETTINGS.schedule?.[k];const d=_defaultSched();if(!s)return d;['mon','tue','wed','thu','fri','sat','sun'].forEach(dk=>{if(s[dk])d[dk]=Object.assign({},d[dk],s[dk]);});d.breaks=Array.isArray(s.breaks)?s.breaks:[];return d;}
+function _tmin(t){if(!t)return 0;const p=String(t).split(':');return (parseInt(p[0])||0)*60+(parseInt(p[1])||0);}
+function _dmin(day){if(!day||!day.on)return 0;const s=_tmin(day.start);const e=(day.end==='00:00'||day.end==='24:00')?1440:_tmin(day.end);return Math.max(0,e-s);}
+function _brkmin(sched){return (sched.breaks||[]).reduce((a,b)=>a+Math.max(0,_tmin(b.end)-_tmin(b.start)),0);}
+function dateKeyOf(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
+
+function plannedMinForDate(line,dateObj){
+  const sched=getSched(line);
+  const day=sched[_WD[dateObj.getDay()]];
+  if(!day||!day.on)return 0;
+  const full=Math.max(0,_dmin(day)-_brkmin(sched));
+  const now=new Date();
+  const sameDay=dateObj.toDateString()===now.toDateString();
+  if(!sameDay)return dateObj>now?0:full;
+  // I dag: planlagt tid som har gått innenfor produksjonsvinduet
+  const wStart=_tmin(day.start);
+  const wEnd=(day.end==='00:00'||day.end==='24:00')?1440:_tmin(day.end);
+  const nowMin=now.getHours()*60+now.getMinutes();
+  let elapsed=Math.max(0,Math.min(nowMin,wEnd)-wStart);
+  let eb=0;
+  (sched.breaks||[]).forEach(b=>{const lo=Math.max(_tmin(b.start),wStart),hi=Math.min(_tmin(b.end),Math.min(nowMin,wEnd));if(hi>lo)eb+=hi-lo;});
+  return Math.max(0,elapsed-eb);
+}
+
+function lineProduct(line){
+  const k=lk(line);
+  const prods=SETTINGS.products?.[k]||[];
+  const active=ACTIVE_PROD[k];
+  let p=prods.find(x=>x.name===active&&x.teknKapasitet>0&&x.stkPerDpack>0&&x.eskerPerDpack>0);
+  if(!p)p=prods.find(x=>x.teknKapasitet>0&&x.stkPerDpack>0&&x.eskerPerDpack>0);
+  return p||null;
+}
+function eskerFor(line,dateKey){const d=PROD_ALL[dateKey];return d?(d[lk(line)]||0):0;}
+
+// Aggregert output-OEE for en linje over et sett datoer
+function oeeOutput(line,dateObjs){
+  const p=lineProduct(line);
+  if(!p)return null;
+  let totStk=0,totMax=0;
+  dateObjs.forEach(d=>{
+    const pm=plannedMinForDate(line,d);
+    if(pm<=0)return;
+    const esker=eskerFor(line,dateKeyOf(d));
+    totStk+=(esker/p.eskerPerDpack)*p.stkPerDpack;
+    totMax+=p.teknKapasitet*(pm/60);
+  });
+  if(totMax<=0)return null;
+  return Math.max(0,Math.min(100,totStk/totMax*100));
+}
+function oeeOutputAvg(lines,dateObjs){
+  const vals=lines.map(l=>oeeOutput(l,dateObjs)).filter(v=>v!==null);
+  return vals.length?vals.reduce((s,v)=>s+v,0)/vals.length:null;
+}
+function daysThisWeek(){const n=new Date();const mon=new Date(n);mon.setDate(n.getDate()-((n.getDay()+6)%7));mon.setHours(12,0,0,0);const a=[];for(let i=0;i<7;i++){const d=new Date(mon);d.setDate(mon.getDate()+i);a.push(d);}return a;}
+function daysThisMonth(){const n=new Date();const dim=new Date(n.getFullYear(),n.getMonth()+1,0).getDate();const a=[];for(let i=1;i<=dim;i++)a.push(new Date(n.getFullYear(),n.getMonth(),i,12,0,0));return a;}
+
+// ── NEDETID-FORDELING (klippet mot planlagt produksjonstid) ──
+function prodIntervalsForDate(line,dateObj){
+  const sched=getSched(line);
+  const day=sched[_WD[dateObj.getDay()]];
+  if(!day||!day.on)return [];
+  const base=new Date(dateObj.getFullYear(),dateObj.getMonth(),dateObj.getDate()).getTime();
+  const s=_tmin(day.start), e=(day.end==='00:00'||day.end==='24:00')?1440:_tmin(day.end);
+  if(e<=s)return [];
+  let iv=[[s,e]];
+  (sched.breaks||[]).forEach(b=>{const bs=_tmin(b.start),be=_tmin(b.end);if(be<=bs)return;iv=iv.flatMap(([is,ie])=>{if(be<=is||bs>=ie)return[[is,ie]];const o=[];if(bs>is)o.push([is,bs]);if(be<ie)o.push([be,ie]);return o;});});
+  return iv.map(([is,ie])=>[base+is*60000,base+ie*60000]);
+}
+function downtimeOnDate(line,dateObj){
+  const iv=prodIntervalsForDate(line,dateObj);
+  if(!iv.length)return 0;
+  let mins=0;
+  EVENTS.forEach(ev=>{if(ev.line!==line)return;const a=ev.ts,b=ev.ts+(ev.duration||0)*60000;iv.forEach(([is,ie])=>{const lo=Math.max(a,is),hi=Math.min(b,ie);if(hi>lo)mins+=(hi-lo)/60000;});});
+  return Math.round(mins);
+}
+function downtimeForDates(line,dateObjs){
+  const lines=(line&&line!=='Alle')?[line]:LINES_ALL;
+  let t=0;dateObjs.forEach(d=>lines.forEach(l=>t+=downtimeOnDate(l,d)));
+  return Math.round(t);
+}
+
+// ── RENDER ALL — debounced to prevent double renders ──
+let _renderTimer=null;
+function renderAll(){
+  if(_renderTimer)clearTimeout(_renderTimer);
+  _renderTimer=setTimeout(_doRenderAll, 50);
+}
+function _doRenderAll(){
+  const fil=getFiltered();
+  // For "Alle linjer" — OEE is average across all lines that have a plan
+  const line=filterLine==='Alle'?null:filterLine;
+  const todayE=fil.filter(e=>isToday(e.ts));
+  const wtdE=fil.filter(e=>isWTD(e.ts));
+  const mtdE=fil.filter(e=>isMTD(e.ts));
+  const todayMin=downtimeForDates(line,[new Date()]);
+  const goal=getGoal(line);
+  const oeeGoal=getOEEGoal(line);
+
+  // OEE — output-based: builds from 0 through the day
+  const LINES_ALL=['Løp 1','Løp 2','Løp 3','Rollo','Koba','Glacier','Krokan'];
+  const wkDays=daysThisWeek(), moDays=daysThisMonth(), tdy=[new Date()];
+  let oeeDay,oeeWTD,oeeMTD;
+  if(!line){
+    oeeDay=oeeOutputAvg(LINES_ALL,tdy);
+    oeeWTD=oeeOutputAvg(LINES_ALL,wkDays);
+    oeeMTD=oeeOutputAvg(LINES_ALL,moDays);
+  }else{
+    oeeDay=oeeOutput(line,tdy);
+    oeeWTD=oeeOutput(line,wkDays);
+    oeeMTD=oeeOutput(line,moDays);
+  }
+
+  // KPIs
+  document.getElementById('k-today').textContent=fmtD(todayMin);
+  document.getElementById('k-today').style.color=todayMin>goal?'var(--red)':'var(--green)';
+  document.getElementById('k-goal').textContent='Mål: <'+fmtD(goal);
+  const setK=(id,v,g)=>{const el=document.getElementById(id);el.textContent=v!==null?v.toFixed(1)+'%':'—';if(v!==null)el.style.color=v>=g?'var(--green)':v>=90?'var(--amber)':'var(--red)';};
+  setK('k-oee',oeeDay,oeeGoal);setK('k-oee-wtd',oeeWTD,oeeGoal);setK('k-oee-mtd',oeeMTD,oeeGoal);
+  document.getElementById('k-oee-sub').textContent='Mål: '+oeeGoal+'%';
+  document.getElementById('k-week').textContent=wtdE.length;
+
+  renderHist(fil);renderTable(fil);renderCharts(fil);if(mainView==='oee'){renderOEE(fil);}else{renderProdView();}renderMachines(fil);renderHeatmap(fil);
+  updateUnhandledBanner();
+}
+
+// ── HISTORY ──
+function renderHist(fil){
+  const el=document.getElementById('hist');el.innerHTML='';
+  if(!fil.length){el.innerHTML='<div style="color:var(--text3);font-size:12px;padding:.5rem 0">Ingen hendelser enda.</div>';return;}
+  fil.forEach(e=>{
+    const [col,bc,sl]=sevInfo(e.severity);
+    const plan=isPlanned(e.cause),omst=isOmst(e.cause);
+    const dot=omst?'var(--green)':plan?'var(--purple)':col;
+    const badge=omst?'bg2c':plan?'bpu':bc;
+    const lbl=omst?'Omstilling':plan?'Planlagt':sl;
+    const d=document.createElement('div');d.className='ei';
+    d.innerHTML='<div class="edot" style="background:'+dot+'"></div>'
+      +'<div class="einfo"><div class="en">'+e.cause+' <span style="color:var(--text3);font-weight:400">— '+(e.machine||'')+' / '+e.line+'</span>'
+      +(e.wholeLine?'<span style="font-size:9px;background:#f0fdf4;color:var(--green);border:1px solid #bbf7d0;border-radius:2px;padding:0 4px;margin-left:4px">hel linje</span>':'')
+      +'</div><div class="em"><span>'+fmtT(e.ts)+'</span><span>'+fmtD(e.duration)+'</span><span class="badge '+badge+'">'+lbl+'</span></div>'
+      +(e.comment?'<div class="ec">'+e.comment+'</div>':'')+'</div>'
+      +'<button class="dbtn" onclick="askDel(\''+e.id+'\',\''+( e.cause||'').replace(/'/g,"\\'")+'\')">✕</button>';
+    el.appendChild(d);
+  });
+}
+
+// ── TABLE ──
+function renderTable(fil){
+  const tb=document.getElementById('tbl');tb.innerHTML='';
+  if(!fil.length){tb.innerHTML='<tr><td colspan="8" style="color:var(--text3);text-align:center;padding:1.5rem">Ingen hendelser enda</td></tr>';return;}
+  fil.forEach(e=>{
+    const [,bc,sl]=sevInfo(e.severity);
+    const plan=isPlanned(e.cause),omst=isOmst(e.cause);
+    const badge=omst?'bg2c':plan?'bpu':bc;
+    const lbl=omst?'Omstilling':plan?'Planlagt':sl;
+    const tr=document.createElement('tr');
+    tr.innerHTML='<td>'+fmtT(e.ts)+'</td><td>'+e.line+(e.wholeLine?'<span style="font-size:9px;background:#f0fdf4;color:var(--green);border:1px solid #bbf7d0;border-radius:2px;padding:0 3px;margin-left:3px">HL</span>':'')+'</td>'
+      +'<td>'+(e.machine||'—')+'</td><td>'+e.cause+'</td><td>'+fmtD(e.duration)+'</td>'
+      +'<td><span class="badge '+badge+'">'+lbl+'</span></td><td>'+(e.comment||'—')+'</td>'
+      +'<td><button class="rdel" onclick="askDel(\''+e.id+'\',\''+( e.cause||'').replace(/'/g,"\\'")+'\')">✕</button></td>';
+    tb.appendChild(tr);
+  });
+}
+
+// ── OEE CHART ──
+function renderOEE(fil){
+  const RED='#dc2626',AMBER='#d97706',GREEN='#16a34a',GRID='rgba(0,0,0,0.05)';
+  const n=new Date();
+  const line=filterLine==='Alle'?null:filterLine;
+  const oeeGoal=getOEEGoal(line);
+  const LINES_ALL=['Løp 1','Løp 2','Løp 3','Rollo','Koba','Glacier','Krokan'];
+  let labels=[],data=[];
+
+  function getOEEForDay(dateObj,ln){
+    if(ln)return oeeOutput(ln,[dateObj]);
+    return oeeOutputAvg(LINES_ALL,[dateObj]);
+  }
+
+  if(oeeMode==='wtd'){
+    const s=new Date(n);s.setDate(n.getDate()-((n.getDay()+6)%7));s.setHours(0,0,0,0);
+    const days=['Man','Tir','Ons','Tor','Fre','Lør','Søn'];
+    for(let i=0;i<7;i++){
+      const d=new Date(s);d.setDate(s.getDate()+i);
+      labels.push(days[i]+' '+pad(d.getDate())+'.'+pad(d.getMonth()+1));
+      if(d>n){data.push(null);continue;} // future — skip
+      const v=getOEEForDay(d,line);
+      data.push(v!==null?parseFloat(v.toFixed(1)):null);
+    }
+    document.getElementById('oee-title').textContent='OEE denne uken (%)';
+  }else if(oeeMode==='mtd'){
+    const daysInM=new Date(n.getFullYear(),n.getMonth()+1,0).getDate();
+    for(let i=1;i<=daysInM;i++){
+      const d=new Date(n.getFullYear(),n.getMonth(),i);
+      labels.push(pad(i)+'.'+pad(n.getMonth()+1));
+      if(d>n){data.push(null);continue;} // future — skip
+      const v=getOEEForDay(d,line);
+      data.push(v!==null?parseFloat(v.toFixed(1)):null);
+    }
+    document.getElementById('oee-title').textContent='OEE denne måneden (%)';
+  }else{
+    const mN=['Jan','Feb','Mar','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Des'];
+    for(let i=0;i<12;i++){
+      labels.push(mN[i]);
+      const mEvts=fil.filter(e=>{const d=new Date(e.ts);return d.getFullYear()===n.getFullYear()&&d.getMonth()===i;});
+      const dInM=new Date(n.getFullYear(),i+1,0).getDate();
+      const monthDays=[];for(let dd=1;dd<=dInM;dd++)monthDays.push(new Date(n.getFullYear(),i,dd,12,0,0));
+      let v=line?oeeOutput(line,monthDays):oeeOutputAvg(LINES_ALL,monthDays);
+      data.push(v!==null?parseFloat(v.toFixed(1)):null);
+    }
+    document.getElementById('oee-title').textContent='OEE dette året (%)';
+  }
+
+  const colors=data.map(v=>v===null?'transparent':v>=oeeGoal?GREEN:v>=90?AMBER:RED);
+  const cd={labels,datasets:[{data,borderColor:colors,backgroundColor:data.map(v=>v===null?'transparent':v>=oeeGoal?GREEN+'22':v>=90?AMBER+'22':RED+'22'),borderWidth:2,pointBackgroundColor:colors,pointRadius:4,fill:true,tension:0.3,spanGaps:true}]};
+  const opts={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.parsed.y===null?'Ingen data':ctx.parsed.y+'%'}}},scales:{x:{grid:{color:GRID},ticks:{font:{size:10}}},y:{grid:{color:GRID},min:0,max:100,ticks:{callback:v=>v+'%',font:{size:10}}}}};
+  if(charts.oee){charts.oee.data=cd;charts.oee.options=opts;charts.oee.update();return;}
+  const ctx=document.getElementById('ch-oee');if(!ctx)return;
+  charts.oee=new Chart(ctx,{type:'line',data:cd,options:opts});
+}
+
+// ── ND CHARTS ──
+function renderCharts(fil){
+  const RED='#dc2626',AMBER='#d97706',BLUE='#2563eb',GREEN='#16a34a',PURPLE='#7c3aed',TEAL='#0d9488';
+  const PAL=[AMBER,RED,BLUE,GREEN,PURPLE,TEAL];const GRID='rgba(0,0,0,0.05)';
+  const n=new Date();
+  const hD=Array.from({length:10},(_,i)=>fil.filter(e=>isToday(e.ts)&&new Date(e.ts).getHours()===i+6).reduce((s,e)=>s+e.duration,0));
+  const hL=Array.from({length:10},(_,i)=>(i+6)+':00');
+  const sw=new Date(n);sw.setDate(n.getDate()-((n.getDay()+6)%7));sw.setHours(0,0,0,0);
+  const days=['Man','Tir','Ons','Tor','Fre','Lør','Søn'];
+  const cLine=filterLine==='Alle'?null:filterLine;
+  const wL=[],wD=[];
+  for(let i=0;i<7;i++){const d=new Date(sw);d.setDate(sw.getDate()+i);d.setHours(12,0,0,0);wL.push(days[i]+' '+pad(d.getDate())+'.'+pad(d.getMonth()+1));wD.push(downtimeForDates(cLine,[d]));}
+  // Group by machine for bar chart
+  const machMap={};
+  fil.forEach(e=>{const k=(e.machine||'Ukjent');machMap[k]=(machMap[k]||0)+e.duration;});
+  const machEntries=Object.entries(machMap).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  // Cause distribution for pie
+  const pm={};fil.forEach(e=>pm[e.cause]=(pm[e.cause]||0)+1);
+  const pe=Object.entries(pm).sort((a,b)=>b[1]-a[1]).slice(0,6);
+
+  function mu(id,type,data,opts){
+    if(charts[id]){charts[id].data=data;charts[id].options=opts;charts[id].update();return;}
+    const ctx=document.getElementById(id);if(!ctx)return;
+    charts[id]=new Chart(ctx,{type,data,options:opts});
+  }
+  const bO=()=>({responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmtD(c.parsed.y)}}},scales:{x:{grid:{color:'rgba(0,0,0,0)'},ticks:{font:{size:10}}},y:{grid:{color:GRID},beginAtZero:true,ticks:{callback:v=>fmtD(v),font:{size:10}}}}});
+  mu('ch-daily','bar',{labels:hL,datasets:[{data:hD,backgroundColor:hD.map(v=>v>20?RED+'cc':v>0?AMBER+'cc':GRID),borderRadius:4}]},bO());
+  mu('ch-weekly','bar',{labels:wL,datasets:[{data:wD,backgroundColor:wD.map(v=>v>60?RED+'cc':v>30?AMBER+'cc':BLUE+'cc'),borderRadius:4}]},bO());
+  // Machine bar - amber colors
+  mu('ch-bar','bar',{labels:machEntries.map(e=>e[0]),datasets:[{data:machEntries.map(e=>e[1]),backgroundColor:machEntries.map((_,i)=>PAL[i%PAL.length]+'cc'),borderRadius:4}]},{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmtD(c.parsed.x)}}},scales:{x:{grid:{color:GRID},ticks:{callback:v=>fmtD(v),font:{size:10}},beginAtZero:true},y:{grid:{display:false},ticks:{font:{size:10}}}}});
+  mu('ch-pie','doughnut',{labels:pe.map(e=>e[0]),datasets:[{data:pe.map(e=>e[1]),backgroundColor:PAL,borderWidth:2,borderColor:'#fff'}]},{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:10},padding:8}}}});
+}
+
+// ── MACHINES ──
+function renderMachines(fil){
+  const el=document.getElementById('mach-list');if(!el)return;
+  const dated=getDateFiltered(fil);
+  const machMap={};
+  dated.forEach(e=>{
+    const key=(e.machine||'Ukjent')+'|||'+(e.line||'');
+    if(!machMap[key])machMap[key]=[];
+    machMap[key].push(e);
+  });
+  const sorted=Object.entries(machMap).sort((a,b)=>b[1].reduce((s,e)=>s+e.duration,0)-a[1].reduce((s,e)=>s+e.duration,0));
+  if(!sorted.length){el.innerHTML='<div style="color:var(--text3);font-size:13px;padding:.5rem 0">Ingen data i valgt periode.</div>';return;}
+  el.innerHTML='';
+  sorted.forEach(([key,evts],idx)=>{
+    const [machine,line]=key.split('|||');
+    const totalMin=evts.reduce((s,e)=>s+e.duration,0);
+    const uid='mach-'+idx;
+    const block=document.createElement('div');block.className='mblock';
+    block.innerHTML='<div class="mhdr" onclick="toggleM(\''+uid+'\')">'
+      +'<div class="mhdr-l">⚙ '+machine+' <span style="color:var(--text3);font-weight:400;font-size:11px">('+line+')</span></div>'
+      +'<div class="mhdr-r"><span style="color:var(--text2);font-weight:500">'+fmtD(totalMin)+'</span><span>'+evts.length+' hendelser</span><span id="arr-'+uid+'" style="font-size:14px">▼</span></div></div>'
+      +'<div class="mdetail" id="'+uid+'">'
+      +'<table style="width:100%;border-collapse:collapse"><thead><tr>'
+      +'<th style="font-size:10px;font-family:var(--mono);text-transform:uppercase;color:var(--text3);padding:6px 12px;text-align:left;border-bottom:1px solid var(--border)">Dato og tid</th>'
+      +'<th style="font-size:10px;font-family:var(--mono);text-transform:uppercase;color:var(--text3);padding:6px 12px;text-align:left;border-bottom:1px solid var(--border)">Årsak</th>'
+      +'<th style="font-size:10px;font-family:var(--mono);text-transform:uppercase;color:var(--text3);padding:6px 12px;text-align:left;border-bottom:1px solid var(--border)">Tid</th>'
+      +'<th style="font-size:10px;font-family:var(--mono);text-transform:uppercase;color:var(--text3);padding:6px 12px;text-align:left;border-bottom:1px solid var(--border)">Kommentar</th>'
+      +'</tr></thead><tbody>'
+      +evts.sort((a,b)=>b.ts-a.ts).map(e=>'<tr>'
+        +'<td style="padding:7px 12px;font-size:11px;font-family:var(--mono);color:var(--text3);border-bottom:1px solid var(--border)">'+fmtT(e.ts)+'</td>'
+        +'<td style="padding:7px 12px;font-size:12px;color:var(--text2);border-bottom:1px solid var(--border)">'+e.cause+'</td>'
+        +'<td style="padding:7px 12px;font-size:12px;font-family:var(--mono);font-weight:500;color:var(--text);border-bottom:1px solid var(--border)">'+fmtD(e.duration)+'</td>'
+        +'<td style="padding:7px 12px;font-size:12px;color:var(--text3);border-bottom:1px solid var(--border)">'+(e.comment||'—')+'</td></tr>').join('')
+      +'</tbody></table></div>';
+    el.appendChild(block);
+  });
+}
+function toggleM(uid){
+  const el=document.getElementById(uid),arr=document.getElementById('arr-'+uid);
+  if(!el)return;const open=el.style.display!=='block';
+  el.style.display=open?'block':'none';if(arr)arr.textContent=open?'▲':'▼';
+}
+
+// ── HEATMAP ──
+function renderHeatmap(fil){
+  const days=['Man','Tir','Ons','Tor','Fre','Lør','Søn'];
+  const data=Array.from({length:7},()=>Array(10).fill(0));
+  fil.forEach(e=>{const d=new Date(e.ts);const dow=(d.getDay()+6)%7;const h=d.getHours()-6;if(h>=0&&h<10)data[dow][h]+=e.duration;});
+  const max=Math.max(...data.flat(),1);
+  const grid=document.getElementById('hm');grid.innerHTML='';
+  days.forEach((day,di)=>{
+    const lbl=document.createElement('div');lbl.className='hml';lbl.textContent=day;grid.appendChild(lbl);
+    for(let h=0;h<10;h++){
+      const v=data[di][h],pct=v/max;
+      const cell=document.createElement('div');cell.className='hmc';
+      cell.style.background=v===0?'var(--bg3)':`rgba(230,51,41,${(0.12+pct*0.88).toFixed(2)})`;
+      cell.style.color=pct>0.5?'#fff':'var(--text3)';
+      cell.title=day+' '+(h+6)+':00 — '+fmtD(v);
+      if(v>0)cell.textContent=fmtD(v);
+      grid.appendChild(cell);
+    }
+  });
+}
+
+// ── CONTROLS ──
+function setFilter(l,btn){
+  filterLine=l;
+  document.querySelectorAll('.fb').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  renderAll();
+}
+function showOEE(mode,btn){oeeMode=mode;document.querySelectorAll('#oee-tabs .tab').forEach(t=>t.classList.remove('on'));btn.classList.add('on');renderOEE(getFiltered());}
+function showND(id,btn){
+  document.querySelectorAll('.cp').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('#nd-tabs .tab').forEach(t=>t.classList.remove('on'));
+  document.getElementById('cp-'+id).classList.add('on');
+  btn.classList.add('on');
+  setTimeout(()=>Object.values(charts).forEach(c=>{try{c.resize();}catch(e){}}),50);
+}
+function askDel(id,name){delId=id;delAll=false;document.getElementById('m-title').textContent='Slett hendelse?';document.getElementById('m-desc').textContent='Vil du slette "'+name+'"?';document.getElementById('m-btn').textContent='Slett';document.getElementById('modal').classList.add('on');}
+function askDelAll(){delAll=true;delId=null;document.getElementById('m-title').textContent='Slett alle?';document.getElementById('m-desc').textContent='Dette sletter ALLE hendelser permanent.';document.getElementById('m-btn').textContent='Slett alle';document.getElementById('modal').classList.add('on');}
+function closeM(){document.getElementById('modal').classList.remove('on');delId=null;delAll=false;}
+async function doDelete(){if(delAll)await db.ref('events').remove();else if(delId)await db.ref('events/'+delId).remove();closeM();showToast(delAll?'Alle slettet':'Slettet',true);}
+function signout(){auth.signOut().then(()=>location.href='login.html');}
+function showToast(msg,isE=false){const t=document.getElementById('toast');t.textContent=(isE?'✕ ':'✓ ')+msg;t.className='toast'+(isE?' e':'');t.style.opacity='1';setTimeout(()=>t.style.opacity='0',2500);}
+document.getElementById('modal').addEventListener('click',function(e){if(e.target===this)closeM();});
+document.getElementById('handle-modal').addEventListener('click',function(e){if(e.target===this)closeHandleModal();});
+// ── PRODUCTION COUNTER ──
+function getProducts(line){
+  return SETTINGS.products?.[line.replace(/[\s\/]/g,'_')]||[];
+}
+
+function onProductChange(){
+  const sel=document.getElementById('active-product');
+  const prod=sel.value;
+  const line=filterLine==='Alle'?null:filterLine;
+  if(!line)return;
+  // Save active product to Firebase
+  if(db&&prod){
+    db.ref('active_product/'+line.replace(/[\s\/]/g,'_')).set({
+      product:prod,
+      setAt:Date.now()
+    });
+  }
+  updateProductCounter();
+}
+
+function updateProductCounter(){
+  const dpackEl=document.getElementById('counter-dpack');
+  const eskEl=document.getElementById('counter-esker');
+  if(!dpackEl||!eskEl)return;
+
+  const line=filterLine==='Alle'?null:filterLine;
+  if(!line){dpackEl.textContent='—';eskEl.textContent='—';return;}
+
+  const lk=line.replace(/[\s\/]/g,'_');
+  const today=new Date();
+  const dateStr=today.getFullYear()+'-'
+    +String(today.getMonth()+1).padStart(2,'0')+'-'
+    +String(today.getDate()).padStart(2,'0');
+
+  // Get esker count from Firebase production node
+  db.ref('production/'+dateStr+'/'+lk+'/count').once('value').then(snap=>{
+    const esker=snap.exists()?snap.val():0;
+    eskEl.textContent=esker;
+
+    // Calculate dpack
+    const sel=document.getElementById('active-product');
+    const prodName=sel?sel.value:'';
+    const products=getProducts(line);
+    const prod=products.find(p=>p.name===prodName);
+    if(prod&&prod.eskerPerDpack&&prod.eskerPerDpack>0){
+      const dpack=Math.floor(esker/prod.eskerPerDpack);
+      dpackEl.textContent=dpack;
+    } else {
+      dpackEl.textContent='—';
+    }
+  }).catch(()=>{eskEl.textContent='0';dpackEl.textContent='—';});
+}
+
+function updateProductSelector(line){
+  const sel=document.getElementById('active-product');
+  if(!sel)return;
+  const products=getProducts(line);
+  sel.innerHTML='<option value="">— Velg produkt —</option>';
+  products.forEach(p=>{
+    const o=document.createElement('option');
+    o.value=p.name;o.textContent=p.name+(p.artNr?' · '+p.artNr:'');
+    sel.appendChild(o);
+  });
+  // Load saved active product
+  const lk=line.replace(/[\s\/]/g,'_');
+  db.ref('active_product/'+lk).once('value').then(snap=>{
+    if(snap.exists()&&snap.val().product){
+      sel.value=snap.val().product;
+    }
+    updateProductCounter();
+  });
+}
+
+// Refresh counter every 10 seconds
+setInterval(()=>{
+  if(myProfile&&myProfile.role==='linjeoperator'&&filterLine!=='Alle'){
+    updateProductCounter();
+  }
+},10000);
+
+// ── MAIN VIEW SWITCHER ──
+let mainView='prod', prodMode='day', selectedProdLine=null;
+
+function showMainView(view, btn){
+  mainView=view;
+  document.querySelectorAll('#main-tabs .tab').forEach(t=>t.classList.remove('on'));
+  btn.classList.add('on');
+  const oeeCard=document.getElementById('oee-card');
+  const oeeTabsEl=document.getElementById('oee-tabs');
+  const prodTabsEl=document.getElementById('prod-tabs');
+  const pvMain=document.getElementById('pv-main');
+  if(view==='oee'){
+    if(oeeCard)oeeCard.style.display='';
+    if(oeeTabsEl)oeeTabsEl.style.display='';
+    if(prodTabsEl)prodTabsEl.style.display='none';
+    if(pvMain)pvMain.style.display='none';
+    renderOEE(getFiltered());
+  }else{
+    if(oeeCard)oeeCard.style.display='none';
+    if(oeeTabsEl)oeeTabsEl.style.display='none';
+    if(prodTabsEl)prodTabsEl.style.display='';
+    if(pvMain)pvMain.style.display='block';
+    renderProdView();
+  }
+}
+
+function showProd(mode, btn){
+  prodMode=mode;
+  document.querySelectorAll('#prod-tabs .tab').forEach(t=>t.classList.remove('on'));
+  btn.classList.add('on');
+  renderProdView();
+}
+
+function renderProdView(){
+  const el=document.getElementById('prod-line-bars');
+  const titleEl=document.getElementById('prod-chart-title');
+  if(!el)return;
+  const LINES_ALL=['Løp 1','Løp 2','Løp 3','Rollo','Koba','Glacier','Krokan'];
+  const VIEW_LINES=filterLine==='Alle'?LINES_ALL:[filterLine];
+  const lineLabel=filterLine==='Alle'?'alle linjer':filterLine;
+  const now=new Date();
+  const pad2=n=>String(n).padStart(2,'0');
+
+  // Build date keys to fetch
+  let dateKeys=[];
+  if(prodMode==='day'){
+    // Use reset time logic
+    const rt=SETTINGS.resetTime||'00:00';
+    const [rh,rm]=rt.split(':').map(Number);
+    const resetToday=new Date(now);resetToday.setHours(rh,rm,0,0);
+    const d=now<resetToday?new Date(now.getTime()-86400000):now;
+    dateKeys=[d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate())];
+    if(titleEl)titleEl.textContent='Produksjon i dag — '+lineLabel;
+  }else if(prodMode==='week'){
+    const s=new Date(now);s.setDate(now.getDate()-((now.getDay()+6)%7));s.setHours(0,0,0,0);
+    for(let i=0;i<7;i++){const d=new Date(s);d.setDate(s.getDate()+i);dateKeys.push(d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()));}
+    if(titleEl)titleEl.textContent='Produksjon denne uken — '+lineLabel;
+  }else{
+    const days=new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
+    for(let i=1;i<=days;i++){dateKeys.push(now.getFullYear()+'-'+pad2(now.getMonth()+1)+'-'+pad2(i));}
+    if(titleEl)titleEl.textContent='Produksjon denne måneden — '+lineLabel;
+  }
+
+  // Fetch production data from Firebase
+  db.ref('production').once('value').then(snap=>{
+    const prodData={};
+    if(snap.exists()){
+      snap.forEach(dateSnap=>{
+        const date=dateSnap.key;
+        dateSnap.forEach(lineSnap=>{
+          const lk=lineSnap.key;
+          const count=lineSnap.val()?.count||0;
+          if(!prodData[lk])prodData[lk]=[];
+          prodData[lk].push({date,count});
+        });
+      });
+    }
+
+    // Build totals per line
+    const lineTotals={};
+    let maxTotal=0;
+    VIEW_LINES.forEach(line=>{
+      const key=line.replace(/[\s\/]/g,'_');
+      const lineData=prodData[key]||[];
+      const total=dateKeys.reduce((sum,d)=>{
+        const entry=lineData.find(x=>x.date===d);
+        return sum+(entry?entry.count:0);
+      },0);
+      lineTotals[key]={line,total};
+      if(total>maxTotal)maxTotal=total;
+    });
+
+    // Render line cards
+    el.innerHTML='';
+    VIEW_LINES.forEach(line=>{
+      const key=line.replace(/[\s\/]/g,'_');
+      const {total}=lineTotals[key]||{total:0};
+      const products=SETTINGS.products?.[key]||[];
+      const pct=maxTotal>0?Math.round(total/maxTotal*100):0;
+      const card=document.createElement('div');
+      card.className='line-bar-card'+(selectedProdLine===line?' sel':'');
+      card.onclick=()=>{selectedProdLine=selectedProdLine===line?null:line;renderProdChart(prodData,dateKeys,VIEW_LINES);renderProdView();};
+      card.innerHTML='<div class="lbc-name">'+line+'</div>'
+        +'<div class="lbc-val">'+total.toLocaleString('no-NO')+'</div>'
+        +'<div class="lbc-sub">esker'+(products.length&&total>0?' ≈ '+calcDpack(total,products)+' dpack':'')+'</div>'
+        +'<div class="lbc-bar"><div class="lbc-bar-fill" style="width:'+pct+'%"></div></div>';
+      el.appendChild(card);
+    });
+
+    // Render chart
+    renderProdChart(prodData,dateKeys,VIEW_LINES);
+  }).catch(e=>console.error('Prod data error:',e));
+}
+
+function calcDpack(esker, products){
+  if(!products.length)return'—';
+  // Use first product as default if no active selection
+  const p=products[0];
+  return p.eskerPerDpack?Math.floor(esker/p.eskerPerDpack)+'':'—';
+}
+
+function renderProdChart(prodData, dateKeys, LINES_ALL){
+  const PAL=['#e63329','#2563eb','#16a34a','#d97706','#7c3aed','#0d9488','#db2777'];
+  const GRID='rgba(0,0,0,0.05)';
+  const pad2=n=>String(n).padStart(2,'0');
+  const now=new Date();
+
+  let datasets=[];
+  let labels=[];
+
+  if(prodMode==='day'){
+    // Show hourly breakdown for today (use events as proxy or just show total)
+    labels=['00','02','04','06','08','10','12','14','16','18','20','22'];
+    if(selectedProdLine){
+      const key=selectedProdLine.replace(/[\s\/]/g,'_');
+      // Find events for this line today and accumulate
+      const todayStr=dateKeys[0];
+      const lineEvts=EVENTS.filter(e=>e.line===selectedProdLine&&new Date(e.ts).toDateString()===new Date(todayStr).toDateString());
+      const hourData=Array(12).fill(0);
+      lineEvts.forEach(e=>{const h=Math.floor(new Date(e.ts).getHours()/2);if(h<12)hourData[h]+=e.duration;});
+      datasets=[{label:selectedProdLine+' (nedetid min)',data:hourData,backgroundColor:PAL[0]+'cc',borderRadius:3}];
+    }else{
+      // Show all lines total esker (single bar per line)
+      labels=LINES_ALL;
+      const data=LINES_ALL.map(l=>{
+        const key=l.replace(/[\s\/]/g,'_');
+        const lineData=prodData[key]||[];
+        const entry=lineData.find(x=>x.date===dateKeys[0]);
+        return entry?entry.count:0;
+      });
+      datasets=[{label:'Esker i dag',data,backgroundColor:PAL.map(c=>c+'cc'),borderRadius:4}];
+    }
+  }else{
+    // Week/month: show trend per day
+    const days=['Man','Tir','Ons','Tor','Fre','Lør','Søn'];
+    if(prodMode==='week'){
+      labels=dateKeys.map((d,i)=>{const dt=new Date(d);return days[(dt.getDay()+6)%7]+' '+pad2(dt.getDate())+'.'+pad2(dt.getMonth()+1);});
+    }else{
+      labels=dateKeys.map(d=>{const dt=new Date(d);return pad2(dt.getDate());});
+    }
+    const linesToShow=selectedProdLine?[selectedProdLine]:LINES_ALL;
+    datasets=linesToShow.map((line,i)=>{
+      const key=line.replace(/[\s\/]/g,'_');
+      const lineData=prodData[key]||[];
+      const data=dateKeys.map(d=>{const entry=lineData.find(x=>x.date===d);return entry?entry.count:null;});
+      return{label:line,data,borderColor:PAL[i%PAL.length],backgroundColor:PAL[i%PAL.length]+'22',borderWidth:2,pointRadius:3,fill:false,tension:0.3,spanGaps:true};
+    });
+  }
+
+  const isBar=prodMode==='day'&&!selectedProdLine||prodMode==='day';
+  const type=prodMode==='day'?'bar':'line';
+  const opts={responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:datasets.length>1,position:'top',labels:{font:{size:10},padding:8}},
+      tooltip:{callbacks:{label:c=>c.dataset.label+': '+(c.parsed.y||0).toLocaleString('no-NO')+' esker'}}},
+    scales:{x:{grid:{color:'rgba(0,0,0,0)'},ticks:{font:{size:10}}},
+      y:{grid:{color:GRID},beginAtZero:true,ticks:{font:{size:10}}}}};
+  const cd={labels,datasets};
+  if(charts.prod){charts.prod.data=cd;charts.prod.config.type=type;charts.prod.options=opts;charts.prod.update();return;}
+  const ctx=document.getElementById('ch-prod');if(!ctx)return;
+  charts.prod=new Chart(ctx,{type,data:cd,options:opts});
+}
+
+// ── UNHANDLED DOWNTIME ──
+function getUnhandled(){
+  return EVENTS.filter(e=>e.unhandled===true);
+}
+
+function updateUnhandledBanner(){
+  const unhandled=getUnhandled();
+  // Filter by line if linjeoperator
+  const fil=myProfile?.role==='linjeoperator'
+    ?unhandled.filter(e=>myProfile.lines?.includes(e.line))
+    :unhandled;
+  const banner=document.getElementById('unhandled-banner');
+  const cnt=document.getElementById('ub-count');
+  if(!banner||!cnt)return;
+  if(fil.length>0){
+    banner.classList.add('on');
+    cnt.textContent=fil.length;
+  }else{
+    banner.classList.remove('on');
+  }
+}
+
+function openHandleModal(){
+  const unhandled=getUnhandled();
+  const isOp=myProfile?.role==='linjeoperator';
+  const fil=isOp?unhandled.filter(e=>myProfile.lines?.includes(e.line)):unhandled;
+  const list=document.getElementById('handle-list');
+  const sub=document.getElementById('handle-sub');
+  if(!list)return;
+  if(sub)sub.textContent=fil.length+' hendelse'+(fil.length===1?'':'r')+' venter på behandling';
+  list.innerHTML='';
+  if(!fil.length){list.innerHTML='<div class="he-done">✓ Alle nedetider er behandlet!</div>';
+  }else{
+    fil.forEach(e=>{
+      const isOpc=e.source==='opc';
+      const lkey=(e.line||'').replace(/[\s\/]/g,'_');
+      const lineMachines=SETTINGS.machines?.[lkey]||[];
+      const causes=isOpc?[]:getAllCauses(e.line,e.machine);
+      const card=document.createElement('div');
+      card.className='he-card';
+      card.id='hcard-'+e.id;
+      // Build piece by piece to avoid quote issues
+      let html='<div class="he-hdr">'
+        +'<div class="he-dot"></div>'
+        +'<div class="he-title">'+e.line+(isOpc?' — automatisk':' — '+(e.machine||''))+'</div>'
+        +'<div class="he-meta">'+fmtT(e.ts)+' — '+fmtD(e.duration)+'</div>'
+        +'</div>';
+      // Machine selector for OPC events
+      if(isOpc&&lineMachines.length){
+        html+='<div class="he-fr"><div class="he-lbl">Hvilken maskin stoppet?</div>'
+          +'<select class="he-sel" id="hc-machine-'+e.id+'">'
+          +'<option value="">— Velg maskin —</option>'
+          +lineMachines.map(m=>'<option value="'+m+'">'+m+'</option>').join('')
+          +'</select></div>';
+      }
+      // Cause selector
+      html+='<div class="he-fr"><div class="he-lbl">Årsak</div>'
+        +'<select class="he-sel" id="hc-cause-'+e.id+'"'+(isOpc?' disabled':'')+'>'+
+        (isOpc
+          ?'<option value="">— Velg maskin først —</option>'
+          :'<option value="'+e.cause+'">'+e.cause+' (nåværende)</option>'
+            +'<option disabled>──────────</option>'
+            +causes.map(cc=>'<option value="'+cc+'">'+cc+'</option>').join('')
+        )+'</select></div>';
+      // Comment
+      html+='<div class="he-fr"><div class="he-lbl">Kommentar</div>'
+        +'<textarea class="he-inp" id="hc-com-'+e.id+'" placeholder="Beskriv hva som skjedde...">'
+        +(isOpc?'':e.comment||'')+'</textarea></div>';
+      // Buttons
+      const skipBtn=isOp?'':'<button class="he-skip" onclick="skipHandle(\''+e.id+'\')">Hopp over</button>';
+      const saveBtn='<button class="he-save" onclick="saveHandle(\''+e.id+'\')">✓ Behandle og lagre</button>';
+      html+='<div class="he-btns">'+skipBtn+saveBtn+'</div>';
+      card.innerHTML=html;
+      // Add machine change listener after card is built
+      list.appendChild(card);
+      if(isOpc&&lineMachines.length){
+        const msel=document.getElementById('hc-machine-'+e.id);
+        if(msel)msel.addEventListener('change',()=>onHandleMachine(e.id,e.line));
+      }
+    });
+  }
+  document.getElementById('handle-modal').classList.add('on');
+}
+
+function onHandleMachine(eventId, line){
+  const machSel=document.getElementById('hc-machine-'+eventId);
+  const causeSel=document.getElementById('hc-cause-'+eventId);
+  if(!machSel||!causeSel)return;
+  const machine=machSel.value;
+  if(!machine){causeSel.disabled=true;causeSel.innerHTML='<option value="">— Velg maskin først —</option>';return;}
+  const causes=getAllCauses(line,machine);
+  causeSel.disabled=false;
+  causeSel.innerHTML='<option value="">— Velg årsak —</option>'
+    +causes.map(cc=>'<option value="'+cc+'">'+cc+'</option>').join('');
+}
+
+function getAllCauses(line,machine){
+  const lk2=s=>(s||'').replace(/[\s\/]/g,'_');
+  const gen=(SETTINGS.generalCauses||[]);
+  const cust=(SETTINGS.causes?.[lk2(line)+'__'+lk2(machine)]||[]);
+  const plan=(SETTINGS.plannedStops||[]);
+  return [...new Set([...gen,...cust,...plan])];
+}
+
+async function saveHandle(id){
+  const causeEl=document.getElementById('hc-cause-'+id);
+  const comEl=document.getElementById('hc-com-'+id);
+  const machEl=document.getElementById('hc-machine-'+id);
+  if(!causeEl)return;
+  const cause=causeEl.value;
+  const comment=comEl?comEl.value.trim():'';
+  const machine=machEl?machEl.value:'';
+  if(!cause){showToast('Velg årsak før du lagrer',true);return;}
+  if(machEl&&!machine){showToast('Velg maskin før du lagrer',true);return;}
+  const updates={cause,comment,unhandled:false,handledAt:Date.now(),handledBy:myProfile?.name||'ukjent'};
+  if(machine)updates.machine=machine;
+  await db.ref('events/'+id).update(updates);
+  // Mark card as done
+  const card=document.getElementById('hcard-'+id);
+  if(card){
+    card.innerHTML='<div class="he-done">✓ Behandlet — '+cause+'</div>';
+  }
+  showToast('Nedetid behandlet');
+  // Check if all done
+  setTimeout(()=>{
+    const remaining=document.querySelectorAll('.he-card').length;
+    const sub=document.getElementById('handle-sub');
+    const stillUnhandled=getUnhandled().filter(e=>e.id!==id);
+    if(sub)sub.textContent=(stillUnhandled.length||0)+' gjenstår';
+  },300);
+}
+
+function skipHandle(id){
+  const card=document.getElementById('hcard-'+id);
+  if(card)card.style.opacity='0.4';
+}
+
+function closeHandleModal(){
+  document.getElementById('handle-modal').classList.remove('on');
+}
+
+Chart.defaults.font.family="'IBM Plex Sans',sans-serif";
+Chart.defaults.color='#8a95a8';
+</script>
+</body>
+</html>
