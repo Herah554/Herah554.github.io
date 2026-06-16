@@ -698,26 +698,25 @@ function lineProduct(line){
   const k=lk(line);
   const prods=SETTINGS.products?.[k]||[];
   const active=ACTIVE_PROD[k];
-  let p=prods.find(x=>x.name===active&&x.teknKapasitet>0&&x.stkPerDpack>0&&x.eskerPerDpack>0);
-  if(!p)p=prods.find(x=>x.teknKapasitet>0&&x.stkPerDpack>0&&x.eskerPerDpack>0);
+  let p=prods.find(x=>x.name===active&&x.liveHastighet>0);
+  if(!p)p=prods.find(x=>x.liveHastighet>0);
   return p||null;
 }
 function eskerFor(line,dateKey){const d=PROD_ALL[dateKey];return d?(d[lk(line)]||0):0;}
 
-// Aggregert output-OEE for en linje over et sett datoer
+// Aggregert OEE for en linje: telte dpack / (live dpack/t × planlagt tid). PLS-tellingen = antall dpack.
 function oeeOutput(line,dateObjs){
   const p=lineProduct(line);
   if(!p)return null;
-  let totStk=0,totMax=0;
+  let totDpack=0,totMax=0;
   dateObjs.forEach(d=>{
     const pm=plannedMinForDate(line,d);
     if(pm<=0)return;
-    const esker=eskerFor(line,dateKeyOf(d));
-    totStk+=(esker/p.eskerPerDpack)*p.stkPerDpack;
-    totMax+=p.teknKapasitet*(pm/60);
+    totDpack+=eskerFor(line,dateKeyOf(d));
+    totMax+=p.liveHastighet*(pm/60);
   });
   if(totMax<=0)return null;
-  return Math.max(0,Math.min(100,totStk/totMax*100));
+  return Math.max(0,Math.min(100,totDpack/totMax*100));
 }
 function oeeOutputAvg(lines,dateObjs){
   const vals=lines.map(l=>oeeOutput(l,dateObjs)).filter(v=>v!==null);
@@ -1046,21 +1045,20 @@ function updateProductCounter(){
 
   // Get esker count from Firebase production node
   db.ref('production/'+dateStr+'/'+lk+'/count').once('value').then(snap=>{
-    const esker=snap.exists()?snap.val():0;
-    eskEl.textContent=esker;
+    const dpack=snap.exists()?snap.val():0;  // PLS teller én per dpack
+    dpackEl.textContent=dpack;
 
-    // Calculate dpack
+    // Esker = dpack × esker per dpack (fysiske esker)
     const sel=document.getElementById('active-product');
     const prodName=sel?sel.value:'';
     const products=getProducts(line);
     const prod=products.find(p=>p.name===prodName);
     if(prod&&prod.eskerPerDpack&&prod.eskerPerDpack>0){
-      const dpack=Math.floor(esker/prod.eskerPerDpack);
-      dpackEl.textContent=dpack;
+      eskEl.textContent=dpack*prod.eskerPerDpack;
     } else {
-      dpackEl.textContent='—';
+      eskEl.textContent='—';
     }
-  }).catch(()=>{eskEl.textContent='0';dpackEl.textContent='—';});
+  }).catch(()=>{dpackEl.textContent='0';eskEl.textContent='—';});
 }
 
 function updateProductSelector(line){
