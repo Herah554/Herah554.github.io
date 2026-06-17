@@ -56,6 +56,15 @@ nav{background:var(--bg2);border-bottom:1px solid var(--border);height:54px;disp
 .op-banner-sub{font-size:12px;opacity:.85}
 .prod-status{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.2);border-radius:99px;padding:4px 12px;font-size:12px;font-weight:500}
 .prod-dot{width:8px;height:8px;border-radius:50%;background:#fff;animation:pulse 2s infinite}
+.lstat{display:flex;flex-wrap:wrap;gap:8px}
+.lstat-item{display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--border);border-radius:99px;padding:6px 14px;font-size:13px;font-weight:500}
+.lstat-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.lstat-run .lstat-dot{background:var(--green);box-shadow:0 0 0 3px rgba(22,163,74,.15)}
+.lstat-run{border-color:#bbf7d0}
+.lstat-stop .lstat-dot{background:var(--red);box-shadow:0 0 0 3px rgba(220,38,38,.12)}
+.lstat-stop{border-color:#fecaca}
+.lstat-none{opacity:.6}.lstat-none .lstat-dot{background:var(--text3)}
+.lstat-sub{font-size:11px;color:var(--text3);font-family:var(--mono)}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
 .page{max-width:1300px;margin:0 auto;padding:1.25rem 1.5rem}
 h2{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin:1rem 0 .55rem;font-family:var(--mono)}
@@ -267,6 +276,11 @@ td:first-child{font-family:var(--mono);font-size:11px;color:var(--text3)}
     <button class="btn-da" onclick="askDelAll()">Slett alle</button>
   </div>
 
+  <div class="card" id="line-status-card" style="display:none">
+    <div class="ct"><div class="ca" style="background:var(--teal)"></div>Linjestatus — drift akkurat nå</div>
+    <div class="lstat" id="lstat"></div>
+  </div>
+
   <h2>Nøkkeltall</h2>
   <div class="kpis">
     <div class="kpi red"><div class="klbl">Nedetid i dag</div><div class="kval" id="k-today">—</div><div class="ksub" id="k-goal">Mål: —</div></div>
@@ -419,6 +433,24 @@ const LINES_ALL=['Løp 1','Løp 2','Løp 3','Rollo','Koba','Glacier','Krokan'];
 let filterLine='Alle', myProfile=null, delId=null, delAll=false, charts={}, oeeMode='wtd';
 let dateFrom=null, dateTo=null, datePreset='week';
 let PROD_ALL={}, PROD_HOURLY={}, ACTIVE_PROD={};
+// ── DRIFT/STOPP-STATUS (basert på om tellingen øker) ──
+const RUN_THRESHOLD=4*60000;            // 4 min uten økning = stoppet
+let LINE_LAST_INC={}, LINE_PREV_COUNT={};
+function todayKey(){
+  const rt=(SETTINGS&&SETTINGS.resetTime)||'00:00';
+  const p=String(rt).split(':');const rh=parseInt(p[0])||0,rm=parseInt(p[1])||0;
+  const now=new Date();const reset=new Date(now);reset.setHours(rh,rm,0,0);
+  const d=now<reset?new Date(now.getTime()-86400000):now;
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function lineStatus(line){
+  const k=lk(line);
+  const cnt=(PROD_ALL[todayKey()]||{})[k]||0;
+  const inc=LINE_LAST_INC[k];
+  if(inc&&(Date.now()-inc<RUN_THRESHOLD))return 'run';
+  if(cnt>0||inc)return 'stop';
+  return 'none';
+}
 
 // ── CLOCK ──
 setInterval(()=>{document.getElementById('clk').textContent=new Date().toLocaleTimeString('no-NO');},1000);
@@ -577,7 +609,15 @@ prodRef.off('value');
 prodRef.on('value',snap=>{
   const m={},mh={};
   if(snap.exists())snap.forEach(ds=>{const date=ds.key;m[date]={};mh[date]={};ds.forEach(ls=>{const v=ls.val()||{};m[date][ls.key]=v.count||0;if(v.hourly)mh[date][ls.key]=v.hourly;});});
-  PROD_ALL=m; PROD_HOURLY=mh; renderAll();
+  PROD_ALL=m; PROD_HOURLY=mh;
+  // spor om dagens telling øker per linje (for drift/stopp-status)
+  const today=m[todayKey()]||{};
+  Object.keys(today).forEach(k=>{
+    const c=today[k]||0, prev=LINE_PREV_COUNT[k];
+    if(prev!=null&&c>prev)LINE_LAST_INC[k]=Date.now();
+    LINE_PREV_COUNT[k]=c;
+  });
+  renderAll();
 });
 activeRef.off('value');
 activeRef.on('value',snap=>{
@@ -787,6 +827,33 @@ function downtimeForDates(line,dateObjs){
 }
 
 // ── RENDER ALL — debounced to prevent double renders ──
+function renderLineStatusPanel(){
+  const card=document.getElementById('line-status-card'), wrap=document.getElementById('lstat');
+  if(!card||!wrap)return;
+  const isOp=myProfile&&myProfile.role==='linjeoperator';
+  if(isOp||filterLine!=='Alle'){card.style.display='none';return;}
+  card.style.display='';
+  wrap.innerHTML=(LINES_ALL||[]).map(l=>{
+    const st=lineStatus(l);
+    const cls=st==='run'?'lstat-run':st==='stop'?'lstat-stop':'lstat-none';
+    const lbl=st==='run'?'Drift':st==='stop'?'Stoppet':'Ingen data';
+    return '<div class="lstat-item '+cls+'"><span class="lstat-dot"></span>'+l+' <span class="lstat-sub">'+lbl+'</span></div>';
+  }).join('');
+}
+function updateOpStatus(){
+  if(!(myProfile&&myProfile.role==='linjeoperator'))return;
+  const txt=document.getElementById('prod-running-txt'); if(!txt)return;
+  const dot=document.querySelector('#op-banner .prod-dot');
+  const pill=document.querySelector('#op-banner .prod-status');
+  const lines=myProfile.lines||[];
+  const states=lines.map(l=>lineStatus(l));
+  const running=states.includes('run'), anyData=states.some(s=>s!=='none');
+  if(running){txt.textContent='Linje kjører';if(dot){dot.style.background='#86efac';dot.style.animation='pulse 2s infinite';}if(pill)pill.style.background='rgba(255,255,255,.2)';}
+  else if(anyData){txt.textContent='Linje stoppet';if(dot){dot.style.background='#fde68a';dot.style.animation='none';}if(pill)pill.style.background='rgba(0,0,0,.25)';}
+  else{txt.textContent='Venter på produksjon…';if(dot){dot.style.background='#fff';dot.style.animation='none';}if(pill)pill.style.background='rgba(255,255,255,.2)';}
+}
+setInterval(()=>{renderLineStatusPanel();updateOpStatus();},20000);
+
 let _renderTimer=null, _lastRender=0;
 function renderAll(immediate){
   // Brukerhandlinger (filter/visning) tegner med en gang; data-oppdateringer strupes
@@ -832,6 +899,7 @@ function _doRenderAll(){
 
   renderHist(fil);renderTable(fil);renderCharts(fil);if(mainView==='oee'){renderOEE(fil);}else{renderProdView();}renderMachines(fil);renderHeatmap(fil);
   updateUnhandledBanner();
+  renderLineStatusPanel();updateOpStatus();
 }
 
 // ── HISTORY ──
