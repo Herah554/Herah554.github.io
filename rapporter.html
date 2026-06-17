@@ -296,24 +296,24 @@ auth.onAuthStateChanged(async user=>{
 
 db.ref('settings').on('value',snap=>{
   if(snap.exists()) SETTINGS=Object.assign({defaultDayHours:8,oeeGoal:97,oeeGoals:{},prodPlan:{},products:{},schedule:{}},snap.val());
-  render();
+  scheduleRender();
 });
 db.ref('production').on('value',snap=>{
   const m={};
   if(snap.exists())snap.forEach(ds=>{const date=ds.key;m[date]={};ds.forEach(ls=>{m[date][ls.key]=(ls.val()&&ls.val().count)||0;});});
-  PROD_ALL=m; render();
+  PROD_ALL=m; scheduleRender();
 });
 db.ref('active_product').on('value',snap=>{
   const m={};
   if(snap.exists())snap.forEach(ls=>{m[ls.key]=(ls.val()&&ls.val().product)||null;});
-  ACTIVE_PROD=m; render();
+  ACTIVE_PROD=m; scheduleRender();
 });
 db.ref('events').on('value',snap=>{
   EVENTS=[];
   snap.forEach(c=>EVENTS.push({id:c.key,...c.val()}));
   EVENTS.sort((a,b)=>a.ts-b.ts);
   initYearSelects();
-  render();
+  scheduleRender();
 });
 
 function initYearSelects(){
@@ -335,6 +335,12 @@ function initYearSelects(){
   document.getElementById('sel-month').value=new Date().getMonth();
 }
 
+let _rt=null,_lr=0;
+function scheduleRender(){            // strup data-oppdateringer → maks én opptegning hvert ~2,5 s
+  if(_rt)return;
+  const wait=Math.max(60,2500-(Date.now()-_lr));
+  _rt=setTimeout(()=>{_rt=null;_lr=Date.now();render();},wait);
+}
 function render(){
   const mode=document.getElementById('view-mode').value;
   const year=parseInt(document.getElementById('sel-year').value)||new Date().getFullYear();
@@ -562,6 +568,7 @@ function renderCompare(year,year2,line){
 
 Chart.defaults.font.family="'IBM Plex Sans',sans-serif";
 Chart.defaults.color='#8a95a8';
+Chart.defaults.animation=false;        // ingen re-animasjon → grafer blinker/hopper ikke ved oppdatering
 </script>
 </body>
 </html>
