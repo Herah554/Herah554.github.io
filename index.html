@@ -787,10 +787,13 @@ function downtimeForDates(line,dateObjs){
 }
 
 // ── RENDER ALL — debounced to prevent double renders ──
-let _renderTimer=null;
-function renderAll(){
-  if(_renderTimer)clearTimeout(_renderTimer);
-  _renderTimer=setTimeout(_doRenderAll, 50);
+let _renderTimer=null, _lastRender=0;
+function renderAll(immediate){
+  // Brukerhandlinger (filter/visning) tegner med en gang; data-oppdateringer strupes
+  if(immediate){if(_renderTimer){clearTimeout(_renderTimer);_renderTimer=null;}_lastRender=Date.now();_doRenderAll();return;}
+  if(_renderTimer)return;                       // allerede planlagt — slå sammen rask flom av oppdateringer
+  const wait=Math.max(60, 2500-(Date.now()-_lastRender));
+  _renderTimer=setTimeout(()=>{_renderTimer=null;_lastRender=Date.now();_doRenderAll();}, wait);
 }
 function _doRenderAll(){
   const fil=getFiltered();
@@ -1028,7 +1031,7 @@ function setFilter(l,btn){
   filterLine=l;
   document.querySelectorAll('.fb').forEach(b=>b.classList.remove('on'));
   btn.classList.add('on');
-  renderAll();
+  renderAll(true);
 }
 function showOEE(mode,btn){oeeMode=mode;document.querySelectorAll('#oee-tabs .tab').forEach(t=>t.classList.remove('on'));btn.classList.add('on');renderOEE(getFiltered());}
 function showND(id,btn){
@@ -1526,6 +1529,7 @@ function closeHandleModal(){
 
 Chart.defaults.font.family="'IBM Plex Sans',sans-serif";
 Chart.defaults.color='#8a95a8';
+Chart.defaults.animation=false;        // ingen re-animasjon ved oppdatering → grafer hopper ikke
 </script>
 </body>
 </html>
