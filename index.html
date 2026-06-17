@@ -216,6 +216,7 @@ td:first-child{font-family:var(--mono);font-size:11px;color:var(--text3)}
   <div class="logo">Diplom-is<span> / Produksjon</span></div>
   <a href="index.html" class="nl on">Dashboard</a>
   <a href="rapporter.html" class="nl" id="nav-rap" style="display:none">Rapporter</a>
+  <a href="skiftrapport.html" class="nl" id="nav-skift" style="display:none">Skiftrapport</a>
   <a href="innstillinger.html" class="nl" id="nav-set" style="display:none">Innstillinger</a>
   <a href="brukere.html" class="nl" id="nav-usr" style="display:none">Brukere</a>
   <a href="logg.html" class="nl" id="nav-logg" style="display:none">Logg &amp; data</a>
@@ -534,6 +535,7 @@ auth.onAuthStateChanged(async user=>{
       document.getElementById('nav-usr').style.display='';
     }
     if(role==='master')document.getElementById('nav-logg').style.display='';
+    if(role==='master'||role==='leder'||myProfile.shiftAccess===true)document.getElementById('nav-skift').style.display='';
     // Linjeoperatør: show banner, hide filter, lock to their lines
     if(role==='linjeoperator'){
       document.getElementById('fbar').style.display='none';

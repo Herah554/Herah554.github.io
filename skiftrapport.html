@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Skiftrapport — Diplom-is</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#f4f6f9;--bg2:#fff;--bg3:#eef0f4;--border:#e2e6ed;--text:#18202e;--text2:#4a5568;--text3:#8a95a8;--accent:#e63329;--blue:#2563eb;--green:#16a34a;--amber:#d97706;--red:#dc2626;--teal:#0d9488;--purple:#7c3aed;--font:'IBM Plex Sans',sans-serif;--mono:'IBM Plex Mono',monospace;--r:8px;--rl:12px;--sh:0 1px 4px rgba(0,0,0,.08)}
+body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14px;min-height:100vh}
+nav{background:var(--bg2);border-bottom:1px solid var(--border);height:54px;display:flex;align-items:center;padding:0 1.5rem;gap:.4rem;position:sticky;top:0;z-index:50;box-shadow:var(--sh)}
+.logo{font-weight:600;font-size:15px;color:var(--accent)}.logo span{font-weight:400;font-size:12px;color:var(--text3)}
+.nl{font-size:13px;color:var(--text2);text-decoration:none;padding:5px 10px;border-radius:var(--r);font-weight:500}
+.nl:hover{background:var(--bg3)}.nl.on{color:var(--accent);background:var(--bg3)}
+.ml{margin-left:auto;display:flex;align-items:center;gap:8px}
+.ubadge{font-size:11px;font-family:var(--mono);background:var(--bg3);padding:3px 9px;border-radius:99px;color:var(--text2)}
+.lout{font-size:12px;background:none;border:1px solid var(--border);border-radius:var(--r);padding:4px 9px;cursor:pointer;color:var(--text3)}
+.lout:hover{border-color:#fecaca;color:var(--red)}
+.page{max-width:1000px;margin:0 auto;padding:1.25rem 1.5rem}
+h2{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin:1.1rem 0 .6rem;font-family:var(--mono)}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:1.1rem 1.2rem;box-shadow:var(--sh);margin-bottom:.75rem}
+.ct{font-size:13px;font-weight:600;color:var(--text);margin-bottom:.85rem;display:flex;align-items:center;gap:8px}
+.ca{width:3px;height:13px;border-radius:2px;flex-shrink:0}
+.lbl{font-size:10px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
+input,select,textarea{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text);padding:8px 10px;font-family:var(--font);font-size:14px;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+textarea{resize:vertical;min-height:70px}
+input.auto{background:#f0f9ff;border-color:#bae6fd}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.fitem{display:flex;flex-direction:column}
+.full{grid-column:1/-1}
+.autohint{font-size:9px;color:var(--blue);font-family:var(--mono);margin-top:2px}
+.sep{border-top:1px solid var(--border);margin:1rem 0 .85rem}
+.toprow{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin-bottom:.5rem}
+.toprow .fitem{min-width:130px}
+.shiftbtns{display:flex;gap:6px}
+.sbtn{padding:8px 16px;border:1px solid var(--border);background:var(--bg3);border-radius:var(--r);cursor:pointer;font-size:13px;font-weight:600;color:var(--text2)}
+.sbtn.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.bp{background:var(--accent);border:none;border-radius:var(--r);color:#fff;font-size:13px;font-weight:600;padding:9px 18px;cursor:pointer}
+.bp:hover{opacity:.9}
+.bg{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text2);font-size:13px;font-weight:500;padding:9px 16px;cursor:pointer}
+.bg:hover{background:var(--border)}
+.actions{display:flex;gap:10px;align-items:center;margin-top:.5rem}
+.savedtag{font-size:11px;color:var(--green);font-family:var(--mono)}
+/* history */
+.twrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--r)}
+.tbl{width:100%;border-collapse:collapse;font-size:12px;min-width:640px}
+.tbl th{font-size:9px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--text3);text-align:left;padding:7px 9px;border-bottom:1px solid var(--border);background:var(--bg3);white-space:nowrap}
+.tbl td{padding:6px 9px;border-bottom:1px solid var(--border)}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr.clk{cursor:pointer}.tbl tr.clk:hover td{background:var(--bg3)}
+.empty{color:var(--text3);font-size:12px;padding:1.2rem;text-align:center}
+.hfilters{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:.7rem}
+.hfilters .fitem{min-width:120px}
+.toast{position:fixed;bottom:18px;right:18px;background:var(--bg2);border:1px solid #bbf7d0;color:var(--green);font-size:12px;font-weight:600;padding:8px 14px;border-radius:var(--r);opacity:0;transition:opacity .3s;pointer-events:none;box-shadow:0 4px 20px rgba(0,0,0,.12)}
+.toast.e{border-color:#fecaca;color:var(--red)}
+.gate{max-width:440px;margin:16vh auto;text-align:center;padding:2rem}
+.gate h1{font-size:18px;margin-bottom:.5rem}.gate p{color:var(--text2);font-size:13px;margin-bottom:1rem}
+@media(max-width:760px){.grid{grid-template-columns:1fr 1fr}.page{padding:1rem}}
+@media(max-width:480px){.grid,.grid2{grid-template-columns:1fr}nav{padding:0 1rem}}
+</style>
+</head>
+<body>
+<nav>
+  <div class="logo">Diplom-is<span> / Produksjon</span></div>
+  <a href="index.html" class="nl">Dashboard</a>
+  <a href="rapporter.html" class="nl" id="nav-rap" style="display:none">Rapporter</a>
+  <a href="skiftrapport.html" class="nl on">Skiftrapport</a>
+  <a href="innstillinger.html" class="nl" id="nav-set" style="display:none">Innstillinger</a>
+  <a href="brukere.html" class="nl" id="nav-usr" style="display:none">Brukere</a>
+  <a href="logg.html" class="nl" id="nav-logg" style="display:none">Logg &amp; data</a>
+  <div class="ml">
+    <div class="ubadge" id="ubadge">—</div>
+    <button class="lout" onclick="auth.signOut().then(()=>location.href='login.html')">Logg ut</button>
+  </div>
+</nav>
+
+<div id="gate" class="gate" style="display:none">
+  <h1>Ingen tilgang</h1>
+  <p>Du har ikke tilgang til skiftrapport. En master kan gi deg tilgang under Brukere.</p>
+  <a class="bp" href="index.html" style="text-decoration:none">Til dashbordet</a>
+</div>
+
+<main class="page" id="app" style="display:none">
+
+  <h2>Ny / rediger skiftrapport</h2>
+  <div class="card">
+    <div class="toprow">
+      <div class="fitem"><label class="lbl">Linje</label><select id="f-line" onchange="loadReport()"></select></div>
+      <div class="fitem"><label class="lbl">Dato</label><input type="date" id="f-date" onchange="loadReport()"></div>
+      <div class="fitem"><label class="lbl">Skift</label>
+        <div class="shiftbtns" id="shiftbtns">
+          <div class="sbtn" data-s="A" onclick="setShift('A')">A</div>
+          <div class="sbtn" data-s="B" onclick="setShift('B')">B</div>
+          <div class="sbtn" data-s="C" onclick="setShift('C')">C</div>
+          <div class="sbtn" data-s="3-skift" onclick="setShift('3-skift')">3-skift</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sep"></div>
+
+    <div class="ct"><div class="ca" style="background:var(--blue)"></div>Produkt &amp; ordre</div>
+    <div class="grid">
+      <div class="fitem"><label class="lbl">Produkt (art.nr / navn)</label><input id="r-produkt" class="auto"><div class="autohint">Fra aktivt produkt</div></div>
+      <div class="fitem"><label class="lbl">AO-nr (arbeidsordre)</label><input id="r-ao"></div>
+      <div class="fitem"><label class="lbl">Hastighet (dpk/t)</label><input id="r-hast" class="auto"><div class="autohint">Fra produkt</div></div>
+      <div class="fitem"><label class="lbl">Antall bestilt</label><input type="number" id="r-bestilt" min="0"></div>
+      <div class="fitem"><label class="lbl">Antall produsert (dpack)</label><input type="number" id="r-prod" class="auto" min="0"><div class="autohint">Fra MES — endre ved behov</div></div>
+      <div class="fitem"><label class="lbl">Planlagte timer</label><input type="number" id="r-timer" class="auto" min="0" step="0.5"><div class="autohint">Fra skiftplan</div></div>
+    </div>
+
+    <div class="sep"></div>
+    <div class="ct"><div class="ca" style="background:var(--teal)"></div>Tider &amp; bemanning</div>
+    <div class="grid">
+      <div class="fitem"><label class="lbl">Første fylling (kl)</label><input type="time" id="r-forste"></div>
+      <div class="fitem"><label class="lbl">Siste fylling (kl)</label><input type="time" id="r-siste"></div>
+      <div class="fitem"><label class="lbl">Bemanning</label><input id="r-bemanning" placeholder="f.eks. 3"></div>
+    </div>
+
+    <div class="sep"></div>
+    <div class="ct"><div class="ca" style="background:var(--amber)"></div>Svinn</div>
+    <div class="grid">
+      <div class="fitem"><label class="lbl">Grisemat (kg)</label><input type="number" id="r-grisemat" min="0" step="0.1"></div>
+      <div class="fitem"><label class="lbl">Rework (kg)</label><input type="number" id="r-rework" min="0" step="0.1"></div>
+      <div class="fitem"><label class="lbl">Råvaresvinn</label><input id="r-ravaresvinn"></div>
+      <div class="fitem"><label class="lbl">Svinn</label><input id="r-svinn"></div>
+    </div>
+
+    <div class="sep"></div>
+    <div class="grid2">
+      <div class="fitem full"><label class="lbl">Kommentarer</label><textarea id="r-kommentar" placeholder="Avvik, hendelser, beskjeder til neste skift..."></textarea></div>
+      <div class="fitem"><label class="lbl">Signatur ansvarlig</label><input id="r-signatur"></div>
+    </div>
+
+    <div class="actions">
+      <button class="bp" onclick="saveReport()">💾 Lagre skiftrapport</button>
+      <span class="savedtag" id="saved-tag"></span>
+    </div>
+  </div>
+
+  <h2>Tidligere skiftrapporter</h2>
+  <div class="card">
+    <div class="hfilters">
+      <div class="fitem"><label class="lbl">Linje</label><select id="h-line" onchange="renderHistory()"><option value="">Alle</option></select></div>
+      <div class="fitem"><label class="lbl">Fra</label><input type="date" id="h-from" onchange="renderHistory()"></div>
+      <div class="fitem"><label class="lbl">Til</label><input type="date" id="h-to" onchange="renderHistory()"></div>
+      <button class="bg" onclick="exportCSV()">⬇ Eksporter til Excel/CSV</button>
+    </div>
+    <div class="twrap">
+      <table class="tbl">
+        <thead><tr><th>Dato</th><th>Linje</th><th>Skift</th><th>Produkt</th><th>Produsert</th><th>Signatur</th></tr></thead>
+        <tbody id="hist-tbody"></tbody>
+      </table>
+    </div>
+    <div class="autohint" style="margin-top:6px">Trykk på en rad for å åpne og redigere rapporten.</div>
+  </div>
+
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+const LINES=['Løp 1','Løp 2','Løp 3','Rollo','Koba','Glacier','Krokan'];
+const FB={apiKey:"AIzaSyCL4x1KNwgeDxqTFeP32BndJgH4B5MworQ",authDomain:"messystem-f14dd.firebaseapp.com",databaseURL:"https://messystem-f14dd-default-rtdb.firebaseio.com",projectId:"messystem-f14dd",storageBucket:"messystem-f14dd.firebasestorage.app",messagingSenderId:"1001051250309",appId:"1:1001051250309:web:0b2d82db50e8fd24ce93ec"};
+if(!firebase.apps.length)firebase.initializeApp(FB);
+localStorage.setItem('firebaseConfig',JSON.stringify(FB));
+const db=firebase.database(),auth=firebase.auth();
+
+let SETTINGS={products:{},schedule:{},resetTime:'00:00'}, PROD_ALL={}, ACTIVE_PROD={}, REPORTS={}, USER=null, EDIT_LINES=[];
+let curShift='3-skift';
+const lk=l=>(l||'').replace(/[\s\/]/g,'_');
+const pad=n=>String(n).padStart(2,'0');
+function ymd(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
+function esc(s){return String(s==null?'':s);}
+function showToast(m,e){const t=document.getElementById('toast');t.textContent=m;t.className='toast'+(e?' e':'');t.style.opacity='1';setTimeout(()=>t.style.opacity='0',2200);}
+function val(id){const e=document.getElementById(id);return e?e.value:'';}
+function setVal(id,v){const e=document.getElementById(id);if(e)e.value=(v==null?'':v);}
+
+// ── AUTH + tilgang ──
+auth.onAuthStateChanged(async user=>{
+  if(!user){location.href='login.html';return;}
+  const snap=await db.ref('users/'+user.uid).once('value');
+  USER=snap.exists()?snap.val():null;
+  const role=USER&&USER.role;
+  const hasAccess = role==='master'||role==='leder'||(USER&&USER.shiftAccess===true);
+  document.getElementById('ubadge').textContent=(USER?USER.name:'')+' · '+(role==='master'?'Master':role==='leder'?'Leder':'Operatør');
+  if(role==='master'||role==='leder'){document.getElementById('nav-rap').style.display='';document.getElementById('nav-set').style.display='';document.getElementById('nav-usr').style.display='';}
+  if(role==='master'){document.getElementById('nav-logg').style.display='';}
+  if(!hasAccess){document.getElementById('gate').style.display='block';return;}
+  document.getElementById('app').style.display='block';
+  EDIT_LINES=(role==='master'||role==='leder')?LINES.slice():((USER&&USER.lines)||[]);
+  initForm();
+  startListeners();
+});
+
+function startListeners(){
+  db.ref('settings').on('value',s=>{SETTINGS=Object.assign({products:{},schedule:{},resetTime:'00:00'},s.val()||{});prefill();});
+  db.ref('production').on('value',s=>{
+    const m={};if(s.exists())s.forEach(ds=>{const date=ds.key;m[date]={};ds.forEach(ls=>{m[date][ls.key]=(ls.val()&&ls.val().count)||0;});});
+    PROD_ALL=m;prefill();
+  });
+  db.ref('active_product').on('value',s=>{
+    const m={};if(s.exists())s.forEach(ls=>{m[ls.key]=(ls.val()&&ls.val().product)||null;});
+    ACTIVE_PROD=m;prefill();
+  });
+  db.ref('shiftReports').on('value',s=>{REPORTS=s.val()||{};renderHistory();loadReport();});
+}
+
+function initForm(){
+  const fl=document.getElementById('f-line'), hl=document.getElementById('h-line');
+  fl.innerHTML=''; EDIT_LINES.forEach(l=>{const o=document.createElement('option');o.value=l;o.textContent=l;fl.appendChild(o);});
+  if(EDIT_LINES.length===1)fl.disabled=true;
+  LINES.forEach(l=>{const o=document.createElement('option');o.value=l;o.textContent=l;hl.appendChild(o);});
+  const now=new Date();
+  document.getElementById('f-date').value=ymd(now);
+  document.getElementById('h-to').value=ymd(now);
+  document.getElementById('h-from').value=ymd(new Date(now.getTime()-30*86400000));
+  setShift('3-skift');
+  setVal('r-signatur', USER?USER.name:'');
+}
+
+function setShift(s){curShift=s;document.querySelectorAll('#shiftbtns .sbtn').forEach(b=>b.classList.toggle('on',b.dataset.s===s));}
+
+// planlagte timer for valgt dag fra skiftplan (best-effort)
+function plannedHours(lineKey,dateStr){
+  try{
+    const sc=(SETTINGS.schedule||{})[lineKey]; if(!sc)return '';
+    const dk=['sun','mon','tue','wed','thu','fri','sat'][new Date(dateStr+'T12:00:00').getDay()];
+    const d=sc[dk]; if(!d||!d.on)return '';
+    const tm=t=>{const p=String(t||'0:0').split(':');return (parseInt(p[0])||0)*60+(parseInt(p[1])||0);};
+    let st=tm(d.start),en=tm(d.end); if(en===0)en=1440; if(en<=st)en+=1440;
+    return ((en-st)/60).toFixed(1);
+  }catch(e){return '';}
+}
+
+// fyll inn auto-felter (kun hvis tomme / ny rapport)
+function prefill(){
+  const line=val('f-line'), date=val('f-date'); if(!line||!date)return;
+  const key=lk(line);
+  // produkt
+  const prodName=ACTIVE_PROD[key];
+  const prods=(SETTINGS.products||{})[key]||[];
+  const p=prods.find(x=>x.name===prodName)||prods.find(x=>x.liveHastighet>0);
+  if(!val('r-produkt')&&p)setVal('r-produkt',(p.artNr?p.artNr+' ':'')+p.name);
+  else if(!val('r-produkt')&&prodName)setVal('r-produkt',prodName);
+  if(!val('r-hast')&&p&&p.liveHastighet)setVal('r-hast',p.liveHastighet);
+  // produsert (dagens telling)
+  const cnt=(PROD_ALL[date]||{})[key];
+  if(!val('r-prod')&&cnt!=null)setVal('r-prod',cnt);
+  // planlagte timer
+  if(!val('r-timer')){const ph=plannedHours(key,date);if(ph)setVal('r-timer',ph);}
+}
+
+// last inn lagret rapport for valgt linje+dato (eller blank med auto)
+function loadReport(){
+  const line=val('f-line'), date=val('f-date'); if(!line||!date)return;
+  const key=lk(line);
+  const r=(REPORTS[date]||{})[key];
+  // nullstill felt
+  ['r-produkt','r-ao','r-hast','r-bestilt','r-prod','r-timer','r-forste','r-siste','r-bemanning','r-grisemat','r-rework','r-ravaresvinn','r-svinn','r-kommentar'].forEach(id=>setVal(id,''));
+  document.getElementById('saved-tag').textContent='';
+  if(r){
+    setShift(r.skift||'3-skift');
+    setVal('r-produkt',r.produkt);setVal('r-ao',r.aoNr);setVal('r-hast',r.hastighet);
+    setVal('r-bestilt',r.antallBestilt);setVal('r-prod',r.antallProdusert);setVal('r-timer',r.planlagteTimer);
+    setVal('r-forste',r.forsteFylling);setVal('r-siste',r.sisteFylling);setVal('r-bemanning',r.bemanning);
+    setVal('r-grisemat',r.grisematKg);setVal('r-rework',r.reworkKg);setVal('r-ravaresvinn',r.ravaresvinn);setVal('r-svinn',r.svinn);
+    setVal('r-kommentar',r.kommentar);setVal('r-signatur',r.signatur||(USER?USER.name:''));
+    document.getElementById('saved-tag').textContent='Lagret '+(r.savedAt?new Date(r.savedAt).toLocaleString('no-NO'):'')+(r.savedBy?' av '+r.savedBy:'');
+  }else{
+    setVal('r-signatur',USER?USER.name:'');
+  }
+  prefill();
+}
+
+async function saveReport(){
+  const line=val('f-line'), date=val('f-date');
+  if(!line||!date){showToast('Velg linje og dato',true);return;}
+  const rep={
+    line, date, skift:curShift,
+    produkt:val('r-produkt'), aoNr:val('r-ao'), hastighet:val('r-hast'),
+    antallBestilt:val('r-bestilt'), antallProdusert:val('r-prod'), planlagteTimer:val('r-timer'),
+    forsteFylling:val('r-forste'), sisteFylling:val('r-siste'), bemanning:val('r-bemanning'),
+    grisematKg:val('r-grisemat'), reworkKg:val('r-rework'), ravaresvinn:val('r-ravaresvinn'), svinn:val('r-svinn'),
+    kommentar:val('r-kommentar'), signatur:val('r-signatur'),
+    savedBy:USER?USER.name:'', savedAt:Date.now()
+  };
+  try{
+    await db.ref('shiftReports/'+date+'/'+lk(line)).set(rep);
+    showToast('Skiftrapport lagret');
+    document.getElementById('saved-tag').textContent='Lagret nå av '+(USER?USER.name:'');
+  }catch(e){showToast('Lagring feilet',true);}
+}
+
+// ── HISTORIKK ──
+function reportRows(){
+  const rows=[];
+  Object.keys(REPORTS).forEach(date=>{
+    Object.keys(REPORTS[date]).forEach(key=>{
+      const r=REPORTS[date][key]; if(r)rows.push(r);
+    });
+  });
+  return rows;
+}
+function renderHistory(){
+  const tb=document.getElementById('hist-tbody'); if(!tb)return;
+  const fl=val('h-line'), from=val('h-from'), to=val('h-to');
+  let rows=reportRows().filter(r=>{
+    if(EDIT_LINES.length&&!(USER&&(USER.role==='master'||USER.role==='leder'))&&!EDIT_LINES.includes(r.line))return false;
+    if(fl&&r.line!==fl)return false;
+    if(from&&r.date<from)return false;
+    if(to&&r.date>to)return false;
+    return true;
+  }).sort((a,b)=>b.date.localeCompare(a.date)||a.line.localeCompare(b.line));
+  if(!rows.length){tb.innerHTML='<tr><td colspan="6" class="empty">Ingen skiftrapporter i utvalget.</td></tr>';return;}
+  tb.innerHTML='';
+  rows.forEach(r=>{
+    const tr=document.createElement('tr');tr.className='clk';
+    tr.onclick=()=>{const fl2=document.getElementById('f-line');if(!fl2.disabled)fl2.value=r.line;document.getElementById('f-date').value=r.date;loadReport();window.scrollTo({top:0,behavior:'smooth'});};
+    tr.innerHTML='<td>'+esc(r.date)+'</td><td>'+esc(r.line)+'</td><td>'+esc(r.skift||'')+'</td><td>'+esc(r.produkt||'—')+'</td><td>'+esc(r.antallProdusert||'')+'</td><td>'+esc(r.signatur||'')+'</td>';
+    tb.appendChild(tr);
+  });
+}
+
+// ── EKSPORT CSV (Excel, norsk: semikolon + BOM) ──
+function exportCSV(){
+  const fl=val('h-line'), from=val('h-from'), to=val('h-to');
+  let rows=reportRows().filter(r=>{
+    if(EDIT_LINES.length&&!(USER&&(USER.role==='master'||USER.role==='leder'))&&!EDIT_LINES.includes(r.line))return false;
+    if(fl&&r.line!==fl)return false;
+    if(from&&r.date<from)return false;
+    if(to&&r.date>to)return false;
+    return true;
+  }).sort((a,b)=>a.date.localeCompare(b.date)||a.line.localeCompare(b.line));
+  if(!rows.length){showToast('Ingenting å eksportere',true);return;}
+  const cols=[['date','Dato'],['line','Linje'],['skift','Skift'],['produkt','Produkt'],['aoNr','AO-nr'],['hastighet','Hastighet'],['antallBestilt','Antall bestilt'],['antallProdusert','Antall produsert'],['planlagteTimer','Planlagte timer'],['forsteFylling','Første fylling'],['sisteFylling','Siste fylling'],['bemanning','Bemanning'],['grisematKg','Grisemat kg'],['reworkKg','Rework kg'],['ravaresvinn','Råvaresvinn'],['svinn','Svinn'],['kommentar','Kommentarer'],['signatur','Signatur'],['savedBy','Lagret av']];
+  const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';
+  let csv=cols.map(c=>q(c[1])).join(';')+'\n';
+  rows.forEach(r=>{csv+=cols.map(c=>q(r[c[0]])).join(';')+'\n';});
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='skiftrapporter_'+(from||'')+'_'+(to||'')+'.csv';a.click();
+  showToast('Eksportert '+rows.length+' rapporter');
+}
+</script>
+</body>
+</html>
