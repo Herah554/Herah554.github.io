@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Logg & data — Diplom-is</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#f4f6f9;--bg2:#fff;--bg3:#eef0f4;--border:#e2e6ed;--text:#18202e;--text2:#4a5568;--text3:#8a95a8;--accent:#e63329;--blue:#2563eb;--green:#16a34a;--amber:#d97706;--red:#dc2626;--teal:#0d9488;--purple:#7c3aed;--font:'IBM Plex Sans',sans-serif;--mono:'IBM Plex Mono',monospace;--r:8px;--rl:12px;--sh:0 1px 4px rgba(0,0,0,.08)}
+body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14px;min-height:100vh}
+nav{background:var(--bg2);border-bottom:1px solid var(--border);height:54px;display:flex;align-items:center;padding:0 1.5rem;gap:.4rem;position:sticky;top:0;z-index:50;box-shadow:var(--sh)}
+.logo{font-weight:600;font-size:15px;color:var(--accent)}.logo span{font-weight:400;font-size:12px;color:var(--text3)}
+.nl{font-size:13px;color:var(--text2);text-decoration:none;padding:5px 10px;border-radius:var(--r);font-weight:500}
+.nl:hover{background:var(--bg3)}.nl.on{color:var(--accent);background:var(--bg3)}
+.ml{margin-left:auto;display:flex;align-items:center;gap:8px}
+.ubadge{font-size:11px;font-family:var(--mono);background:var(--bg3);padding:3px 9px;border-radius:99px;color:var(--text2)}
+.lout{font-size:12px;background:none;border:1px solid var(--border);border-radius:var(--r);padding:4px 9px;cursor:pointer;color:var(--text3)}
+.lout:hover{border-color:#fecaca;color:var(--red)}
+.page{max-width:1200px;margin:0 auto;padding:1.25rem 1.5rem}
+h2{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin:1.1rem 0 .6rem;font-family:var(--mono)}
+h2:first-child{margin-top:0}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:1rem 1.1rem;box-shadow:var(--sh);margin-bottom:.75rem}
+.ct{font-size:13px;font-weight:600;color:var(--text);margin-bottom:.85rem;display:flex;align-items:center;gap:8px}
+.ca{width:3px;height:13px;border-radius:2px;flex-shrink:0}
+.lbl{font-size:11px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
+input,select{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text);padding:7px 9px;font-family:var(--font);font-size:13px;outline:none}
+input:focus,select:focus{border-color:var(--accent)}
+.bp{background:var(--accent);border:none;border-radius:var(--r);color:#fff;font-size:12px;font-weight:600;padding:7px 13px;cursor:pointer;white-space:nowrap}
+.bp:hover{opacity:.9}
+.bg{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text2);font-size:12px;font-weight:500;padding:7px 13px;cursor:pointer;white-space:nowrap}
+.bg:hover{background:var(--border)}
+/* filters */
+.filters{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+.fitem{display:flex;flex-direction:column;gap:3px}
+.fitem input,.fitem select{font-size:12px}
+.lfilter{display:flex;flex-wrap:wrap;gap:6px}
+.lchk{display:inline-flex;align-items:center;gap:5px;background:var(--bg3);border:1px solid var(--border);border-radius:99px;padding:4px 12px;font-size:12px;color:var(--text2);cursor:pointer;user-select:none}
+.lchk.on{background:#eff6ff;border-color:#bfdbfe;color:var(--blue);font-weight:600}
+.lchk .dot{width:7px;height:7px;border-radius:50%;background:var(--text3)}
+.lchk.on .dot{background:var(--blue)}
+/* KPIs */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:.75rem}
+.kpi{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:.8rem .9rem;box-shadow:var(--sh)}
+.kpi .klbl{font-size:9px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.05em;color:var(--text3);margin-bottom:4px}
+.kpi .kval{font-size:22px;font-weight:600;font-variant-numeric:tabular-nums}
+/* tables */
+.twrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--r);max-height:560px;overflow-y:auto}
+.tbl{width:100%;border-collapse:collapse;font-size:12px;min-width:760px}
+.tbl th{font-size:9px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--text3);text-align:left;padding:7px 8px;border-bottom:1px solid var(--border);background:var(--bg3);white-space:nowrap;position:sticky;top:0;z-index:2}
+.tbl td{padding:5px 8px;border-bottom:1px solid var(--border);vertical-align:middle}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr:hover td{background:var(--bg3)}
+.tbl input{width:100%;padding:5px 6px;font-size:12px;background:var(--bg2);border:1px solid var(--border);border-radius:6px}
+.tbl input:focus{border-color:var(--accent)}
+.tbl input.num{text-align:right}
+.mono{font-family:var(--mono);font-size:11px;color:var(--text2);white-space:nowrap}
+.save{background:var(--green);border:none;border-radius:6px;color:#fff;font-size:12px;font-weight:600;padding:5px 9px;cursor:pointer}
+.save:hover{opacity:.9}
+.save:disabled{opacity:.4;cursor:default}
+.del{background:none;border:none;color:var(--text3);font-size:13px;cursor:pointer;padding:4px 6px;border-radius:4px}
+.del:hover{background:#fef2f2;color:var(--red)}
+.badge{font-size:9px;border-radius:3px;padding:1px 6px;font-weight:600;white-space:nowrap}
+.b-un{background:#fffbeb;color:var(--amber);border:1px solid #fde68a}
+.b-ok{background:#f0fdf4;color:var(--green);border:1px solid #bbf7d0}
+.b-plan{background:#faf5ff;color:var(--purple);border:1px solid #d8b4fe}
+.b-opc{background:#eff6ff;color:var(--blue);border:1px solid #bfdbfe}
+.b-man{background:var(--bg3);color:var(--text2);border:1px solid var(--border)}
+.empty{color:var(--text3);font-size:12px;padding:1.2rem;text-align:center}
+.note{font-size:11px;color:var(--text3);margin-top:6px}
+.toast{position:fixed;bottom:18px;right:18px;background:var(--bg2);border:1px solid #bbf7d0;color:var(--green);font-size:12px;font-weight:600;padding:8px 14px;border-radius:var(--r);opacity:0;transition:opacity .3s;pointer-events:none;box-shadow:0 4px 20px rgba(0,0,0,.12)}
+.toast.e{border-color:#fecaca;color:var(--red)}
+.gate{max-width:420px;margin:18vh auto;text-align:center;padding:2rem}
+.gate h1{font-size:18px;margin-bottom:.5rem}.gate p{color:var(--text2);font-size:13px;margin-bottom:1rem}
+@media(max-width:800px){.kpis{grid-template-columns:1fr 1fr}.page{padding:1rem}}
+@media(max-width:500px){nav{padding:0 1rem}}
+</style>
+</head>
+<body>
+<nav>
+  <div class="logo">Diplom-is<span> / Produksjon</span></div>
+  <a href="index.html" class="nl">Dashboard</a>
+  <a href="rapporter.html" class="nl">Rapporter</a>
+  <a href="innstillinger.html" class="nl">Innstillinger</a>
+  <a href="brukere.html" class="nl">Brukere</a>
+  <a href="logg.html" class="nl on">Logg &amp; data</a>
+  <div class="ml">
+    <div class="ubadge" id="ubadge">—</div>
+    <button class="lout" onclick="auth.signOut().then(()=>location.href='login.html')">Logg ut</button>
+  </div>
+</nav>
+
+<div id="gate" class="gate" style="display:none">
+  <h1>Ingen tilgang</h1>
+  <p>Denne siden er kun for master-brukere.</p>
+  <a class="bp" href="index.html" style="text-decoration:none">Til dashbordet</a>
+</div>
+
+<main class="page" id="app" style="display:none">
+
+  <!-- FILTERS -->
+  <div class="card">
+    <div class="ct"><div class="ca" style="background:var(--blue)"></div>Filtre</div>
+    <div class="lbl">Linjer</div>
+    <div class="lfilter" id="lfilter" style="margin-bottom:10px"></div>
+    <div class="filters">
+      <div class="fitem"><label class="lbl">Fra dato</label><input type="date" id="f-from"></div>
+      <div class="fitem"><label class="lbl">Til dato</label><input type="date" id="f-to"></div>
+      <div class="fitem"><label class="lbl">Status</label>
+        <select id="f-status"><option value="">Alle</option><option value="un">Ubehandlet</option><option value="ok">Behandlet</option></select></div>
+      <div class="fitem"><label class="lbl">Kilde</label>
+        <select id="f-source"><option value="">Alle</option><option value="opc">Automatisk (OPC)</option><option value="manual">Manuell</option></select></div>
+      <div class="fitem" style="flex:1;min-width:160px"><label class="lbl">Søk (årsak/kommentar)</label><input type="text" id="f-search" placeholder="Søk..."></div>
+      <button class="bg" onclick="resetFilters()">Nullstill</button>
+    </div>
+  </div>
+
+  <!-- KPIs -->
+  <div class="kpis">
+    <div class="kpi"><div class="klbl">Hendelser i utvalg</div><div class="kval" id="k-evt">—</div></div>
+    <div class="kpi"><div class="klbl">Total nedetid</div><div class="kval" id="k-down">—</div></div>
+    <div class="kpi"><div class="klbl">Ubehandlet</div><div class="kval" id="k-un" style="color:var(--amber)">—</div></div>
+    <div class="kpi"><div class="klbl">Produsert (dpack)</div><div class="kval" id="k-prod">—</div></div>
+  </div>
+
+  <!-- PRODUCTION -->
+  <h2>Produksjon — rediger dagstall</h2>
+  <div class="card">
+    <div class="ct"><div class="ca" style="background:var(--green)"></div>Produserte dpack per dag og linje</div>
+    <div class="twrap">
+      <table class="tbl">
+        <thead><tr><th>Dato</th><th>Linje</th><th style="width:140px">Dpack</th><th style="width:80px"></th></tr></thead>
+        <tbody id="prod-tbody"></tbody>
+      </table>
+    </div>
+    <div class="note">Endre tallet og trykk 💾 for å lagre. Dette overstyrer det broen har telt for den dagen.</div>
+  </div>
+
+  <!-- EVENTS -->
+  <h2>Hendelseslogg — alle nedetider</h2>
+  <div class="card">
+    <div class="ct"><div class="ca" style="background:var(--accent)"></div>Alle hendelser (rediger eller slett)</div>
+    <div class="twrap">
+      <table class="tbl">
+        <thead><tr>
+          <th>Tid</th><th>Linje</th><th>Maskin</th><th style="min-width:150px">Årsak</th>
+          <th style="width:90px">Min</th><th>Kilde</th><th>Status</th><th>Behandlet av</th>
+          <th style="min-width:160px">Kommentar</th><th style="width:90px"></th>
+        </tr></thead>
+        <tbody id="evt-tbody"></tbody>
+      </table>
+    </div>
+    <div class="note">Endringer lagres til Firebase med en gang du trykker 💾. Sletting kan ikke angres.</div>
+  </div>
+
+  <!-- SYSTEM STATUS -->
+  <h2>Systemstatus</h2>
+  <div class="card">
+    <div class="ct"><div class="ca" style="background:var(--teal)"></div>OPC-UA-bro</div>
+    <div id="sys" class="mono" style="line-height:1.8">—</div>
+  </div>
+
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+const LINES=['Løp 1','Løp 2','Løp 3','Rollo','Koba','Glacier','Krokan'];
+const FB={apiKey:"AIzaSyCL4x1KNwgeDxqTFeP32BndJgH4B5MworQ",authDomain:"messystem-f14dd.firebaseapp.com",databaseURL:"https://messystem-f14dd-default-rtdb.firebaseio.com",projectId:"messystem-f14dd",storageBucket:"messystem-f14dd.firebasestorage.app",messagingSenderId:"1001051250309",appId:"1:1001051250309:web:0b2d82db50e8fd24ce93ec"};
+if(!firebase.apps.length)firebase.initializeApp(FB);
+localStorage.setItem('firebaseConfig',JSON.stringify(FB));
+const db=firebase.database(),auth=firebase.auth();
+
+let EVENTS=[], PROD=[], SETTINGS={plannedStops:[]}, LINE_SEL=new Set();
+const lk=l=>(l||'').replace(/[\s\/]/g,'_');
+const LK2LINE={}; LINES.forEach(l=>LK2LINE[lk(l)]=l);
+const pad=n=>String(n).padStart(2,'0');
+function fmtT(ts){const d=new Date(ts);return pad(d.getDate())+'.'+pad(d.getMonth()+1)+'.'+d.getFullYear()+' '+pad(d.getHours())+':'+pad(d.getMinutes());}
+function fmtD(m){m=Math.round(m||0);if(m<60)return m+' min';const h=Math.floor(m/60),mm=m%60;return h+'t '+(mm?mm+'m':'');}
+function isPlanned(c){return(SETTINGS.plannedStops||[]).includes(c);}
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function showToast(msg,err){const t=document.getElementById('toast');t.textContent=msg;t.className='toast'+(err?' e':'');t.style.opacity='1';setTimeout(()=>t.style.opacity='0',2200);}
+
+// ── AUTH (master only) ──
+auth.onAuthStateChanged(async user=>{
+  if(!user){location.href='login.html';return;}
+  const snap=await db.ref('users/'+user.uid).once('value');
+  const role=snap.exists()?snap.val().role:null;
+  if(role!=='master'){
+    document.getElementById('gate').style.display='block';
+    document.getElementById('app').style.display='none';
+    document.getElementById('ubadge').textContent=(snap.exists()?snap.val().name:'')+' · '+(role||'ukjent');
+    return;
+  }
+  document.getElementById('ubadge').textContent=snap.val().name+' · Master';
+  document.getElementById('app').style.display='block';
+  initFilters();
+  startListeners();
+});
+
+function startListeners(){
+  db.ref('settings').on('value',s=>{SETTINGS=Object.assign({plannedStops:[]},s.val()||{});renderEvents();});
+  db.ref('events').on('value',s=>{
+    EVENTS=[]; if(s.exists())s.forEach(c=>EVENTS.push(Object.assign({id:c.key},c.val())));
+    renderEvents();
+  });
+  db.ref('production').on('value',s=>{
+    PROD=[];
+    if(s.exists())s.forEach(ds=>{const date=ds.key;ds.forEach(ls=>{const v=ls.val()||{};if(typeof v.count==='number')PROD.push({date,lk:ls.key,line:LK2LINE[ls.key]||ls.key,count:v.count});});});
+    renderProd(); renderKpis();
+  });
+  db.ref('opc_status').on('value',s=>renderSys(s.val()||{}));
+}
+
+// ── FILTERS ──
+function initFilters(){
+  const lf=document.getElementById('lfilter');
+  lf.innerHTML='';
+  const allChip=document.createElement('div');
+  allChip.className='lchk on';allChip.innerHTML='<span class="dot"></span>Alle linjer';
+  allChip.onclick=()=>{LINE_SEL.clear();[...lf.children].forEach((c,i)=>c.classList.toggle('on',i===0));renderAll();};
+  lf.appendChild(allChip);
+  LINES.forEach(l=>{
+    const c=document.createElement('div');c.className='lchk';c.innerHTML='<span class="dot"></span>'+l;
+    c.onclick=()=>{
+      if(LINE_SEL.has(l))LINE_SEL.delete(l);else LINE_SEL.add(l);
+      c.classList.toggle('on',LINE_SEL.has(l));
+      allChip.classList.toggle('on',LINE_SEL.size===0);
+      renderAll();
+    };
+    lf.appendChild(c);
+  });
+  const now=new Date();const from=new Date(now.getTime()-30*86400000);
+  document.getElementById('f-from').value=ymd(from);
+  document.getElementById('f-to').value=ymd(now);
+  ['f-from','f-to','f-status','f-source'].forEach(id=>document.getElementById(id).addEventListener('change',renderAll));
+  document.getElementById('f-search').addEventListener('input',renderAll);
+}
+function ymd(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
+function resetFilters(){
+  LINE_SEL.clear();
+  const now=new Date();const from=new Date(now.getTime()-30*86400000);
+  document.getElementById('f-from').value=ymd(from);
+  document.getElementById('f-to').value=ymd(now);
+  document.getElementById('f-status').value='';document.getElementById('f-source').value='';document.getElementById('f-search').value='';
+  const lf=document.getElementById('lfilter');[...lf.children].forEach((c,i)=>c.classList.toggle('on',i===0));
+  renderAll();
+}
+function lineOk(line){return LINE_SEL.size===0||LINE_SEL.has(line);}
+function dateRange(){
+  const f=document.getElementById('f-from').value,t=document.getElementById('f-to').value;
+  const from=f?new Date(f+'T00:00:00').getTime():0;
+  const to=t?new Date(t+'T23:59:59').getTime():Date.now()+86400000;
+  return {from,to};
+}
+function renderAll(){renderProd();renderEvents();renderKpis();}
+
+// ── PRODUCTION (editable) ──
+function renderProd(){
+  const tb=document.getElementById('prod-tbody');if(!tb)return;
+  const {from,to}=dateRange();
+  const rows=PROD.filter(p=>{
+    if(!lineOk(p.line))return false;
+    const ts=new Date(p.date+'T12:00:00').getTime();
+    return ts>=from&&ts<=to;
+  }).sort((a,b)=>b.date.localeCompare(a.date)||a.line.localeCompare(b.line));
+  if(!rows.length){tb.innerHTML='<tr><td colspan="4" class="empty">Ingen produksjonsdata i utvalget.</td></tr>';return;}
+  tb.innerHTML='';
+  rows.forEach(p=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML='<td class="mono">'+p.date+'</td>'
+      +'<td>'+esc(p.line)+'</td>'
+      +'<td><input class="num" type="number" min="0" value="'+p.count+'" id="pc-'+p.lk+'-'+p.date+'"></td>'
+      +'<td><button class="save" onclick="saveProd(\''+p.date+'\',\''+p.lk+'\')">💾</button></td>';
+    tb.appendChild(tr);
+  });
+}
+async function saveProd(date,lkey){
+  const el=document.getElementById('pc-'+lkey+'-'+date);if(!el)return;
+  const v=parseInt(el.value);
+  if(isNaN(v)||v<0){showToast('Ugyldig tall',true);return;}
+  try{await db.ref('production/'+date+'/'+lkey+'/count').set(v);showToast('Produksjon lagret');}
+  catch(e){showToast('Lagring feilet',true);}
+}
+
+// ── EVENTS (editable + delete) ──
+function srcBadge(e){
+  if(e.source==='opc')return '<span class="badge b-opc">OPC</span>';
+  if(e.source==='split')return '<span class="badge b-man">delt</span>';
+  return '<span class="badge b-man">manuell</span>';
+}
+function statusBadge(e){
+  if(e.unhandled)return '<span class="badge b-un">ubehandlet</span>';
+  if(isPlanned(e.cause))return '<span class="badge b-plan">planlagt</span>';
+  return '<span class="badge b-ok">behandlet</span>';
+}
+function renderEvents(){
+  const tb=document.getElementById('evt-tbody');if(!tb)return;
+  const {from,to}=dateRange();
+  const st=document.getElementById('f-status').value, src=document.getElementById('f-source').value;
+  const q=(document.getElementById('f-search').value||'').toLowerCase().trim();
+  const rows=EVENTS.filter(e=>{
+    if(!lineOk(e.line))return false;
+    if(e.ts<from||e.ts>to)return false;
+    if(st==='un'&&!e.unhandled)return false;
+    if(st==='ok'&&e.unhandled)return false;
+    if(src==='opc'&&e.source!=='opc')return false;
+    if(src==='manual'&&e.source==='opc')return false;
+    if(q&&!((e.cause||'').toLowerCase().includes(q)||(e.comment||'').toLowerCase().includes(q)||(e.line||'').toLowerCase().includes(q)))return false;
+    return true;
+  }).sort((a,b)=>b.ts-a.ts);
+  if(!rows.length){tb.innerHTML='<tr><td colspan="10" class="empty">Ingen hendelser i utvalget.</td></tr>';return;}
+  tb.innerHTML='';
+  rows.forEach(e=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML='<td class="mono">'+fmtT(e.ts)+'</td>'
+      +'<td>'+esc(e.line)+'</td>'
+      +'<td>'+esc(e.machine||'—')+'</td>'
+      +'<td><input type="text" id="ec-cause-'+e.id+'" value="'+esc(e.cause||'')+'"></td>'
+      +'<td><input class="num" type="number" min="0" id="ec-dur-'+e.id+'" value="'+(e.duration||0)+'"></td>'
+      +'<td>'+srcBadge(e)+'</td>'
+      +'<td>'+statusBadge(e)+'</td>'
+      +'<td class="mono">'+esc(e.handledBy||'—')+'</td>'
+      +'<td><input type="text" id="ec-com-'+e.id+'" value="'+esc(e.comment||'')+'"></td>'
+      +'<td style="white-space:nowrap"><button class="save" onclick="saveEvent(\''+e.id+'\')">💾</button>'
+      +'<button class="del" onclick="delEvent(\''+e.id+'\')" title="Slett">✕</button></td>';
+    tb.appendChild(tr);
+  });
+}
+async function saveEvent(id){
+  const cause=document.getElementById('ec-cause-'+id)?.value.trim();
+  const dur=parseInt(document.getElementById('ec-dur-'+id)?.value);
+  const comment=document.getElementById('ec-com-'+id)?.value.trim();
+  if(!cause){showToast('Årsak kan ikke være tom',true);return;}
+  if(isNaN(dur)||dur<0){showToast('Ugyldig varighet',true);return;}
+  try{await db.ref('events/'+id).update({cause,duration:dur,comment});showToast('Hendelse lagret');}
+  catch(e){showToast('Lagring feilet',true);}
+}
+let pendingDel=null;
+async function delEvent(id){
+  if(pendingDel!==id){pendingDel=id;showToast('Trykk ✕ en gang til for å slette',true);setTimeout(()=>{if(pendingDel===id)pendingDel=null;},3000);return;}
+  pendingDel=null;
+  try{await db.ref('events/'+id).remove();showToast('Hendelse slettet');}
+  catch(e){showToast('Sletting feilet',true);}
+}
+
+// ── KPIs ──
+function renderKpis(){
+  const {from,to}=dateRange();
+  const evts=EVENTS.filter(e=>lineOk(e.line)&&e.ts>=from&&e.ts<=to);
+  const down=evts.reduce((s,e)=>s+(e.duration||0),0);
+  const un=evts.filter(e=>e.unhandled).length;
+  const prod=PROD.filter(p=>{if(!lineOk(p.line))return false;const ts=new Date(p.date+'T12:00:00').getTime();return ts>=from&&ts<=to;}).reduce((s,p)=>s+(p.count||0),0);
+  document.getElementById('k-evt').textContent=evts.length;
+  document.getElementById('k-down').textContent=fmtD(down);
+  document.getElementById('k-un').textContent=un;
+  document.getElementById('k-prod').textContent=prod.toLocaleString('no-NO');
+}
+
+// ── SYSTEM STATUS ──
+function renderSys(s){
+  const el=document.getElementById('sys');if(!el)return;
+  const conn=s.connected?'<span style="color:var(--green)">● tilkoblet</span>':'<span style="color:var(--red)">● frakoblet</span>';
+  const seen=s.last_seen?fmtT(s.last_seen):'—';
+  const stale=s.last_seen&&(Date.now()-s.last_seen>120000);
+  el.innerHTML='Status: '+conn+(stale?' <span style="color:var(--amber)">(ingen signal &gt;2 min)</span>':'')+'<br>'
+    +'PLS-adresse: '+esc(s.url||'—')+'<br>'
+    +'Sist sett: '+seen;
+}
+</script>
+</body>
+</html>

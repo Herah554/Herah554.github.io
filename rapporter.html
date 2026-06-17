@@ -104,6 +104,7 @@ td:first-child{font-family:var(--mono);font-size:11px;color:var(--text3);white-s
   <a href="rapporter.html" class="nl on">Rapporter</a>
   <a href="innstillinger.html" class="nl" id="nav-set">Innstillinger</a>
   <a href="brukere.html" class="nl" id="nav-usr">Brukere</a>
+  <a href="logg.html" class="nl" id="nav-logg" style="display:none">Logg &amp; data</a>
   <div class="ml">
     <div class="ubadge" id="ubadge">—</div>
     <button class="lout" onclick="auth.signOut().then(()=>location.href='login.html')">Logg ut</button>
@@ -290,6 +291,7 @@ auth.onAuthStateChanged(async user=>{
   const profile=snap.val();
   document.getElementById('ubadge').textContent=profile.name+' · '+(profile.role==='master'?'Master':profile.role==='leder'?'Leder':'Operatør');
   if(profile.role==='linjeoperator'){location.href='index.html';return;}
+  if(profile.role==='master')document.getElementById('nav-logg').style.display='';
 });
 
 db.ref('settings').on('value',snap=>{

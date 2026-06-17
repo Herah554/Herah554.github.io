@@ -96,6 +96,7 @@ input:focus,select:focus{border-color:var(--accent)}
   <a href="rapporter.html" class="nl">Rapporter</a>
   <a href="innstillinger.html" class="nl on">Innstillinger</a>
   <a href="brukere.html" class="nl">Brukere</a>
+  <a href="logg.html" class="nl" id="nav-logg" style="display:none">Logg &amp; data</a>
   <div class="ml">
     <div class="ubadge" id="ubadge">—</div>
     <button class="lout" onclick="auth.signOut().then(()=>location.href='login.html')">Logg ut</button>
@@ -103,8 +104,8 @@ input:focus,select:focus{border-color:var(--accent)}
 </nav>
 <main class="page">
 
-  <h2>Globale innstillinger</h2>
-  <div class="card">
+  <h2 class="master-only">Globale innstillinger</h2>
+  <div class="card master-only">
     <div class="ct"><div class="ca" style="background:var(--accent)"></div>Mål og standarder</div>
     <div class="g2">
       <div>
@@ -143,8 +144,8 @@ input:focus,select:focus{border-color:var(--accent)}
     </div>
   </div>
 
-  <h2>Planlagte stopp</h2>
-  <div class="card">
+  <h2 class="master-only">Planlagte stopp</h2>
+  <div class="card master-only">
     <div class="ct"><div class="ca" style="background:var(--blue)"></div>Planlagte stopp (vises på alle maskiner)</div>
     <div class="chips" id="planned-chips"></div>
     <div class="row" style="max-width:380px">
@@ -153,8 +154,8 @@ input:focus,select:focus{border-color:var(--accent)}
     </div>
   </div>
 
-  <h2>Generelle årsaker</h2>
-  <div class="card">
+  <h2 class="master-only">Generelle årsaker</h2>
+  <div class="card master-only">
     <div class="ct"><div class="ca" style="background:var(--amber)"></div>Generelle årsaker (vises på alle maskiner)</div>
     <div class="chips" id="gen-chips"></div>
     <div class="row" style="max-width:380px">
@@ -213,6 +214,7 @@ if(!firebase.apps.length)firebase.initializeApp(FB);
 localStorage.setItem('firebaseConfig',JSON.stringify(FB));
 const db=firebase.database(),auth=firebase.auth();
 let S={globalGoal:30,oeeGoal:97,defaultDayHours:8,resetTime:'00:00',lineGoals:{},oeeGoals:{},prodPlan:{},machines:{},causes:{},generalCauses:[],plannedStops:[],products:{},schedule:{}};
+let ROLE='master';
 
 function lk(l){return(l||'').replace(/[\s\/]/g,'_');}
 function mk(l,m){return lk(l)+'__'+lk(m);}
@@ -220,8 +222,15 @@ function mk(l,m){return lk(l)+'__'+lk(m);}
 auth.onAuthStateChanged(async user=>{
   if(!user){location.href='login.html';return;}
   const snap=await db.ref('users/'+user.uid).once('value');
-  if(!snap.exists()||snap.val().role!=='master'){location.href='index.html';return;}
-  document.getElementById('ubadge').textContent=snap.val().name+' · Master';
+  const role=snap.exists()?snap.val().role:null;
+  if(role!=='master'&&role!=='leder'){location.href='index.html';return;}
+  ROLE=role;
+  document.getElementById('ubadge').textContent=snap.val().name+' · '+(role==='master'?'Master':'Leder');
+  if(role==='master')document.getElementById('nav-logg').style.display='';
+  if(role==='leder'){
+    document.querySelectorAll('.master-only').forEach(e=>e.style.display='none');
+  }
+  renderLineFilter();renderLines();
 });
 
 db.ref('settings').on('value',snap=>{
@@ -316,6 +325,25 @@ function renderLines(){
     const div=document.createElement('div');
     div.className='card';
 
+    const oeeCell=ROLE==='master'?`
+        <div>
+          <div class="lbl">OEE-mål (%)</div>
+          <div class="row">
+            <input type="number" id="oeeg-${key}" value="${og||''}" placeholder="${S.oeeGoal||97} (globalt)" min="1" max="100"/>
+            <button class="bp" onclick="setLineGoal('${line}','oee')">Sett</button>
+            ${og?`<button class="bg" style="font-size:10px;padding:3px 7px" onclick="clearLineGoal('${line}','oee')">↺</button>`:''}
+          </div>
+          <div class="${og?'ok':'fb'}">${og?'Eget: '+og+'%':'Globalt: '+(S.oeeGoal||97)+'%'}</div>
+        </div>`:'';
+    const machineBlock=ROLE==='master'?`
+      <div class="sep"></div>
+      <div class="lbl" style="margin-bottom:6px">🛠 Maskiner på ${line}</div>
+      <div id="ml-${key}"></div>
+      <div class="row" style="max-width:380px;margin-top:6px">
+        <input type="text" id="nm-${key}" placeholder="Legg til maskin..." onkeydown="if(event.key==='Enter')addMachine('${line}')"/>
+        <button class="bgrn" onclick="addMachine('${line}')">+ Maskin</button>
+      </div>`:'';
+
     // Build HTML
     div.innerHTML=`
       <div class="ct"><div class="ca" style="background:var(--accent)"></div>${line}</div>
@@ -329,15 +357,7 @@ function renderLines(){
           </div>
           <div class="${lg?'ok':'fb'}">${lg?'Eget: '+lg+' min':'Globalt: '+(S.globalGoal||30)+' min'}</div>
         </div>
-        <div>
-          <div class="lbl">OEE-mål (%)</div>
-          <div class="row">
-            <input type="number" id="oeeg-${key}" value="${og||''}" placeholder="${S.oeeGoal||97} (globalt)" min="1" max="100"/>
-            <button class="bp" onclick="setLineGoal('${line}','oee')">Sett</button>
-            ${og?`<button class="bg" style="font-size:10px;padding:3px 7px" onclick="clearLineGoal('${line}','oee')">↺</button>`:''}
-          </div>
-          <div class="${og?'ok':'fb'}">${og?'Eget: '+og+'%':'Globalt: '+(S.oeeGoal||97)+'%'}</div>
-        </div>
+        ${oeeCell}
       </div>
 
       <div class="sep"></div>
@@ -357,19 +377,13 @@ function renderLines(){
         <input type="time" id="be-${key}"/>
         <button class="bgrn" onclick="addBreak('${line}')">+ Stopp</button>
       </div>
-
-      <div class="sep"></div>
-      <div class="lbl" style="margin-bottom:6px">🛠 Maskiner på ${line}</div>
-      <div id="ml-${key}"></div>
-      <div class="row" style="max-width:380px;margin-top:6px">
-        <input type="text" id="nm-${key}" placeholder="Legg til maskin..." onkeydown="if(event.key==='Enter')addMachine('${line}')"/>
-        <button class="bgrn" onclick="addMachine('${line}')">+ Maskin</button>
-      </div>`;
+      ${machineBlock}`;
 
     container.appendChild(div);
 
     // Render machines
     const ml=div.querySelector('#ml-'+key);
+    if(ml){
     if(!machines.length){
       ml.innerHTML='<div style="font-size:11px;color:var(--text3);padding:2px 0">Ingen maskiner enda.</div>';
     } else {
@@ -399,6 +413,7 @@ function renderLines(){
           });
         }
       });
+    }
     }
 
     // Render schedule + planned stop time

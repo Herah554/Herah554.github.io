@@ -209,6 +209,7 @@ td:first-child{font-family:var(--mono);font-size:11px;color:var(--text3)}
   <a href="rapporter.html" class="nl" id="nav-rap" style="display:none">Rapporter</a>
   <a href="innstillinger.html" class="nl" id="nav-set" style="display:none">Innstillinger</a>
   <a href="brukere.html" class="nl" id="nav-usr" style="display:none">Brukere</a>
+  <a href="logg.html" class="nl" id="nav-logg" style="display:none">Logg &amp; data</a>
   <div class="ml">
     <div class="clk" id="clk">--:--:--</div>
     <div class="ubadge" id="ubadge">—</div>
@@ -500,6 +501,7 @@ auth.onAuthStateChanged(async user=>{
       document.getElementById('nav-set').style.display='';
       document.getElementById('nav-usr').style.display='';
     }
+    if(role==='master')document.getElementById('nav-logg').style.display='';
     // Linjeoperatør: show banner, hide filter, lock to their lines
     if(role==='linjeoperator'){
       document.getElementById('fbar').style.display='none';
