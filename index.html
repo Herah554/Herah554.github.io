@@ -750,6 +750,14 @@ function plannedMinForDate(line,dateObj){
   return Math.max(0,elapsed-eb);
 }
 
+// Full planlagt produksjonstid for hele dagen (uavhengig av klokkeslett nå)
+function plannedMinFullDay(line,dateObj){
+  const sched=getSched(line);
+  const day=sched[_WD[dateObj.getDay()]];
+  if(!day||!day.on)return 0;
+  return Math.max(0,_dmin(day)-_brkmin(sched));
+}
+
 function lineProduct(line){
   const k=lk(line);
   const prods=SETTINGS.products?.[k]||[];
@@ -943,6 +951,39 @@ function renderTable(fil){
   });
 }
 
+// ── MÅL-/FARTSLINJE-PLUGIN (horisontale referanselinjer i grafer) ──
+const goalLinePlugin={
+  id:'goalLines',
+  afterDatasetsDraw(chart){
+    const L=chart.$goalLines; if(!L||!L.length)return;
+    const ctx=chart.ctx, area=chart.chartArea, y=chart.scales.y;
+    if(!y||!area)return;
+    L.forEach(g=>{
+      const v=Math.max(y.min,Math.min(y.max,g.value));
+      const py=y.getPixelForValue(v);
+      ctx.save();
+      ctx.beginPath();
+      ctx.setLineDash(g.dash||[6,4]);
+      ctx.lineWidth=g.width||2;
+      ctx.strokeStyle=g.color;
+      ctx.moveTo(area.left,py); ctx.lineTo(area.right,py); ctx.stroke();
+      ctx.setLineDash([]);
+      if(g.label){
+        ctx.font='600 10px system-ui,-apple-system,sans-serif';
+        const tw=ctx.measureText(g.label).width;
+        const tx=(g.align==='left')?area.left+6:area.right-tw-6;
+        const ty=py-4;
+        ctx.fillStyle='rgba(255,255,255,0.85)';
+        ctx.fillRect(tx-3,ty-11,tw+6,13);
+        ctx.fillStyle=g.color;
+        ctx.textBaseline='alphabetic';
+        ctx.fillText(g.label,tx,ty);
+      }
+      ctx.restore();
+    });
+  }
+};
+
 // ── OEE CHART ──
 function renderOEE(fil){
   const RED='#dc2626',AMBER='#d97706',GREEN='#16a34a',GRID='rgba(0,0,0,0.05)';
@@ -994,9 +1035,11 @@ function renderOEE(fil){
   const colors=data.map(v=>v===null?'transparent':v>=oeeGoal?GREEN:v>=90?AMBER:RED);
   const cd={labels,datasets:[{data,borderColor:colors,backgroundColor:data.map(v=>v===null?'transparent':v>=oeeGoal?GREEN+'22':v>=90?AMBER+'22':RED+'22'),borderWidth:2,pointBackgroundColor:colors,pointRadius:4,fill:true,tension:0.3,spanGaps:true}]};
   const opts={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.parsed.y===null?'Ingen data':ctx.parsed.y+'%'}}},scales:{x:{grid:{color:GRID},ticks:{font:{size:10}}},y:{grid:{color:GRID},min:0,max:100,ticks:{callback:v=>v+'%',font:{size:10}}}}};
-  if(charts.oee){charts.oee.data=cd;charts.oee.options=opts;charts.oee.update();return;}
+  const goalLines=[{value:oeeGoal,color:'#15803d',label:'Mål '+oeeGoal+'%',dash:[6,4],width:2,align:'right'}];
+  if(charts.oee){charts.oee.data=cd;charts.oee.options=opts;charts.oee.$goalLines=goalLines;charts.oee.update();return;}
   const ctx=document.getElementById('ch-oee');if(!ctx)return;
-  charts.oee=new Chart(ctx,{type:'line',data:cd,options:opts});
+  charts.oee=new Chart(ctx,{type:'line',data:cd,options:opts,plugins:[goalLinePlugin]});
+  charts.oee.$goalLines=goalLines;
 }
 
 // ── ND CHARTS ──
@@ -1366,16 +1409,54 @@ function renderProdChart(prodData, dateKeys, LINES_ALL){
   }
 
   const dayLine = selectedProdLine || (filterLine!=='Alle'?filterLine:null);
+
+  // ── FART MOT MÅL: referanselinjer i produksjonsgrafen ──
+  let paceLines=[], paceMax=0;
+  if(prodMode==='day' && dayLine){
+    const p=lineProduct(dayLine);
+    if(p && p.teknKapasitet>0 && p.stkPerDpack>0){
+      const maxRate=p.teknKapasitet/p.stkPerDpack;        // maks dpk/t (=100% OEE)
+      const G=getOEEGoal(dayLine)/100;
+      const goalRate=G*maxRate;                            // jevn fart for å nå mål
+      paceLines.push({value:goalRate,color:'rgba(100,116,139,0.8)',label:'Mål-snitt '+Math.round(goalRate)+' dpk/t',dash:[3,3],width:1,align:'left'});
+      const dkey=dateKeys[0];
+      if(dkey===dateKeyOf(now)){
+        const dObj=new Date(now.getFullYear(),now.getMonth(),now.getDate(),12,0,0);
+        const fullMin=plannedMinFullDay(dayLine,dObj);
+        const elapsedMin=plannedMinForDate(dayLine,dObj);
+        const remMin=Math.max(0,fullMin-elapsedMin);
+        const produced=eskerFor(dayLine,dkey);
+        const need=G*maxRate*(fullMin/60)-produced;        // gjenstående dpk for å nå mål
+        if(fullMin>0 && remMin>0){
+          if(need<=0){
+            paceLines.push({value:goalRate,color:'#15803d',label:'Mål allerede sikret ✓',dash:[6,4],width:2,align:'right'});
+          }else{
+            const reqRate=need/(remMin/60);                // påkrevd dpk/t resten av dagen
+            const reqOEE=reqRate/maxRate*100;
+            const col=reqOEE>100?'#dc2626':(reqOEE>G*100+10?'#d97706':'#15803d');
+            const lbl=reqOEE>100
+              ? 'Trenger '+Math.round(reqRate)+' dpk/t (>100%) – vanskelig i dag'
+              : 'Må snitte '+Math.round(reqRate)+' dpk/t (≈'+Math.round(reqOEE)+'% OEE) videre';
+            paceLines.push({value:Math.min(reqRate,maxRate),color:col,label:lbl,dash:[6,4],width:2.5,align:'right'});
+          }
+        }
+      }
+      paceMax=maxRate;
+    }
+  }
+
   const type=(prodMode==='day' && !dayLine)?'bar':'line';
   const opts={responsive:true,maintainAspectRatio:false,
     plugins:{legend:{display:datasets.length>1,position:'top',labels:{font:{size:10},padding:8}},
       tooltip:{callbacks:{label:c=>c.dataset.label+': '+(c.parsed.y||0).toLocaleString('no-NO')+' dpack'}}},
     scales:{x:{grid:{color:'rgba(0,0,0,0)'},ticks:{font:{size:10}}},
       y:{grid:{color:GRID},beginAtZero:true,ticks:{font:{size:10}}}}};
+  if(paceMax>0)opts.scales.y.suggestedMax=Math.ceil(paceMax*1.05);
   const cd={labels,datasets};
-  if(charts.prod){charts.prod.data=cd;charts.prod.config.type=type;charts.prod.options=opts;charts.prod.update();return;}
+  if(charts.prod){charts.prod.data=cd;charts.prod.config.type=type;charts.prod.options=opts;charts.prod.$goalLines=paceLines;charts.prod.update();return;}
   const ctx=document.getElementById('ch-prod');if(!ctx)return;
-  charts.prod=new Chart(ctx,{type,data:cd,options:opts});
+  charts.prod=new Chart(ctx,{type,data:cd,options:opts,plugins:[goalLinePlugin]});
+  charts.prod.$goalLines=paceLines;
 }
 
 // ── UNHANDLED DOWNTIME ──
