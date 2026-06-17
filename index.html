@@ -183,6 +183,18 @@ td:first-child{font-family:var(--mono);font-size:11px;color:var(--text3)}
 .he-skip:hover{background:var(--border)}
 .he-save{flex:2;padding:7px;border:none;background:var(--green);border-radius:var(--r);cursor:pointer;font-size:12px;font-weight:600;color:#fff}
 .he-save:hover{opacity:.9}
+.he-parts{display:flex;flex-direction:column;gap:6px;margin-bottom:6px}
+.he-part{display:flex;align-items:center;gap:6px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:5px 7px}
+.he-part.planned{background:#faf5ff;border-color:#d8b4fe}
+.he-pt-from,.he-pt-to{width:82px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:5px;font-family:var(--mono);font-size:12px;color:var(--text);outline:none}
+.he-part.planned .he-pt-from,.he-part.planned .he-pt-to{background:#fff}
+.he-pt-sep{color:var(--text3)}
+.he-pt-cause{flex:1;min-width:0;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:5px;font-size:12px;color:var(--text);outline:none}
+.he-pt-del{border:none;background:none;color:var(--text3);cursor:pointer;font-size:13px;padding:2px 5px;flex-shrink:0}
+.he-pt-del:hover{color:var(--red)}
+.he-addpart{width:100%;padding:6px;border:1px dashed var(--border);background:none;border-radius:var(--r);cursor:pointer;font-size:12px;color:var(--text2);margin-bottom:6px}
+.he-addpart:hover{border-color:var(--accent);color:var(--accent)}
+.he-sum{font-size:10px;color:var(--text3);font-family:var(--mono)}
 .he-done{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:var(--r);padding:6px 10px;font-size:11px;color:var(--green);text-align:center;font-weight:500}
 .toast{position:fixed;bottom:18px;right:18px;background:var(--bg2);border:1px solid #bbf7d0;color:var(--green);font-size:12px;font-weight:600;padding:8px 14px;border-radius:var(--r);opacity:0;transition:opacity .3s;pointer-events:none;box-shadow:var(--shm)}
 .toast.e{border-color:#fecaca;color:var(--red)}
@@ -301,7 +313,7 @@ td:first-child{font-family:var(--mono);font-size:11px;color:var(--text3)}
     <button class="tab" onclick="showND('maskiner',this)">Maskiner</button>
     <button class="tab" onclick="showND('heatmap',this)">Heatmap</button>
   </div>
-  <div class="cp on" id="cp-daily"><div class="card"><div class="ct"><div class="ca" style="background:var(--accent)"></div>Nedetid per time i dag</div><div class="cw"><canvas id="ch-daily"></canvas></div></div></div>
+  <div class="cp on" id="cp-daily"><div class="card"><div class="ct"><div class="ca" style="background:var(--accent)"></div>Nedetid per time i dag</div><div class="cw" style="overflow-x:auto"><div style="min-width:820px;height:100%;position:relative"><canvas id="ch-daily"></canvas></div></div></div></div>
   <div class="cp" id="cp-weekly"><div class="card"><div class="ct"><div class="ca" style="background:var(--accent)"></div>Nedetid per dag denne uken</div><div class="cw"><canvas id="ch-weekly"></canvas></div></div></div>
   <div class="cp" id="cp-causes">
     <div class="g2">
@@ -917,8 +929,8 @@ function renderCharts(fil){
   const RED='#dc2626',AMBER='#d97706',BLUE='#2563eb',GREEN='#16a34a',PURPLE='#7c3aed',TEAL='#0d9488';
   const PAL=[AMBER,RED,BLUE,GREEN,PURPLE,TEAL];const GRID='rgba(0,0,0,0.05)';
   const n=new Date();
-  const hD=Array.from({length:10},(_,i)=>fil.filter(e=>isToday(e.ts)&&new Date(e.ts).getHours()===i+6).reduce((s,e)=>s+e.duration,0));
-  const hL=Array.from({length:10},(_,i)=>(i+6)+':00');
+  const hD=Array.from({length:24},(_,i)=>fil.filter(e=>isToday(e.ts)&&new Date(e.ts).getHours()===i).reduce((s,e)=>s+e.duration,0));
+  const hL=Array.from({length:24},(_,i)=>pad(i)+':00');
   const sw=new Date(n);sw.setDate(n.getDate()-((n.getDay()+6)%7));sw.setHours(0,0,0,0);
   const days=['Man','Tir','Ons','Tor','Fre','Lør','Søn'];
   const cLine=filterLine==='Alle'?null:filterLine;
@@ -1324,21 +1336,22 @@ function openHandleModal(){
   list.innerHTML='';
   if(!fil.length){list.innerHTML='<div class="he-done">✓ Alle nedetider er behandlet!</div>';
   }else{
+    HANDLE_EVTS={};
     fil.forEach(e=>{
+      HANDLE_EVTS[e.id]=e;
       const isOpc=e.source==='opc';
       const lkey=(e.line||'').replace(/[\s\/]/g,'_');
       const lineMachines=SETTINGS.machines?.[lkey]||[];
-      const causes=isOpc?[]:getAllCauses(e.line,e.machine);
+      const win=evtWindow(e);
       const card=document.createElement('div');
       card.className='he-card';
       card.id='hcard-'+e.id;
-      // Build piece by piece to avoid quote issues
       let html='<div class="he-hdr">'
         +'<div class="he-dot"></div>'
         +'<div class="he-title">'+e.line+(isOpc?' — automatisk':' — '+(e.machine||''))+'</div>'
         +'<div class="he-meta">'+fmtT(e.ts)+' — '+fmtD(e.duration)+'</div>'
         +'</div>';
-      // Machine selector for OPC events
+      // Maskinvelger for OPC-hendelser
       if(isOpc&&lineMachines.length){
         html+='<div class="he-fr"><div class="he-lbl">Hvilken maskin stoppet?</div>'
           +'<select class="he-sel" id="hc-machine-'+e.id+'">'
@@ -1346,45 +1359,102 @@ function openHandleModal(){
           +lineMachines.map(m=>'<option value="'+m+'">'+m+'</option>').join('')
           +'</select></div>';
       }
-      // Cause selector
-      html+='<div class="he-fr"><div class="he-lbl">Årsak</div>'
-        +'<select class="he-sel" id="hc-cause-'+e.id+'"'+(isOpc?' disabled':'')+'>'+
-        (isOpc
-          ?'<option value="">— Velg maskin først —</option>'
-          :'<option value="'+e.cause+'">'+e.cause+' (nåværende)</option>'
-            +'<option disabled>──────────</option>'
-            +causes.map(cc=>'<option value="'+cc+'">'+cc+'</option>').join('')
-        )+'</select></div>';
-      // Comment
+      // Opp-deling: én del dekker hele nedetiden til å begynne med
+      const machineForCauses=isOpc?'':(e.machine||'');
+      html+='<div class="he-fr"><div class="he-lbl">Del opp nedetiden — én årsak per del (planlagt blir lilla)</div>'
+        +'<div class="he-parts" id="hc-parts-'+e.id+'">'
+        + partRowHTML(e, win.fromHM, win.toHM, machineForCauses)
+        +'</div>'
+        +'<button class="he-addpart" onclick="addPart(\''+e.id+'\')">+ Legg til del</button>'
+        +'<div class="he-sum" id="hc-sum-'+e.id+'"></div>'
+        +'</div>';
+      // Kommentar
       html+='<div class="he-fr"><div class="he-lbl">Kommentar</div>'
         +'<textarea class="he-inp" id="hc-com-'+e.id+'" placeholder="Beskriv hva som skjedde...">'
         +(isOpc?'':e.comment||'')+'</textarea></div>';
-      // Buttons
+      // Knapper
       const skipBtn=isOp?'':'<button class="he-skip" onclick="skipHandle(\''+e.id+'\')">Hopp over</button>';
       const saveBtn='<button class="he-save" onclick="saveHandle(\''+e.id+'\')">✓ Behandle og lagre</button>';
       html+='<div class="he-btns">'+skipBtn+saveBtn+'</div>';
       card.innerHTML=html;
-      // Add machine change listener after card is built
       list.appendChild(card);
       if(isOpc&&lineMachines.length){
         const msel=document.getElementById('hc-machine-'+e.id);
         if(msel)msel.addEventListener('change',()=>onHandleMachine(e.id,e.line));
       }
+      refreshSum(e.id);
     });
   }
   document.getElementById('handle-modal').classList.add('on');
 }
 
+// ── OPP-DELING AV NEDETID ──
+let HANDLE_EVTS={};
+function evtWindow(e){
+  const dur=e.duration||0;
+  const f=new Date(e.ts), t=new Date(e.ts+dur*60000);
+  const hm=d=>pad(d.getHours())+':'+pad(d.getMinutes());
+  return {fromHM:hm(f), toHM:hm(t), durMin:dur};
+}
+function causeOptsHTML(line, machine, sel){
+  if(!machine) return '<option value="">— Velg maskin først —</option>';
+  const causes=getAllCauses(line, machine);
+  return '<option value="">— Velg årsak —</option>'
+    +causes.map(c=>'<option value="'+c+'"'+(c===sel?' selected':'')+'>'+c+(isPlanned(c)?' (planlagt)':'')+'</option>').join('');
+}
+function partRowHTML(e, fromHM, toHM, machine, selCause){
+  return '<div class="he-part">'
+    +'<input type="time" class="he-pt-from" value="'+fromHM+'" onchange="refreshSum(\''+e.id+'\')">'
+    +'<span class="he-pt-sep">–</span>'
+    +'<input type="time" class="he-pt-to" value="'+toHM+'" onchange="refreshSum(\''+e.id+'\')">'
+    +'<select class="he-pt-cause" onchange="togglePlanned(this)">'+causeOptsHTML(e.line, machine, selCause||'')+'</select>'
+    +'<button class="he-pt-del" onclick="delPart(this,\''+e.id+'\')" title="Fjern del">✕</button>'
+    +'</div>';
+}
+function togglePlanned(sel){const row=sel.closest('.he-part');if(row)row.classList.toggle('planned',isPlanned(sel.value));}
+function addPart(id){
+  const e=HANDLE_EVTS[id]; if(!e)return;
+  const cont=document.getElementById('hc-parts-'+id); if(!cont)return;
+  const win=evtWindow(e);
+  const rows=cont.querySelectorAll('.he-part');
+  let fromHM=win.fromHM;
+  if(rows.length){const lastTo=rows[rows.length-1].querySelector('.he-pt-to'); if(lastTo&&lastTo.value)fromHM=lastTo.value;}
+  const isOpc=e.source==='opc';
+  const machine=isOpc?(document.getElementById('hc-machine-'+id)?.value||''):(e.machine||'');
+  const tmp=document.createElement('div'); tmp.innerHTML=partRowHTML(e, fromHM, win.toHM, machine);
+  cont.appendChild(tmp.firstChild);
+  refreshSum(id);
+}
+function delPart(btn,id){
+  const cont=document.getElementById('hc-parts-'+id); if(!cont)return;
+  if(cont.querySelectorAll('.he-part').length<=1)return;
+  btn.closest('.he-part').remove();
+  refreshSum(id);
+}
+function refreshSum(id){
+  const e=HANDLE_EVTS[id]; if(!e)return;
+  const cont=document.getElementById('hc-parts-'+id), lbl=document.getElementById('hc-sum-'+id);
+  if(!cont||!lbl)return;
+  let sum=0;
+  cont.querySelectorAll('.he-part').forEach(r=>{
+    const f=r.querySelector('.he-pt-from').value, t=r.querySelector('.he-pt-to').value;
+    if(f&&t){const [fh,fm]=f.split(':').map(Number),[th,tm]=t.split(':').map(Number);let d=(th*60+tm)-(fh*60+fm);if(d<0)d+=1440;sum+=d;}
+  });
+  const tot=e.duration||0;
+  lbl.textContent='Sum: '+sum+' min av '+tot+' min'+(sum>tot+1?'  ⚠ mer enn nedetiden':sum<tot-1?'  (resten blir uregistrert)':'');
+  lbl.style.color=sum>tot+1?'var(--red)':'var(--text3)';
+}
+
 function onHandleMachine(eventId, line){
   const machSel=document.getElementById('hc-machine-'+eventId);
-  const causeSel=document.getElementById('hc-cause-'+eventId);
-  if(!machSel||!causeSel)return;
+  if(!machSel)return;
   const machine=machSel.value;
-  if(!machine){causeSel.disabled=true;causeSel.innerHTML='<option value="">— Velg maskin først —</option>';return;}
-  const causes=getAllCauses(line,machine);
-  causeSel.disabled=false;
-  causeSel.innerHTML='<option value="">— Velg årsak —</option>'
-    +causes.map(cc=>'<option value="'+cc+'">'+cc+'</option>').join('');
+  const cont=document.getElementById('hc-parts-'+eventId);
+  if(cont)cont.querySelectorAll('.he-pt-cause').forEach(sel=>{
+    const cur=sel.value;
+    sel.innerHTML=causeOptsHTML(line, machine, cur);
+    togglePlanned(sel);
+  });
 }
 
 function getAllCauses(line,machine){
@@ -1396,30 +1466,51 @@ function getAllCauses(line,machine){
 }
 
 async function saveHandle(id){
-  const causeEl=document.getElementById('hc-cause-'+id);
-  const comEl=document.getElementById('hc-com-'+id);
+  const e=HANDLE_EVTS[id]; if(!e)return;
+  const isOpc=e.source==='opc';
   const machEl=document.getElementById('hc-machine-'+id);
-  if(!causeEl)return;
-  const cause=causeEl.value;
-  const comment=comEl?comEl.value.trim():'';
-  const machine=machEl?machEl.value:'';
-  if(!cause){showToast('Velg årsak før du lagrer',true);return;}
-  if(machEl&&!machine){showToast('Velg maskin før du lagrer',true);return;}
-  const updates={cause,comment,unhandled:false,handledAt:Date.now(),handledBy:myProfile?.name||'ukjent'};
-  if(machine)updates.machine=machine;
-  await db.ref('events/'+id).update(updates);
-  // Mark card as done
-  const card=document.getElementById('hcard-'+id);
-  if(card){
-    card.innerHTML='<div class="he-done">✓ Behandlet — '+cause+'</div>';
+  const machine=isOpc?(machEl?machEl.value:''):(e.machine||'');
+  if(isOpc&&machEl&&!machine){showToast('Velg maskin før du lagrer',true);return;}
+  const comment=(document.getElementById('hc-com-'+id)?.value||'').trim();
+  const cont=document.getElementById('hc-parts-'+id);
+  const rows=cont?[...cont.querySelectorAll('.he-part')]:[];
+  const baseDate=new Date(e.ts);
+  const parts=[];
+  for(const r of rows){
+    const f=r.querySelector('.he-pt-from').value, t=r.querySelector('.he-pt-to').value;
+    const cause=r.querySelector('.he-pt-cause').value;
+    if(!cause){showToast('Velg årsak på alle deler',true);return;}
+    if(!f||!t){showToast('Fyll inn klokkeslett på alle deler',true);return;}
+    const fromMs=new Date(baseDate); const [fh,fm]=f.split(':').map(Number); fromMs.setHours(fh,fm,0,0);
+    let toMs=new Date(baseDate); const [th,tm]=t.split(':').map(Number); toMs.setHours(th,tm,0,0);
+    let fm2=fromMs.getTime(), tm2=toMs.getTime(); if(tm2<=fm2)tm2+=86400000;
+    parts.push({cause, ts:fm2, duration:Math.round((tm2-fm2)/60000)});
   }
+  if(!parts.length){showToast('Ingen deler å lagre',true);return;}
+  if(parts.length===1){
+    const p=parts[0];
+    const updates={cause:p.cause, comment, duration:p.duration, ts:p.ts, unhandled:false, handledAt:Date.now(), handledBy:myProfile?.name||'ukjent'};
+    if(machine)updates.machine=machine;
+    await db.ref('events/'+id).update(updates);
+  }else{
+    for(const p of parts){
+      await db.ref('events').push({
+        line:e.line, machine:machine||'', cause:p.cause, duration:p.duration,
+        severity:p.duration>=30?'high':'medium', comment, ts:p.ts,
+        wholeLine:e.wholeLine||false, source:'split', unhandled:false,
+        handledAt:Date.now(), handledBy:myProfile?.name||'ukjent'
+      });
+    }
+    await db.ref('events/'+id).remove();
+  }
+  delete HANDLE_EVTS[id];
+  const card=document.getElementById('hcard-'+id);
+  if(card)card.innerHTML='<div class="he-done">✓ Behandlet'+(parts.length>1?' — delt i '+parts.length:'')+'</div>';
   showToast('Nedetid behandlet');
-  // Check if all done
   setTimeout(()=>{
-    const remaining=document.querySelectorAll('.he-card').length;
     const sub=document.getElementById('handle-sub');
-    const stillUnhandled=getUnhandled().filter(e=>e.id!==id);
-    if(sub)sub.textContent=(stillUnhandled.length||0)+' gjenstår';
+    const still=getUnhandled().filter(x=>x.id!==id);
+    if(sub)sub.textContent=(still.length||0)+' gjenstår';
   },300);
 }
 
