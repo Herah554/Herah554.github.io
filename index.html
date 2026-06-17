@@ -405,7 +405,7 @@ let EVENTS=[], SETTINGS={globalGoal:30,oeeGoal:97,defaultDayHours:8,lineGoals:{}
 const LINES_ALL=['Løp 1','Løp 2','Løp 3','Rollo','Koba','Glacier','Krokan'];
 let filterLine='Alle', myProfile=null, delId=null, delAll=false, charts={}, oeeMode='wtd';
 let dateFrom=null, dateTo=null, datePreset='week';
-let PROD_ALL={}, ACTIVE_PROD={};
+let PROD_ALL={}, PROD_HOURLY={}, ACTIVE_PROD={};
 
 // ── CLOCK ──
 setInterval(()=>{document.getElementById('clk').textContent=new Date().toLocaleTimeString('no-NO');},1000);
@@ -561,9 +561,9 @@ eventsRef.on('value', handleEvents);
 const prodRef=db.ref('production'), activeRef=db.ref('active_product');
 prodRef.off('value');
 prodRef.on('value',snap=>{
-  const m={};
-  if(snap.exists())snap.forEach(ds=>{const date=ds.key;m[date]={};ds.forEach(ls=>{m[date][ls.key]=(ls.val()&&ls.val().count)||0;});});
-  PROD_ALL=m; renderAll();
+  const m={},mh={};
+  if(snap.exists())snap.forEach(ds=>{const date=ds.key;m[date]={};mh[date]={};ds.forEach(ls=>{const v=ls.val()||{};m[date][ls.key]=v.count||0;if(v.hourly)mh[date][ls.key]=v.hourly;});});
+  PROD_ALL=m; PROD_HOURLY=mh; renderAll();
 });
 activeRef.off('value');
 activeRef.on('value',snap=>{
@@ -1242,18 +1242,16 @@ function renderProdChart(prodData, dateKeys, LINES_ALL){
   let labels=[];
 
   if(prodMode==='day'){
-    // Show hourly breakdown for today (use events as proxy or just show total)
-    labels=['00','02','04','06','08','10','12','14','16','18','20','22'];
-    if(selectedProdLine){
-      const key=selectedProdLine.replace(/[\s\/]/g,'_');
-      // Find events for this line today and accumulate
-      const todayStr=dateKeys[0];
-      const lineEvts=EVENTS.filter(e=>e.line===selectedProdLine&&new Date(e.ts).toDateString()===new Date(todayStr).toDateString());
-      const hourData=Array(12).fill(0);
-      lineEvts.forEach(e=>{const h=Math.floor(new Date(e.ts).getHours()/2);if(h<12)hourData[h]+=e.duration;});
-      datasets=[{label:selectedProdLine+' (nedetid min)',data:hourData,backgroundColor:PAL[0]+'cc',borderRadius:3}];
+    const chartLine = selectedProdLine || (filterLine!=='Alle'?filterLine:null);
+    if(chartLine){
+      // Ekte timesproduksjon for valgt/filtrert linje — linje med prikker
+      labels=Array.from({length:24},(_,h)=>pad2(h));
+      const key=chartLine.replace(/[\s\/]/g,'_');
+      const hourly=(PROD_HOURLY[dateKeys[0]]||{})[key]||{};
+      const data=labels.map(h=>{const v=hourly[h];return v!=null?v:0;});
+      datasets=[{label:chartLine+' — dpack per time',data,borderColor:PAL[2],backgroundColor:PAL[2]+'33',borderWidth:2,pointRadius:4,pointHoverRadius:6,pointBackgroundColor:PAL[2],fill:false,tension:0.25}];
     }else{
-      // Show all lines total esker (single bar per line)
+      // Alle linjer: total dpack per linje (én søyle per linje)
       labels=LINES_ALL;
       const data=LINES_ALL.map(l=>{
         const key=l.replace(/[\s\/]/g,'_');
@@ -1261,7 +1259,7 @@ function renderProdChart(prodData, dateKeys, LINES_ALL){
         const entry=lineData.find(x=>x.date===dateKeys[0]);
         return entry?entry.count:0;
       });
-      datasets=[{label:'Esker i dag',data,backgroundColor:PAL.map(c=>c+'cc'),borderRadius:4}];
+      datasets=[{label:'dpack i dag',data,backgroundColor:PAL.map(c=>c+'cc'),borderRadius:4}];
     }
   }else{
     // Week/month: show trend per day
@@ -1280,11 +1278,11 @@ function renderProdChart(prodData, dateKeys, LINES_ALL){
     });
   }
 
-  const isBar=prodMode==='day'&&!selectedProdLine||prodMode==='day';
-  const type=prodMode==='day'?'bar':'line';
+  const dayLine = selectedProdLine || (filterLine!=='Alle'?filterLine:null);
+  const type=(prodMode==='day' && !dayLine)?'bar':'line';
   const opts={responsive:true,maintainAspectRatio:false,
     plugins:{legend:{display:datasets.length>1,position:'top',labels:{font:{size:10},padding:8}},
-      tooltip:{callbacks:{label:c=>c.dataset.label+': '+(c.parsed.y||0).toLocaleString('no-NO')+' esker'}}},
+      tooltip:{callbacks:{label:c=>c.dataset.label+': '+(c.parsed.y||0).toLocaleString('no-NO')+' dpack'}}},
     scales:{x:{grid:{color:'rgba(0,0,0,0)'},ticks:{font:{size:10}}},
       y:{grid:{color:GRID},beginAtZero:true,ticks:{font:{size:10}}}}};
   const cd={labels,datasets};
