@@ -76,11 +76,14 @@ h2:first-child{margin-top:0}
 .btn-da{background:#fff;border:1px solid var(--red);color:var(--red);border-radius:var(--r);font-size:11px;font-weight:600;padding:4px 10px;cursor:pointer;margin-left:auto;white-space:nowrap}
 .btn-da:hover{background:var(--red);color:#fff}
 /* KPI */
-.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:1rem}
+.kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:1rem}
 .kpi{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:.8rem 1rem;box-shadow:var(--sh);position:relative;overflow:hidden}
 .kpi::after{content:'';position:absolute;top:0;left:0;right:0;height:3px}
 .kpi.red::after{background:var(--red)}.kpi.amber::after{background:var(--amber)}
 .kpi.green::after{background:var(--green)}.kpi.blue::after{background:var(--blue)}.kpi.purple::after{background:var(--purple)}
+.kpi.teal::after{background:#0d9488}
+.effcal{font-size:10px;border:1px solid var(--red);color:var(--red);background:#fff;border-radius:4px;padding:1px 6px;cursor:pointer}
+.effcal:hover{background:#fef2f2}
 .klbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;font-family:var(--mono);margin-bottom:4px}
 .kval{font-size:20px;font-weight:600;line-height:1;margin-bottom:3px}
 .ksub{font-size:10px;color:var(--text3)}
@@ -286,6 +289,7 @@ td:first-child{font-family:var(--mono);font-size:11px;color:var(--text3)}
   <div class="kpis">
     <div class="kpi red"><div class="klbl">Nedetid i dag</div><div class="kval" id="k-today">—</div><div class="ksub" id="k-goal">Mål: —</div></div>
     <div class="kpi green"><div class="klbl">OEE i dag</div><div class="kval" id="k-oee">—</div><div class="ksub" id="k-oee-sub">—</div></div>
+    <div class="kpi teal"><div class="klbl">Effektivitet i dag</div><div class="kval" id="k-eff">—</div><div class="ksub" id="k-eff-sub">—</div><div id="k-eff-cal" style="display:none;margin-top:4px"></div></div>
     <div class="kpi blue"><div class="klbl">OEE denne uken</div><div class="kval" id="k-oee-wtd">—</div><div class="ksub">Week to date</div></div>
     <div class="kpi purple"><div class="klbl">OEE denne måneden</div><div class="kval" id="k-oee-mtd">—</div><div class="ksub">Month to date</div></div>
     <div class="kpi amber"><div class="klbl">Hendelser denne uke</div><div class="kval" id="k-week">—</div><div class="ksub">Registrerte stopp</div></div>
@@ -905,6 +909,26 @@ function _doRenderAll(){
   setK('k-oee',oeeDay,oeeGoal);setK('k-oee-wtd',oeeWTD,oeeGoal);setK('k-oee-mtd',oeeMTD,oeeGoal);
   const bd=line?oeeBreakdown(line,tdy):oeeBreakdownAvg(LINES_ALL,tdy);
   document.getElementById('k-oee-sub').textContent=bd?('Tilgj. '+bd.avail.toFixed(0)+'% · Ytelse '+bd.perf.toFixed(0)+'%'):('Mål: '+oeeGoal+'%');
+  // Effektivitet (Ytelse): output mot maks i kjøretiden. i dag/uke kappes ved 100; maks (beste fullførte time) er uncapped.
+  const effBDd=line?oeeBreakdown(line,tdy):oeeBreakdownAvg(LINES_ALL,tdy);
+  const effBDw=line?oeeBreakdown(line,wkDays):oeeBreakdownAvg(LINES_ALL,wkDays);
+  const effDay=effBDd?Math.min(100,effBDd.perf):null;
+  const effWeek=effBDw?Math.min(100,effBDw.perf):null;
+  const effEl=document.getElementById('k-eff');
+  effEl.textContent=effDay!=null?effDay.toFixed(0)+'%':'—';
+  if(effDay!=null)effEl.style.color=effDay>=90?'var(--green)':effDay>=75?'var(--amber)':'var(--red)';
+  let peak=null;
+  if(line){peak=peakHourEff(line);}
+  else{let bp=null;LINES_ALL.forEach(l=>{const pe=peakHourEff(l);if(pe&&(bp===null||pe.pct>bp.pct))bp=pe;});peak=bp;}
+  document.getElementById('k-eff-sub').textContent='Uke '+(effWeek!=null?effWeek.toFixed(0)+'%':'—')+' · Maks '+(peak?Math.round(peak.pct)+'%':'—');
+  const calEl=document.getElementById('k-eff-cal');
+  calEl.innerHTML=''; calEl.style.display='none';
+  const canEditCap=myProfile&&(myProfile.role==='master'||myProfile.role==='leder');
+  if(line&&peak&&peak.pct>100&&peak.dpk&&peak.p&&canEditCap){
+    const realCap=Math.round(peak.dpk*peak.p.stkPerDpack);
+    calEl.style.display='block';
+    calEl.innerHTML='<button class="effcal" onclick="calibrateCapacity(\''+line.replace(/'/g,"\\'")+'\','+realCap+')">Kapasitet for lav → sett til '+realCap.toLocaleString('no-NO')+' stk/t</button>';
+  }
   document.getElementById('k-week').textContent=wtdE.length;
 
   renderHist(fil);renderTable(fil);renderCharts(fil);if(mainView==='oee'){renderOEE(fil);}else{renderProdView();}renderMachines(fil);renderHeatmap(fil);
@@ -949,6 +973,37 @@ function renderTable(fil){
       +'<td><button class="rdel" onclick="askDel(\''+e.id+'\',\''+( e.cause||'').replace(/'/g,"\\'")+'\')">✕</button></td>';
     tb.appendChild(tr);
   });
+}
+
+// ── EFFEKTIVITET: maks demonstrert timesfart + kalibrering ──
+// Beste FULLFØRTE time (ekskl. inneværende time), som % av maks. Uncapped — avslører for lav kapasitet.
+function peakHourEff(line){
+  const p=lineProduct(line); if(!p||!(p.teknKapasitet>0)||!(p.stkPerDpack>0))return null;
+  const maxRate=p.teknKapasitet/p.stkPerDpack;
+  const key=lk(line);
+  const now=new Date(); const todK=dateKeyOf(now); const curH=pad(now.getHours());
+  let bestDpk=0;
+  Object.keys(PROD_HOURLY).forEach(dk=>{
+    const hrs=PROD_HOURLY[dk]?.[key]; if(!hrs)return;
+    Object.keys(hrs).forEach(h=>{
+      if(dk===todK && h===curH)return;          // hopp over inneværende ufullstendige time
+      const dpk=hrs[h]||0;
+      if(dpk>bestDpk)bestDpk=dpk;
+    });
+  });
+  if(bestDpk<=0)return null;
+  return {pct:bestDpk/maxRate*100, dpk:bestDpk, maxRate, p};
+}
+async function calibrateCapacity(line,newCap){
+  const k=lk(line);
+  const p=lineProduct(line); if(!p){showToast('Fant ikke produkt',true);return;}
+  const arr=(SETTINGS.products?.[k]||[]).slice();
+  const idx=arr.findIndex(x=>x.name===p.name);
+  if(idx<0){showToast('Fant ikke produkt',true);return;}
+  if(!confirm('Sette teknisk kapasitet for "'+p.name+'" ('+line+') til '+newCap+' stk/t?\n\nDette påvirker OEE og effektivitet framover.'))return;
+  arr[idx]=Object.assign({},arr[idx],{teknKapasitet:newCap});
+  try{ await db.ref('settings/products/'+k).set(arr); showToast('Kapasitet oppdatert til '+newCap.toLocaleString('no-NO')+' stk/t'); }
+  catch(e){ showToast('Klarte ikke å lagre',true); }
 }
 
 // ── MÅL-/FARTSLINJE-PLUGIN (horisontale referanselinjer i grafer) ──
