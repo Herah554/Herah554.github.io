@@ -1353,7 +1353,7 @@ function openHandleModal(){
         +'</div>';
       // Maskinvelger for OPC-hendelser
       if(isOpc&&lineMachines.length){
-        html+='<div class="he-fr"><div class="he-lbl">Hvilken maskin stoppet?</div>'
+        html+='<div class="he-fr"><div class="he-lbl">Hvilken maskin stoppet? (valgfritt)</div>'
           +'<select class="he-sel" id="hc-machine-'+e.id+'">'
           +'<option value="">— Velg maskin —</option>'
           +lineMachines.map(m=>'<option value="'+m+'">'+m+'</option>').join('')
@@ -1397,8 +1397,8 @@ function evtWindow(e){
   return {fromHM:hm(f), toHM:hm(t), durMin:dur};
 }
 function causeOptsHTML(line, machine, sel){
-  if(!machine) return '<option value="">— Velg maskin først —</option>';
   const causes=getAllCauses(line, machine);
+  if(!causes.length) return '<option value="">— Ingen årsaker satt opp (legg til i Innstillinger) —</option>';
   return '<option value="">— Velg årsak —</option>'
     +causes.map(c=>'<option value="'+c+'"'+(c===sel?' selected':'')+'>'+c+(isPlanned(c)?' (planlagt)':'')+'</option>').join('');
 }
@@ -1469,8 +1469,7 @@ async function saveHandle(id){
   const e=HANDLE_EVTS[id]; if(!e)return;
   const isOpc=e.source==='opc';
   const machEl=document.getElementById('hc-machine-'+id);
-  const machine=isOpc?(machEl?machEl.value:''):(e.machine||'');
-  if(isOpc&&machEl&&!machine){showToast('Velg maskin før du lagrer',true);return;}
+  const machine=isOpc?((machEl&&machEl.value)||e.machine||''):(e.machine||'');
   const comment=(document.getElementById('hc-com-'+id)?.value||'').trim();
   const cont=document.getElementById('hc-parts-'+id);
   const rows=cont?[...cont.querySelectorAll('.he-part')]:[];
