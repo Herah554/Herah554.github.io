@@ -71,6 +71,7 @@ input.auto{background:#f0f9ff;border-color:#bae6fd}
   <a href="index.html" class="nl">Dashboard</a>
   <a href="rapporter.html" class="nl" id="nav-rap" style="display:none">Rapporter</a>
   <a href="skiftrapport.html" class="nl on">Skiftrapport</a>
+  <a href="import.html" class="nl" id="nav-import" style="display:none">Import</a>
   <a href="innstillinger.html" class="nl" id="nav-set" style="display:none">Innstillinger</a>
   <a href="brukere.html" class="nl" id="nav-usr" style="display:none">Brukere</a>
   <a href="logg.html" class="nl" id="nav-logg" style="display:none">Logg &amp; data</a>
@@ -138,6 +139,19 @@ input.auto{background:#f0f9ff;border-color:#bae6fd}
       <div class="fitem"><label class="lbl">Signatur ansvarlig</label><input id="r-signatur"></div>
     </div>
 
+    <div class="sep"></div>
+    <div class="ct"><div class="ca" style="background:var(--green)"></div>Kvalitetskontroll / sjekkliste
+      <button class="bg" id="tmpl-btn" style="display:none;margin-left:auto;padding:5px 11px;font-size:11px" onclick="toggleTemplate()">✎ Rediger mal</button>
+    </div>
+    <div id="tmpl-editor" style="display:none;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:.8rem;margin-bottom:.7rem"></div>
+    <div id="checklist-fields"></div>
+    <div id="checklist-sign" style="display:none;margin-top:.7rem">
+      <label style="display:flex;align-items:center;gap:9px;font-size:13px;cursor:pointer;font-weight:500">
+        <input type="checkbox" id="chk-confirm" style="width:auto">Jeg bekrefter at kontrollene over er utført
+      </label>
+      <div class="autohint" id="chk-stamp" style="color:var(--green)"></div>
+    </div>
+
     <div class="actions">
       <button class="bp" onclick="saveReport()">💾 Lagre skiftrapport</button>
       <span class="savedtag" id="saved-tag"></span>
@@ -189,7 +203,7 @@ auth.onAuthStateChanged(async user=>{
   const role=USER&&USER.role;
   const hasAccess = role==='master'||role==='leder'||(USER&&USER.shiftAccess===true);
   document.getElementById('ubadge').textContent=(USER?USER.name:'')+' · '+(role==='master'?'Master':role==='leder'?'Leder':'Operatør');
-  if(role==='master'||role==='leder'){document.getElementById('nav-rap').style.display='';document.getElementById('nav-set').style.display='';document.getElementById('nav-usr').style.display='';}
+  if(role==='master'||role==='leder'){document.getElementById('nav-rap').style.display='';document.getElementById('nav-set').style.display='';document.getElementById('nav-usr').style.display='';document.getElementById('nav-import').style.display='';}
   if(role==='master'){document.getElementById('nav-logg').style.display='';}
   if(!hasAccess){document.getElementById('gate').style.display='block';return;}
   document.getElementById('app').style.display='block';
@@ -199,7 +213,7 @@ auth.onAuthStateChanged(async user=>{
 });
 
 function startListeners(){
-  db.ref('settings').on('value',s=>{SETTINGS=Object.assign({products:{},schedule:{},resetTime:'00:00'},s.val()||{});prefill();});
+  db.ref('settings').on('value',s=>{SETTINGS=Object.assign({products:{},schedule:{},resetTime:'00:00'},s.val()||{});prefill();buildChecklist();});
   db.ref('production').on('value',s=>{
     const m={};if(s.exists())s.forEach(ds=>{const date=ds.key;m[date]={};ds.forEach(ls=>{m[date][ls.key]=(ls.val()&&ls.val().count)||0;});});
     PROD_ALL=m;prefill();
@@ -225,6 +239,80 @@ function initForm(){
 }
 
 function setShift(s){curShift=s;document.querySelectorAll('#shiftbtns .sbtn').forEach(b=>b.classList.toggle('on',b.dataset.s===s));}
+
+// ── SJEKKLISTE / KVALITETSKONTROLL (mal per linje) ──
+let tmplEditing=false;
+function tmplFor(line){return ((SETTINGS.checklistTemplates||{})[lk(line)]||[]).slice();}
+function buildChecklist(){
+  const line=val('f-line'), items=tmplFor(line);
+  const wrap=document.getElementById('checklist-fields'), sign=document.getElementById('checklist-sign');
+  const canEdit=USER&&(USER.role==='master'||USER.role==='leder');
+  document.getElementById('tmpl-btn').style.display=canEdit?'':'none';
+  // bevar verdier som allerede er fylt inn
+  const cur={};
+  (wrap._items||[]).forEach(it=>{const e=document.getElementById('chk_'+it.id);if(e)cur[it.id]=(it.type==='avkrysning'?e.checked:e.value);});
+  if(!items.length){
+    wrap.innerHTML='<div class="autohint">Ingen sjekkliste for denne linja'+(canEdit?' — trykk «Rediger mal» for å lage en.':'.')+'</div>';
+    wrap._items=[]; sign.style.display='none'; return;
+  }
+  wrap.innerHTML='<div class="grid">'+items.map(it=>{
+    const id='chk_'+it.id;
+    if(it.type==='avkrysning')return '<div class="fitem"><label class="lbl">'+esc(it.label)+'</label><label style="display:flex;align-items:center;gap:8px;font-size:13px;height:38px;cursor:pointer"><input type="checkbox" id="'+id+'" style="width:auto">OK</label></div>';
+    if(it.type==='tekst')return '<div class="fitem"><label class="lbl">'+esc(it.label)+'</label><input id="'+id+'"></div>';
+    const u=it.unit?' ('+esc(it.unit)+')':'';
+    return '<div class="fitem"><label class="lbl">'+esc(it.label)+u+'</label><input type="number" step="any" id="'+id+'"></div>';
+  }).join('')+'</div>';
+  wrap._items=items;
+  items.forEach(it=>{const e=document.getElementById('chk_'+it.id);if(e&&cur[it.id]!=null){if(it.type==='avkrysning')e.checked=!!cur[it.id];else e.value=cur[it.id];}});
+  sign.style.display='block';
+}
+function applyChecklistValues(sj){
+  tmplFor(val('f-line')).forEach(it=>{
+    const e=document.getElementById('chk_'+it.id); if(!e)return;
+    const v=sj&&sj.items?sj.items[it.id]:undefined;
+    if(it.type==='avkrysning')e.checked=!!v; else e.value=(v==null?'':v);
+  });
+  const conf=document.getElementById('chk-confirm'); if(conf)conf.checked=!!(sj&&sj.kontrollert);
+  const stamp=document.getElementById('chk-stamp');
+  if(stamp)stamp.textContent=(sj&&sj.kontrollert&&sj.kontrollertAv)?('Kontrollert av '+sj.kontrollertAv+(sj.kontrollertTid?' · '+new Date(sj.kontrollertTid).toLocaleString('no-NO'):'')):'';
+}
+function toggleTemplate(){tmplEditing=!tmplEditing;document.getElementById('tmpl-editor').style.display=tmplEditing?'block':'none';if(tmplEditing)renderTemplateEditor();}
+function renderTemplateEditor(){
+  const line=val('f-line'), items=tmplFor(line), ed=document.getElementById('tmpl-editor');
+  ed.innerHTML='<div class="autohint" style="margin-bottom:8px">Mal for <b>'+esc(line)+'</b> — definer kontrollpunktene operatøren skal fylle ut og signere.</div>'
+    +'<div id="tmpl-rows"></div>'
+    +'<div style="display:flex;gap:8px;margin-top:8px"><button class="bg" style="font-size:12px" onclick="addTmplRow()">+ Legg til kontrollpunkt</button><button class="bp" style="font-size:12px;padding:7px 14px" onclick="saveTemplate()">Lagre mal</button></div>';
+  const rows=document.getElementById('tmpl-rows'); rows.innerHTML='';
+  (items.length?items:[{label:'',type:'maaling',unit:''}]).forEach(it=>rows.appendChild(tmplRowEl(it)));
+}
+function tmplRowEl(it){
+  const d=document.createElement('div'); d.className='tmpl-row';
+  d.style.cssText='display:flex;gap:6px;margin-bottom:6px;align-items:center';
+  d.dataset.id=it.id||'';
+  const q=s=>String(s||'').replace(/"/g,'&quot;');
+  d.innerHTML='<input class="t-label" placeholder="Navn (f.eks. Temp på isen)" value="'+q(it.label)+'" style="flex:2">'
+    +'<select class="t-type" style="flex:1"><option value="maaling"'+(it.type==='maaling'?' selected':'')+'>Måling/tall</option><option value="avkrysning"'+(it.type==='avkrysning'?' selected':'')+'>Avkrysning</option><option value="tekst"'+(it.type==='tekst'?' selected':'')+'>Tekst</option></select>'
+    +'<input class="t-unit" placeholder="Enhet" value="'+q(it.unit)+'" style="flex:.7">'
+    +'<button class="bg" style="padding:7px 11px" onclick="this.parentElement.remove()">✕</button>';
+  return d;
+}
+function addTmplRow(){document.getElementById('tmpl-rows').appendChild(tmplRowEl({label:'',type:'maaling',unit:''}));}
+async function saveTemplate(){
+  const line=val('f-line'); if(!line)return;
+  const rows=Array.prototype.slice.call(document.querySelectorAll('#tmpl-rows .tmpl-row'));
+  const items=rows.map((r,i)=>{
+    const label=r.querySelector('.t-label').value.trim(); if(!label)return null;
+    const type=r.querySelector('.t-type').value, unit=r.querySelector('.t-unit').value.trim();
+    const id=r.dataset.id||('i'+Date.now().toString(36)+i+Math.floor(Math.random()*900));
+    return {id,label,type,unit:type==='maaling'?unit:''};
+  }).filter(Boolean);
+  try{
+    await db.ref('settings/checklistTemplates/'+lk(line)).set(items);
+    showToast('Mal lagret for '+line);
+    tmplEditing=false; document.getElementById('tmpl-editor').style.display='none';
+    buildChecklist();
+  }catch(e){showToast('Lagring feilet',true);}
+}
 
 // planlagte timer for valgt dag fra skiftplan (best-effort)
 function plannedHours(lineKey,dateStr){
@@ -276,18 +364,25 @@ function loadReport(){
     setVal('r-signatur',USER?USER.name:'');
   }
   prefill();
+  buildChecklist();
+  applyChecklistValues(r?r.sjekkliste:null);
 }
 
 async function saveReport(){
   const line=val('f-line'), date=val('f-date');
   if(!line||!date){showToast('Velg linje og dato',true);return;}
+  if(tmplFor(line).length && !document.getElementById('chk-confirm').checked){showToast('Bekreft at kontrollene er utført før lagring',true);return;}
+  const sjItems={};
+  tmplFor(line).forEach(it=>{const e=document.getElementById('chk_'+it.id);if(e)sjItems[it.id]=(it.type==='avkrysning'?!!e.checked:e.value);});
+  const confirmed=!!(document.getElementById('chk-confirm')&&document.getElementById('chk-confirm').checked);
+  const sjekkliste={items:sjItems,kontrollert:confirmed,kontrollertAv:confirmed?(USER?USER.name:''):'',kontrollertTid:confirmed?Date.now():null};
   const rep={
     line, date, skift:curShift,
     produkt:val('r-produkt'), aoNr:val('r-ao'), hastighet:val('r-hast'),
     antallBestilt:val('r-bestilt'), antallProdusert:val('r-prod'), planlagteTimer:val('r-timer'),
     forsteFylling:val('r-forste'), sisteFylling:val('r-siste'), bemanning:val('r-bemanning'),
     grisematKg:val('r-grisemat'), reworkKg:val('r-rework'), ravaresvinn:val('r-ravaresvinn'), svinn:val('r-svinn'),
-    kommentar:val('r-kommentar'), signatur:val('r-signatur'),
+    kommentar:val('r-kommentar'), signatur:val('r-signatur'), sjekkliste,
     savedBy:USER?USER.name:'', savedAt:Date.now()
   };
   try{
