@@ -145,6 +145,21 @@ input:focus,select:focus{border-color:var(--accent)}
     </div>
   </div>
 
+  <h2 class="master-only">Timekontroll &amp; skift</h2>
+  <div class="card master-only">
+    <div class="ct"><div class="ca" style="background:var(--purple)"></div>Skift-tider (dag / kveld / natt)</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+      <div><div class="lbl">Dag (start–slutt)</div><div class="row"><input type="time" id="sh-dag-s"><input type="time" id="sh-dag-e"></div></div>
+      <div><div class="lbl">Kveld (start–slutt)</div><div class="row"><input type="time" id="sh-kveld-s"><input type="time" id="sh-kveld-e"></div></div>
+      <div><div class="lbl">Natt (start–slutt)</div><div class="row"><input type="time" id="sh-natt-s"><input type="time" id="sh-natt-e"></div></div>
+    </div>
+    <div class="sep"></div>
+    <div class="ct" style="margin-bottom:.6rem"><div class="ca" style="background:var(--green)"></div>Timekontroll på dashbordet</div>
+    <label style="display:flex;align-items:center;gap:9px;font-size:13px;margin-bottom:8px;cursor:pointer"><input type="checkbox" id="sh-prompt" style="width:auto">Vis prompt på dashbordet når en timekontroll mangler</label>
+    <label style="display:flex;align-items:center;gap:9px;font-size:13px;margin-bottom:12px;cursor:pointer"><input type="checkbox" id="sh-auto" style="width:auto">Auto-forslag fra MES (operatør bekrefter likevel)</label>
+    <button class="bp" onclick="saveTimekontroll()">Lagre timekontroll-innstillinger</button>
+  </div>
+
   <h2 class="master-only">Planlagte stopp</h2>
   <div class="card master-only">
     <div class="ct"><div class="ca" style="background:var(--blue)"></div>Planlagte stopp (vises på alle maskiner)</div>
@@ -249,7 +264,26 @@ db.ref('settings').on('value',snap=>{
   renderLines();
   renderProductFilter();
   renderProducts();
+  // Timekontroll / skift
+  const stx=S.shiftTimes||{};
+  const setT=(id,v)=>{const e=document.getElementById(id);if(e)e.value=v;};
+  setT('sh-dag-s',(stx.dag&&stx.dag.start)||'06:00'); setT('sh-dag-e',(stx.dag&&stx.dag.end)||'14:00');
+  setT('sh-kveld-s',(stx.kveld&&stx.kveld.start)||'14:00'); setT('sh-kveld-e',(stx.kveld&&stx.kveld.end)||'22:00');
+  setT('sh-natt-s',(stx.natt&&stx.natt.start)||'22:00'); setT('sh-natt-e',(stx.natt&&stx.natt.end)||'06:00');
+  if(document.getElementById('sh-prompt'))document.getElementById('sh-prompt').checked=S.hourlyPrompt!==false;
+  if(document.getElementById('sh-auto'))document.getElementById('sh-auto').checked=!!S.hourlyAutoSuggest;
 });
+
+function saveTimekontroll(){
+  const v=id=>{const e=document.getElementById(id);return e?e.value:'';};
+  const st={
+    dag:{start:v('sh-dag-s')||'06:00',end:v('sh-dag-e')||'14:00'},
+    kveld:{start:v('sh-kveld-s')||'14:00',end:v('sh-kveld-e')||'22:00'},
+    natt:{start:v('sh-natt-s')||'22:00',end:v('sh-natt-e')||'06:00'}
+  };
+  db.ref('settings').update({shiftTimes:st,hourlyPrompt:document.getElementById('sh-prompt').checked,hourlyAutoSuggest:document.getElementById('sh-auto').checked})
+    .then(()=>showT('Timekontroll-innstillinger lagret')).catch(()=>showT('Lagring feilet',true));
+}
 
 function saveGlobal(){
   const h=parseFloat(document.getElementById('g-hours').value)||8;

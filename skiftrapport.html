@@ -47,6 +47,16 @@ input.auto{background:#f0f9ff;border-color:#bae6fd}
 .bg:hover{background:var(--border)}
 .actions{display:flex;gap:10px;align-items:center;margin-top:.5rem}
 .savedtag{font-size:11px;color:var(--green);font-family:var(--mono)}
+.hg-wrap{overflow-x:auto;margin-top:.35rem}
+.hg{border-collapse:collapse;font-size:11px}
+.hg th,.hg td{border:1px solid var(--border);padding:3px 5px;text-align:center;white-space:nowrap}
+.hg th{background:var(--bg3);font-family:var(--mono);font-size:9px;color:var(--text3)}
+.hg td.lblc{text-align:left;font-weight:500;background:var(--bg3);position:sticky;left:0}
+.hcell{cursor:pointer;min-width:34px;color:var(--text3)}
+.hcell.done{background:#dcfce7;color:#15803d;font-weight:600}
+.hcell.late{background:#fef3c7;color:#b45309;font-weight:600}
+.hcell.sugg{background:#eff6ff;color:#3b82f6;font-style:italic}
+.hcell.now{outline:2px solid var(--accent);outline-offset:-2px}
 /* history */
 .twrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--r)}
 .tbl{width:100%;border-collapse:collapse;font-size:12px;min-width:640px}
@@ -96,10 +106,9 @@ input.auto{background:#f0f9ff;border-color:#bae6fd}
       <div class="fitem"><label class="lbl">Dato</label><input type="date" id="f-date" onchange="loadReport()"></div>
       <div class="fitem"><label class="lbl">Skift</label>
         <div class="shiftbtns" id="shiftbtns">
-          <div class="sbtn" data-s="A" onclick="setShift('A')">A</div>
-          <div class="sbtn" data-s="B" onclick="setShift('B')">B</div>
-          <div class="sbtn" data-s="C" onclick="setShift('C')">C</div>
-          <div class="sbtn" data-s="3-skift" onclick="setShift('3-skift')">3-skift</div>
+          <div class="sbtn" data-s="dag" onclick="setShift('dag')">Dag</div>
+          <div class="sbtn" data-s="kveld" onclick="setShift('kveld')">Kveld</div>
+          <div class="sbtn" data-s="natt" onclick="setShift('natt')">Natt</div>
         </div>
       </div>
     </div>
@@ -145,6 +154,7 @@ input.auto{background:#f0f9ff;border-color:#bae6fd}
     </div>
     <div id="tmpl-editor" style="display:none;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:.8rem;margin-bottom:.7rem"></div>
     <div id="checklist-fields"></div>
+    <div id="hourly-box" style="display:none"></div>
     <div id="checklist-sign" style="display:none;margin-top:.7rem">
       <label style="display:flex;align-items:center;gap:9px;font-size:13px;cursor:pointer;font-weight:500">
         <input type="checkbox" id="chk-confirm" style="width:auto">Jeg bekrefter at kontrollene over er utført
@@ -154,6 +164,7 @@ input.auto{background:#f0f9ff;border-color:#bae6fd}
 
     <div class="actions">
       <button class="bp" onclick="saveReport()">💾 Lagre skiftrapport</button>
+      <button class="bg" onclick="exportShift()">⬇ Eksporter dette skiftet</button>
       <span class="savedtag" id="saved-tag"></span>
     </div>
   </div>
@@ -186,7 +197,7 @@ localStorage.setItem('firebaseConfig',JSON.stringify(FB));
 const db=firebase.database(),auth=firebase.auth();
 
 let SETTINGS={products:{},schedule:{},resetTime:'00:00'}, PROD_ALL={}, ACTIVE_PROD={}, REPORTS={}, USER=null, EDIT_LINES=[];
-let curShift='3-skift';
+let curShift='dag', reportsLoadedOnce=false, PROD_HOURLY_SR_DATA={};
 const lk=l=>(l||'').replace(/[\s\/]/g,'_');
 const pad=n=>String(n).padStart(2,'0');
 function ymd(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
@@ -213,16 +224,20 @@ auth.onAuthStateChanged(async user=>{
 });
 
 function startListeners(){
-  db.ref('settings').on('value',s=>{SETTINGS=Object.assign({products:{},schedule:{},resetTime:'00:00'},s.val()||{});prefill();buildChecklist();});
+  db.ref('settings').on('value',s=>{SETTINGS=Object.assign({products:{},schedule:{},resetTime:'00:00'},s.val()||{});prefill();refreshChecklist();});
   db.ref('production').on('value',s=>{
-    const m={};if(s.exists())s.forEach(ds=>{const date=ds.key;m[date]={};ds.forEach(ls=>{m[date][ls.key]=(ls.val()&&ls.val().count)||0;});});
-    PROD_ALL=m;prefill();
+    const m={},hm={};
+    if(s.exists())s.forEach(ds=>{const date=ds.key;m[date]={};hm[date]={};ds.forEach(ls=>{const v=ls.val()||{};m[date][ls.key]=v.count||0;hm[date][ls.key]=v.hourly||{};});});
+    PROD_ALL=m; PROD_HOURLY_SR_DATA=hm; prefill(); refreshChecklist();
   });
   db.ref('active_product').on('value',s=>{
     const m={};if(s.exists())s.forEach(ls=>{m[ls.key]=(ls.val()&&ls.val().product)||null;});
     ACTIVE_PROD=m;prefill();
   });
-  db.ref('shiftReports').on('value',s=>{REPORTS=s.val()||{};renderHistory();loadReport();});
+  db.ref('shiftReports').on('value',s=>{
+    REPORTS=s.val()||{}; renderHistory();
+    if(!reportsLoadedOnce){reportsLoadedOnce=true;loadReport();}else{refreshChecklist();}
+  });
 }
 
 function initForm(){
@@ -234,26 +249,54 @@ function initForm(){
   document.getElementById('f-date').value=ymd(now);
   document.getElementById('h-to').value=ymd(now);
   document.getElementById('h-from').value=ymd(new Date(now.getTime()-30*86400000));
-  setShift('3-skift');
+  setShift(activeShiftNow());
   setVal('r-signatur', USER?USER.name:'');
 }
 
-function setShift(s){curShift=s;document.querySelectorAll('#shiftbtns .sbtn').forEach(b=>b.classList.toggle('on',b.dataset.s===s));}
+function setShift(s){curShift=s;document.querySelectorAll('#shiftbtns .sbtn').forEach(b=>b.classList.toggle('on',b.dataset.s===s));refreshChecklist();}
+
+// ── SKIFT-TIDER ──
+function shiftDef(){return SETTINGS.shiftTimes||{dag:{start:'06:00',end:'14:00'},kveld:{start:'14:00',end:'22:00'},natt:{start:'22:00',end:'06:00'}};}
+function hhMin(t){const p=String(t||'0:0').split(':');return (parseInt(p[0])||0)*60+(parseInt(p[1])||0);}
+function activeShiftNow(){
+  const d=shiftDef(), now=new Date().getHours()*60+new Date().getMinutes();
+  for(const s of ['dag','kveld','natt']){const def=d[s];if(!def)continue;let st=hhMin(def.start),en=hhMin(def.end);
+    if(en>st){if(now>=st&&now<en)return s;}else{if(now>=st||now<en)return s;}}
+  return 'dag';
+}
+function shiftHours(shift){
+  const d=shiftDef()[shift]; if(!d)return [];
+  let h=parseInt(String(d.start).split(':')[0])||0, en=parseInt(String(d.end).split(':')[0]); if(isNaN(en))en=h;
+  const hrs=[]; let g=0; do{hrs.push(pad(h));h=(h+1)%24;}while(h!==en&&g++<25); return hrs;
+}
+function shiftMatch(it,shift){const s=it.skift||'alle';return s==='alle'||s===shift;}
+function isHourLate(date,shift,hour){
+  const d=shiftDef()[shift]; if(!d)return false;
+  const startH=parseInt(String(d.start).split(':')[0])||0, endH=parseInt(String(d.end).split(':')[0]), H=parseInt(hour);
+  const b=new Date(date+'T00:00:00'); let off=0; if(endH<=startH&&H<startH)off=1;
+  const cellEnd=new Date(b.getFullYear(),b.getMonth(),b.getDate()+off,H+1,0,0);
+  return Date.now()>cellEnd.getTime();
+}
 
 // ── SJEKKLISTE / KVALITETSKONTROLL (mal per linje) ──
 let tmplEditing=false;
 function tmplFor(line){return ((SETTINGS.checklistTemplates||{})[lk(line)]||[]).slice();}
-function buildChecklist(){
-  const line=val('f-line'), items=tmplFor(line);
+function refreshChecklist(){
+  const items=tmplFor(val('f-line')).filter(it=>shiftMatch(it,curShift));
+  buildRegularChecklist(items.filter(it=>it.type!=='timekontroll'));
+  renderHourly(items.filter(it=>it.type==='timekontroll'));
+}
+function buildRegularChecklist(items){
   const wrap=document.getElementById('checklist-fields'), sign=document.getElementById('checklist-sign');
   const canEdit=USER&&(USER.role==='master'||USER.role==='leder');
   document.getElementById('tmpl-btn').style.display=canEdit?'':'none';
-  // bevar verdier som allerede er fylt inn
+  const sig=JSON.stringify(items.map(it=>[it.id,it.type,it.label,it.unit]));
+  if(wrap._sig===sig && wrap._built){ sign.style.display=items.length?'block':'none'; return; } // uendret struktur — ikke bygg på nytt (bevarer fokus ved skriving)
   const cur={};
   (wrap._items||[]).forEach(it=>{const e=document.getElementById('chk_'+it.id);if(e)cur[it.id]=(it.type==='avkrysning'?e.checked:e.value);});
   if(!items.length){
-    wrap.innerHTML='<div class="autohint">Ingen sjekkliste for denne linja'+(canEdit?' — trykk «Rediger mal» for å lage en.':'.')+'</div>';
-    wrap._items=[]; sign.style.display='none'; return;
+    wrap.innerHTML='<div class="autohint">Ingen faste kontrollpunkter for '+curShift+(canEdit?' — trykk «Rediger mal» for å lage.':'.')+'</div>';
+    wrap._items=[]; wrap._sig=sig; wrap._built=true; sign.style.display='none'; return;
   }
   wrap.innerHTML='<div class="grid">'+items.map(it=>{
     const id='chk_'+it.id;
@@ -262,9 +305,41 @@ function buildChecklist(){
     const u=it.unit?' ('+esc(it.unit)+')':'';
     return '<div class="fitem"><label class="lbl">'+esc(it.label)+u+'</label><input type="number" step="any" id="'+id+'"></div>';
   }).join('')+'</div>';
-  wrap._items=items;
+  wrap._items=items; wrap._sig=sig; wrap._built=true;
   items.forEach(it=>{const e=document.getElementById('chk_'+it.id);if(e&&cur[it.id]!=null){if(it.type==='avkrysning')e.checked=!!cur[it.id];else e.value=cur[it.id];}});
   sign.style.display='block';
+}
+function renderHourly(timed){
+  const box=document.getElementById('hourly-box');
+  if(!timed||!timed.length){box.innerHTML='';box.style.display='none';return;}
+  const line=val('f-line'), date=val('f-date'), shift=curShift, hours=shiftHours(shift);
+  const log=(((REPORTS[date]||{})[lk(line)]||{}).timekontroll||{})[shift]||{};
+  const auto=SETTINGS.hourlyAutoSuggest, prodH=auto?((PROD_HOURLY_SR_DATA[date]||{})[lk(line)]||{}):null;
+  const todayK=ymd(new Date()), nowH=pad(new Date().getHours());
+  box.style.display='block';
+  let h='<div class="autohint" style="margin:.3rem 0">Timekontroll for <b>'+shift+'</b> — klikk en celle hver time for å bekrefte (loggføres med klokkeslett). '
+    +'<span class="hcell done" style="padding:0 4px">✓</span> i tide · <span class="hcell late" style="padding:0 4px">⚠</span> sen'+(auto?' · <span class="hcell sugg" style="padding:0 4px">forslag</span> linja kjørte':'')+'</div>';
+  h+='<div class="hg-wrap"><table class="hg"><thead><tr><th>Kontrollpunkt</th>'+hours.map(x=>'<th>'+x+'</th>').join('')+'</tr></thead><tbody>';
+  timed.forEach(it=>{
+    h+='<tr><td class="lblc">'+esc(it.label)+'</td>';
+    hours.forEach(x=>{
+      const c=(log[it.id]||{})[x]; let cls='hcell empty', txt='–';
+      if(c&&c.at){cls='hcell '+(c.late?'late':'done');txt=(c.late?'⚠':'✓')+' '+new Date(c.at).toLocaleTimeString('no-NO',{hour:'2-digit',minute:'2-digit'});}
+      else if(auto&&prodH&&(prodH[x]||0)>0){cls='hcell sugg';txt='forslag';}
+      if(date===todayK&&x===nowH)cls+=' now';
+      h+='<td class="'+cls+'" onclick="toggleHourCell(\''+it.id+'\',\''+x+'\')">'+txt+'</td>';
+    });
+    h+='</tr>';
+  });
+  box.innerHTML=h+'</tbody></table></div>';
+}
+function toggleHourCell(itemId,hour){
+  const line=val('f-line'), date=val('f-date'), shift=curShift;
+  if(!line||!date){showToast('Velg linje og dato',true);return;}
+  const cur=((((REPORTS[date]||{})[lk(line)]||{}).timekontroll||{})[shift]||{})[itemId]||{};
+  const ref=db.ref('shiftReports/'+date+'/'+lk(line)+'/timekontroll/'+shift+'/'+itemId+'/'+hour);
+  if(cur[hour]&&cur[hour].at){ref.remove();}
+  else{ref.set({at:Date.now(),late:isHourLate(date,shift,hour),by:USER?USER.name:''});}
 }
 function applyChecklistValues(sj){
   tmplFor(val('f-line')).forEach(it=>{
@@ -283,7 +358,7 @@ function renderTemplateEditor(){
     +'<div id="tmpl-rows"></div>'
     +'<div style="display:flex;gap:8px;margin-top:8px"><button class="bg" style="font-size:12px" onclick="addTmplRow()">+ Legg til kontrollpunkt</button><button class="bp" style="font-size:12px;padding:7px 14px" onclick="saveTemplate()">Lagre mal</button></div>';
   const rows=document.getElementById('tmpl-rows'); rows.innerHTML='';
-  (items.length?items:[{label:'',type:'maaling',unit:''}]).forEach(it=>rows.appendChild(tmplRowEl(it)));
+  (items.length?items:[{label:'',type:'maaling',unit:'',skift:'alle'}]).forEach(it=>rows.appendChild(tmplRowEl(it)));
 }
 function tmplRowEl(it){
   const d=document.createElement('div'); d.className='tmpl-row';
@@ -296,21 +371,33 @@ function tmplRowEl(it){
     +'<button class="bg" style="padding:7px 11px" onclick="this.parentElement.remove()">✕</button>';
   return d;
 }
-function addTmplRow(){document.getElementById('tmpl-rows').appendChild(tmplRowEl({label:'',type:'maaling',unit:''}));}
+function tmplRowEl(it){
+  const d=document.createElement('div'); d.className='tmpl-row';
+  d.style.cssText='display:flex;gap:6px;margin-bottom:6px;align-items:center;flex-wrap:wrap';
+  d.dataset.id=it.id||'';
+  const q=s=>String(s||'').replace(/"/g,'&quot;'); const sk=it.skift||'alle';
+  d.innerHTML='<input class="t-label" placeholder="Navn (f.eks. Temp på isen)" value="'+q(it.label)+'" style="flex:2;min-width:140px">'
+    +'<select class="t-type" style="flex:1;min-width:130px"><option value="maaling"'+(it.type==='maaling'?' selected':'')+'>Måling/tall</option><option value="avkrysning"'+(it.type==='avkrysning'?' selected':'')+'>Avkrysning</option><option value="tekst"'+(it.type==='tekst'?' selected':'')+'>Tekst</option><option value="timekontroll"'+(it.type==='timekontroll'?' selected':'')+'>Timekontroll (hver time)</option></select>'
+    +'<select class="t-skift" style="flex:.8;min-width:95px"><option value="alle"'+(sk==='alle'?' selected':'')+'>Alle skift</option><option value="dag"'+(sk==='dag'?' selected':'')+'>Dag</option><option value="kveld"'+(sk==='kveld'?' selected':'')+'>Kveld</option><option value="natt"'+(sk==='natt'?' selected':'')+'>Natt</option></select>'
+    +'<input class="t-unit" placeholder="Enhet" value="'+q(it.unit)+'" style="flex:.6;min-width:70px">'
+    +'<button class="bg" style="padding:7px 11px" onclick="this.parentElement.remove()">✕</button>';
+  return d;
+}
+function addTmplRow(){document.getElementById('tmpl-rows').appendChild(tmplRowEl({label:'',type:'maaling',unit:'',skift:'alle'}));}
 async function saveTemplate(){
   const line=val('f-line'); if(!line)return;
   const rows=Array.prototype.slice.call(document.querySelectorAll('#tmpl-rows .tmpl-row'));
   const items=rows.map((r,i)=>{
     const label=r.querySelector('.t-label').value.trim(); if(!label)return null;
-    const type=r.querySelector('.t-type').value, unit=r.querySelector('.t-unit').value.trim();
+    const type=r.querySelector('.t-type').value, unit=r.querySelector('.t-unit').value.trim(), skift=r.querySelector('.t-skift').value;
     const id=r.dataset.id||('i'+Date.now().toString(36)+i+Math.floor(Math.random()*900));
-    return {id,label,type,unit:type==='maaling'?unit:''};
+    return {id,label,type,unit:type==='maaling'?unit:'',skift};
   }).filter(Boolean);
   try{
     await db.ref('settings/checklistTemplates/'+lk(line)).set(items);
     showToast('Mal lagret for '+line);
     tmplEditing=false; document.getElementById('tmpl-editor').style.display='none';
-    buildChecklist();
+    refreshChecklist();
   }catch(e){showToast('Lagring feilet',true);}
 }
 
@@ -353,7 +440,7 @@ function loadReport(){
   ['r-produkt','r-ao','r-hast','r-bestilt','r-prod','r-timer','r-forste','r-siste','r-bemanning','r-grisemat','r-rework','r-ravaresvinn','r-svinn','r-kommentar'].forEach(id=>setVal(id,''));
   document.getElementById('saved-tag').textContent='';
   if(r){
-    setShift(r.skift||'3-skift');
+    setShift(['dag','kveld','natt'].includes(r.skift)?r.skift:activeShiftNow());
     setVal('r-produkt',r.produkt);setVal('r-ao',r.aoNr);setVal('r-hast',r.hastighet);
     setVal('r-bestilt',r.antallBestilt);setVal('r-prod',r.antallProdusert);setVal('r-timer',r.planlagteTimer);
     setVal('r-forste',r.forsteFylling);setVal('r-siste',r.sisteFylling);setVal('r-bemanning',r.bemanning);
@@ -364,18 +451,20 @@ function loadReport(){
     setVal('r-signatur',USER?USER.name:'');
   }
   prefill();
-  buildChecklist();
+  refreshChecklist();
   applyChecklistValues(r?r.sjekkliste:null);
 }
 
 async function saveReport(){
   const line=val('f-line'), date=val('f-date');
   if(!line||!date){showToast('Velg linje og dato',true);return;}
-  if(tmplFor(line).length && !document.getElementById('chk-confirm').checked){showToast('Bekreft at kontrollene er utført før lagring',true);return;}
+  const regForShift=tmplFor(line).filter(it=>it.type!=='timekontroll'&&shiftMatch(it,curShift));
+  if(regForShift.length && !document.getElementById('chk-confirm').checked){showToast('Bekreft at kontrollene er utført før lagring',true);return;}
   const sjItems={};
   tmplFor(line).forEach(it=>{const e=document.getElementById('chk_'+it.id);if(e)sjItems[it.id]=(it.type==='avkrysning'?!!e.checked:e.value);});
   const confirmed=!!(document.getElementById('chk-confirm')&&document.getElementById('chk-confirm').checked);
   const sjekkliste={items:sjItems,kontrollert:confirmed,kontrollertAv:confirmed?(USER?USER.name:''):'',kontrollertTid:confirmed?Date.now():null};
+  const prevTk=((REPORTS[date]||{})[lk(line)]||{}).timekontroll||null;
   const rep={
     line, date, skift:curShift,
     produkt:val('r-produkt'), aoNr:val('r-ao'), hastighet:val('r-hast'),
@@ -383,6 +472,7 @@ async function saveReport(){
     forsteFylling:val('r-forste'), sisteFylling:val('r-siste'), bemanning:val('r-bemanning'),
     grisematKg:val('r-grisemat'), reworkKg:val('r-rework'), ravaresvinn:val('r-ravaresvinn'), svinn:val('r-svinn'),
     kommentar:val('r-kommentar'), signatur:val('r-signatur'), sjekkliste,
+    timekontroll:prevTk,
     savedBy:USER?USER.name:'', savedAt:Date.now()
   };
   try{
@@ -420,6 +510,34 @@ function renderHistory(){
     tr.innerHTML='<td>'+esc(r.date)+'</td><td>'+esc(r.line)+'</td><td>'+esc(r.skift||'')+'</td><td>'+esc(r.produkt||'—')+'</td><td>'+esc(r.antallProdusert||'')+'</td><td>'+esc(r.signatur||'')+'</td>';
     tb.appendChild(tr);
   });
+}
+
+// ── EKSPORT PER SKIFT (CSV: header + sjekkliste + timekontroll-logg) ──
+function exportShift(){
+  const line=val('f-line'), date=val('f-date'), shift=curShift;
+  if(!line||!date){showToast('Velg linje og dato',true);return;}
+  const r=((REPORTS[date]||{})[lk(line)])||{};
+  const rows=[['Skiftrapport',''],['Dato',date],['Linje',line],['Skift',shift],
+    ['Produkt',r.produkt||val('r-produkt')],['Antall produsert',r.antallProdusert||val('r-prod')],
+    ['Bemanning',r.bemanning||val('r-bemanning')],['Signatur',r.signatur||val('r-signatur')],['','']];
+  const items=tmplFor(line).filter(it=>shiftMatch(it,shift));
+  const reg=items.filter(it=>it.type!=='timekontroll'), timed=items.filter(it=>it.type==='timekontroll');
+  if(reg.length){
+    rows.push(['Sjekkliste','']);
+    reg.forEach(it=>{const v=(r.sjekkliste&&r.sjekkliste.items)?r.sjekkliste.items[it.id]:'';rows.push([it.label,(it.type==='avkrysning'?(v?'Ja':'Nei'):v)]);});
+    rows.push(['Kontrollert av',(r.sjekkliste&&r.sjekkliste.kontrollertAv)||'']); rows.push(['','']);
+  }
+  if(timed.length){
+    const hours=shiftHours(shift), log=(r.timekontroll||{})[shift]||{};
+    rows.push(['Timekontroll'].concat(hours));
+    timed.forEach(it=>{const row=[it.label];hours.forEach(h=>{const c=(log[it.id]||{})[h];row.push(c&&c.at?(new Date(c.at).toLocaleTimeString('no-NO',{hour:'2-digit',minute:'2-digit'})+(c.late?' (sen)':'')):'');});rows.push(row);});
+  }
+  const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';
+  const csv=rows.map(r=>r.map(q).join(';')).join('\n');
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='skift_'+lk(line)+'_'+date+'_'+shift+'.csv';a.click();
+  showToast('Skift eksportert');
 }
 
 // ── EKSPORT CSV (Excel, norsk: semikolon + BOM) ──

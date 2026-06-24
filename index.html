@@ -189,6 +189,11 @@ td:first-child{font-family:var(--mono);font-size:11px;color:var(--text3)}
 .ub-count{background:var(--amber);color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;font-family:var(--mono)}
 .ub-btn{margin-left:auto;background:var(--amber);border:none;border-radius:var(--r);color:#fff;font-size:12px;font-weight:600;padding:6px 14px;cursor:pointer}
 .ub-btn:hover{opacity:.9}
+.tk-banner{display:none;background:#eff6ff;border-bottom:2px solid var(--blue);padding:.6rem 1.5rem;align-items:center;gap:10px}
+.tk-banner.on{display:flex}
+.tk-text{font-size:13px;font-weight:500;color:#1e40af}
+.tk-btn{margin-left:auto;background:var(--blue);border:none;border-radius:var(--r);color:#fff;font-size:12px;font-weight:600;padding:6px 14px;cursor:pointer;text-decoration:none}
+.tk-btn:hover{opacity:.9}
 /* HANDLE MODAL */
 .hmodal{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:1.25rem;width:520px;max-width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.18)}
 .hmodal h3{font-size:15px;font-weight:600;margin-bottom:.3rem}
@@ -251,6 +256,13 @@ td:first-child{font-family:var(--mono);font-size:11px;color:var(--text3)}
   <span class="ub-text">Ubehandlede nedetider</span>
   <span class="ub-count" id="ub-count">0</span>
   <button class="ub-btn" onclick="openHandleModal()">Behandle nå →</button>
+</div>
+
+<!-- Timekontroll-prompt -->
+<div class="tk-banner" id="tk-banner">
+  <span class="ub-icon">⏱️</span>
+  <span class="tk-text" id="tk-text">Timekontroll mangler</span>
+  <a class="tk-btn" href="skiftrapport.html">Til skiftrapport →</a>
 </div>
 
 <!-- Operator banner — shown for linjeoperator -->
@@ -469,7 +481,7 @@ const LINES_ALL=['Løp 1','Løp 2','Løp 3','Rollo','Koba','Glacier','Krokan'];
 let filterLine='Alle', myProfile=null, delId=null, delAll=false, charts={}, oeeMode='wtd';
 let dateFrom=null, dateTo=null, datePreset='week';
 let PROD_ALL={}, PROD_HOURLY={}, ACTIVE_PROD={};
-let CAL_REVIEWS={}, CAL_EXCLUDED={}, calCtx=null;
+let CAL_REVIEWS={}, CAL_EXCLUDED={}, calCtx=null, SHIFT_REPORTS={};
 // ── DRIFT/STOPP-STATUS (basert på om tellingen øker) ──
 const RUN_THRESHOLD=4*60000;            // 4 min uten økning = stoppet
 let LINE_LAST_INC={}, LINE_PREV_COUNT={};
@@ -676,6 +688,9 @@ db.ref('calibrationReviews').on('value',snap=>{
   });
   renderAll();
 });
+
+// ── SKIFTRAPPORTER (for timekontroll-prompt) ──
+db.ref('shiftReports').on('value',snap=>{ SHIFT_REPORTS=snap.val()||{}; checkHourlyPrompt(); });
 
 // ── SET DEFAULTS ──
 (()=>{
@@ -912,6 +927,7 @@ function updateOpStatus(){
   else{txt.textContent='Venter på produksjon…';if(dot){dot.style.background='#fff';dot.style.animation='none';}if(pill)pill.style.background='rgba(255,255,255,.2)';}
 }
 setInterval(()=>{renderLineStatusPanel();updateOpStatus();},20000);
+setInterval(checkHourlyPrompt,60000);
 
 let _renderTimer=null, _lastRender=0;
 function renderAll(immediate){
@@ -979,6 +995,7 @@ function _doRenderAll(){
 
   renderHist(fil);renderTable(fil);renderCharts(fil);if(mainView==='oee'){renderOEE(fil);}else{renderProdView();}renderMachines(fil);renderHeatmap(fil);
   updateUnhandledBanner();
+  checkHourlyPrompt();
   renderLineStatusPanel();updateOpStatus();
 }
 
@@ -1619,6 +1636,32 @@ function renderProdChart(prodData, dateKeys, LINES_ALL){
 // ── UNHANDLED DOWNTIME ──
 function getUnhandled(){
   return EVENTS.filter(e=>e.unhandled===true);
+}
+
+function checkHourlyPrompt(){
+  const banner=document.getElementById('tk-banner'); if(!banner)return;
+  if(!myProfile||SETTINGS.hourlyPrompt===false){banner.classList.remove('on');return;}
+  const st=SETTINGS.shiftTimes||{dag:{start:'06:00',end:'14:00'},kveld:{start:'14:00',end:'22:00'},natt:{start:'22:00',end:'06:00'}};
+  const hhm=t=>{const p=String(t||'0:0').split(':');return(parseInt(p[0])||0)*60+(parseInt(p[1])||0);};
+  const now=new Date(), nowMin=now.getHours()*60+now.getMinutes(), nowH=pad(now.getHours());
+  let shift=null;
+  for(const s of ['dag','kveld','natt']){const d=st[s];if(!d)continue;const a=hhm(d.start),b=hhm(d.end);if(b>a){if(nowMin>=a&&nowMin<b){shift=s;break;}}else{if(nowMin>=a||nowMin<b){shift=s;break;}}}
+  if(!shift){banner.classList.remove('on');return;}
+  const ALL=['Løp 1','Løp 2','Løp 3','Rollo','Koba','Glacier','Krokan'];
+  let lines;
+  if(myProfile.role==='linjeoperator')lines=myProfile.lines||[];
+  else lines=(filterLine&&filterLine!=='Alle')?[filterLine]:ALL;
+  const tmpls=SETTINGS.checklistTemplates||{}, todayK=dateKeyOf(now), missing=[];
+  lines.forEach(line=>{
+    const items=(tmpls[lk(line)]||[]).filter(it=>it.type==='timekontroll'&&((it.skift||'alle')==='alle'||it.skift===shift));
+    if(!items.length)return;
+    const log=(((SHIFT_REPORTS[todayK]||{})[lk(line)]||{}).timekontroll||{})[shift]||{};
+    const undone=items.filter(it=>!((log[it.id]||{})[nowH]&&(log[it.id])[nowH].at));
+    if(undone.length)missing.push(line+' ('+undone.length+')');
+  });
+  if(!missing.length){banner.classList.remove('on');return;}
+  document.getElementById('tk-text').textContent='Timekontroll mangler for kl. '+nowH+':00 — '+missing.join(', ');
+  banner.classList.add('on');
 }
 
 function updateUnhandledBanner(){
