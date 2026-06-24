@@ -393,6 +393,23 @@ td:first-child{font-family:var(--mono);font-size:11px;color:var(--text3)}
     </div>
   </div>
 
+  <h2>Effektivitet &amp; nedetid — oversikt</h2>
+  <div class="card">
+    <div style="display:flex;gap:6px;margin-bottom:.7rem;flex-wrap:wrap;align-items:center">
+      <button class="tab effp-btn" onclick="setEffPeriod('day',this)">Dag</button>
+      <button class="tab effp-btn" onclick="setEffPeriod('week',this)">Uke</button>
+      <button class="tab effp-btn on" onclick="setEffPeriod('month',this)">Måned</button>
+      <div style="margin-left:auto;display:flex;gap:16px;font-size:12px">
+        <div>Snitt effektivitet: <b id="eff-kpi-eff" style="color:var(--teal)">—</b></div>
+        <div>Total nedetid: <b id="eff-kpi-nd" style="color:var(--red)">—</b></div>
+      </div>
+    </div>
+    <div class="ct"><div class="ca" style="background:var(--teal)"></div>Effektivitet over tid (%)</div>
+    <div class="cw"><canvas id="ch-eff-trend"></canvas></div>
+    <div class="ct" style="margin-top:.6rem"><div class="ca" style="background:var(--accent)"></div>Nedetid over tid</div>
+    <div class="cw"><canvas id="ch-nd-trend"></canvas></div>
+  </div>
+
   <h2>Registrer hendelse</h2>
   <div class="g2">
     <div class="card">
@@ -996,6 +1013,7 @@ function _doRenderAll(){
   renderHist(fil);renderTable(fil);renderCharts(fil);if(mainView==='oee'){renderOEE(fil);}else{renderProdView();}renderMachines(fil);renderHeatmap(fil);
   updateUnhandledBanner();
   checkHourlyPrompt();
+  renderEffTrend();
   renderLineStatusPanel();updateOpStatus();
 }
 
@@ -1636,6 +1654,63 @@ function renderProdChart(prodData, dateKeys, LINES_ALL){
 // ── UNHANDLED DOWNTIME ──
 function getUnhandled(){
   return EVENTS.filter(e=>e.unhandled===true);
+}
+
+// ── EFFEKTIVITET & NEDETID — TREND (periodefilter, standard måned) ──
+let effPeriod='month'; const effCharts={};
+function setEffPeriod(p,btn){effPeriod=p;document.querySelectorAll('.effp-btn').forEach(b=>b.classList.remove('on'));if(btn)btn.classList.add('on');renderEffTrend();}
+function effFmtMin(m){m=Math.round(m||0);if(m<60)return m+'m';const h=Math.floor(m/60),r=m%60;return h+'t'+(r?' '+r+'m':'');}
+function effForDay(line,day){
+  const p=lineProduct(line); if(!p||!(p.teknKapasitet>0)||!(p.stkPerDpack>0))return null;
+  const maxRate=p.teknKapasitet/p.stkPerDpack, pm=plannedMinForDate(line,day); if(pm<=0)return null;
+  const up=pm-downtimeForDates(line,[day]); if(up<=0)return null;
+  return Math.max(0,Math.min(100,eskerFor(line,dateKeyOf(day))/(maxRate*(up/60))*100));
+}
+function effHour(line,dayKey,hh){
+  const p=lineProduct(line); if(!p||!(p.teknKapasitet>0)||!(p.stkPerDpack>0))return null;
+  const maxRate=p.teknKapasitet/p.stkPerDpack, dpk=((PROD_HOURLY[dayKey]||{})[lk(line)]||{})[hh];
+  if(dpk==null)return null;
+  return Math.max(0,Math.min(100,dpk/maxRate*100));
+}
+function effDowntimeHour(lines,day,hour){
+  const s=new Date(day.getFullYear(),day.getMonth(),day.getDate(),hour,0,0).getTime(), e=s+3600000; let mins=0;
+  EVENTS.forEach(ev=>{if(lines.indexOf(ev.line)<0)return;const a=ev.ts,b=ev.ts+(ev.duration||0)*60000,lo=Math.max(a,s),hi=Math.min(b,e);if(hi>lo)mins+=(hi-lo)/60000;});
+  return Math.round(mins);
+}
+function renderEffTrend(){
+  if(!document.getElementById('ch-eff-trend'))return;
+  const sel=filterLine, lines=(sel&&sel!=='Alle')?[sel]:LINES_ALL, now=new Date();
+  let labels=[],effData=[],ndData=[];
+  if(effPeriod==='day'){
+    const dk=dateKeyOf(now), upto=now.getHours();
+    for(let h=0;h<=upto;h++){const hh=pad(h);labels.push(hh);
+      const v=lines.map(l=>effHour(l,dk,hh)).filter(x=>x!=null);
+      effData.push(v.length?Math.round(v.reduce((a,b)=>a+b,0)/v.length):null);
+      ndData.push(effDowntimeHour(lines,now,h));}
+  }else{
+    const n=effPeriod==='week'?7:30;
+    for(let i=n-1;i>=0;i--){const d=new Date(now.getFullYear(),now.getMonth(),now.getDate()-i,12,0,0);
+      labels.push(pad(d.getDate())+'.'+pad(d.getMonth()+1));
+      const v=lines.map(l=>effForDay(l,d)).filter(x=>x!=null);
+      effData.push(v.length?Math.round(v.reduce((a,b)=>a+b,0)/v.length):null);
+      let dt=0;lines.forEach(l=>dt+=downtimeForDates(l,[d]));ndData.push(dt);}
+  }
+  const ev=effData.filter(x=>x!=null);
+  document.getElementById('eff-kpi-eff').textContent=ev.length?Math.round(ev.reduce((a,b)=>a+b,0)/ev.length)+'%':'—';
+  document.getElementById('eff-kpi-nd').textContent=effFmtMin(ndData.reduce((a,b)=>a+b,0));
+  drawEff('ch-eff-trend',labels,effData,true);
+  drawEff('ch-nd-trend',labels,ndData,false);
+}
+function drawEff(id,labels,data,isEff){
+  const ctx=document.getElementById(id); if(!ctx)return;
+  if(effCharts[id])effCharts[id].destroy();
+  effCharts[id]=new Chart(ctx,{type:isEff?'line':'bar',data:{labels,datasets:[{data,
+    borderColor:isEff?'#0d9488':undefined,backgroundColor:isEff?'rgba(13,148,136,.13)':data.map(v=>v>120?'rgba(220,38,38,.8)':v>0?'rgba(37,99,235,.8)':'#e5e7eb'),
+    borderWidth:isEff?2:0,pointRadius:isEff?3:0,fill:isEff,tension:.3,spanGaps:true,borderRadius:isEff?0:4}]},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false},
+      tooltip:{callbacks:{label:c=>isEff?(c.parsed.y==null?'Ingen data':c.parsed.y+'%'):effFmtMin(c.parsed.y)}}},
+      scales:{x:{grid:{display:false},ticks:{font:{size:9},maxTicksLimit:16}},
+        y:isEff?{min:0,max:100,ticks:{callback:v=>v+'%',font:{size:10}}}:{beginAtZero:true,ticks:{callback:v=>effFmtMin(v),font:{size:10}}}}}});
 }
 
 function checkHourlyPrompt(){
