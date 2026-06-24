@@ -84,6 +84,8 @@ h2:first-child{margin-top:0}
 .kpi.teal::after{background:#0d9488}
 .effcal{font-size:10px;border:1px solid var(--red);color:var(--red);background:#fff;border-radius:4px;padding:1px 6px;cursor:pointer}
 .effcal:hover{background:#fef2f2}
+.effdismiss{font-size:10px;border:1px solid #cbd5e1;color:#64748b;background:#fff;border-radius:4px;padding:1px 6px;cursor:pointer;margin-left:4px}
+.effdismiss:hover{background:#f1f5f9}
 .klbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;font-family:var(--mono);margin-bottom:4px}
 .kval{font-size:20px;font-weight:600;line-height:1;margin-bottom:3px}
 .ksub{font-size:10px;color:var(--text3)}
@@ -924,10 +926,13 @@ function _doRenderAll(){
   const calEl=document.getElementById('k-eff-cal');
   calEl.innerHTML=''; calEl.style.display='none';
   const canEditCap=myProfile&&(myProfile.role==='master'||myProfile.role==='leder');
-  if(line&&peak&&peak.pct>100&&peak.dpk&&peak.p&&canEditCap){
+  if(line&&peak&&peak.pct>100&&peak.dpk&&peak.p&&canEditCap&&!calDismissed(line,peak.dpk)){
     const realCap=Math.round(peak.dpk*peak.p.stkPerDpack);
+    const ln=line.replace(/'/g,"\\'");
     calEl.style.display='block';
-    calEl.innerHTML='<button class="effcal" onclick="calibrateCapacity(\''+line.replace(/'/g,"\\'")+'\','+realCap+')">Kapasitet for lav → sett til '+realCap.toLocaleString('no-NO')+' stk/t</button>';
+    calEl.innerHTML='<div style="font-size:10px;color:var(--red);margin-bottom:2px">Maks over 100% – kapasitet trolig for lav</div>'
+      +'<button class="effcal" onclick="calibrateCapacity(\''+ln+'\','+realCap+')">Sett til '+realCap.toLocaleString('no-NO')+' stk/t</button>'
+      +'<button class="effdismiss" onclick="dismissCalibrate(\''+ln+'\','+peak.dpk+')">Ikke aktuelt</button>';
   }
   document.getElementById('k-week').textContent=wtdE.length;
 
@@ -993,6 +998,18 @@ function peakHourEff(line){
   });
   if(bestDpk<=0)return null;
   return {pct:bestDpk/maxRate*100, dpk:bestDpk, maxRate, p};
+}
+let _calMem={};
+function _calKey(line){return 'effCalDismiss_'+lk(line);}
+function calDismissed(line,dpk){
+  try{const v=localStorage.getItem(_calKey(line));if(v!==null)return dpk<=parseFloat(v);}catch(e){}
+  return _calMem[lk(line)]!=null && dpk<=_calMem[lk(line)];
+}
+function dismissCalibrate(line,dpk){
+  try{localStorage.setItem(_calKey(line),String(dpk));}catch(e){_calMem[lk(line)]=dpk;}
+  _calMem[lk(line)]=dpk;
+  showToast('Forslag skjult');
+  renderAll(true);
 }
 async function calibrateCapacity(line,newCap){
   const k=lk(line);
