@@ -332,12 +332,13 @@ async function saveImport(){
       rec.product=MAP.product?r[MAP.product]:'';
       rec.antall=MAP.antall?numOnly(r[MAP.antall]):'';
       rec.timer=MAP.timer?numOnly(r[MAP.timer]):'';
+      out[date]=out[date]||{}; (out[date][key]=out[date][key]||[]).push(rec); n++;
     }else{
       rec.skift=MAP.shift?r[MAP.shift]:'';
       rec.bemanning=MAP.bemanning?r[MAP.bemanning]:'';
       rec.product=MAP.product?r[MAP.product]:'';
+      out[date]=out[date]||{}; out[date][key]=rec; n++;
     }
-    out[date]=out[date]||{}; out[date][key]=rec; n++;
   });
   if(!n){showToast('Ingen gyldige rader (sjekk dato/linje)',true);return;}
   if(!confirm('Lagre '+n+' rader til '+(TAB==='prod'?'produksjonsplan':'skiftplan')+'?'+(skipped?'\n('+skipped+' rader hoppet over pga. manglende dato/linje)':'')+'\n\nDette erstatter forrige import av denne typen.'))return;
@@ -378,10 +379,14 @@ function renderOverview(){
     el.innerHTML=dates.map(d=>{
       const lines=Object.keys(v[d]);
       const rows=lines.map(k=>{
-        const r=v[d][k]; const lineName=LINES.find(L=>lk(L)===k)||k.replace(/_/g,' ');
+        const rk=v[d][k]; const lineName=LINES.find(L=>lk(L)===k)||k.replace(/_/g,' ');
         let detail;
-        if(TAB==='prod')detail=(r.product?esc(r.product)+' · ':'')+'mål '+esc(r.antall||'—')+(r.timer?' · '+esc(r.timer)+' t':'');
-        else detail=(r.skift?'Skift '+esc(r.skift):'')+(r.bemanning?' · bemanning '+esc(r.bemanning):'')+(r.product?' · '+esc(r.product):'');
+        if(TAB==='prod'){
+          const arr=Array.isArray(rk)?rk:[rk];
+          detail=arr.map(r=>(r.product?esc(r.product)+' ':'')+'(mål '+esc(r.antall||'—')+(r.timer?', '+esc(r.timer)+'t':'')+')').join(', ');
+        }else{
+          detail=(rk.skift?'Skift '+esc(rk.skift):'')+(rk.bemanning?' · bemanning '+esc(rk.bemanning):'')+(rk.product?' · '+esc(rk.product):'');
+        }
         return '<div class="ov-row"><b>'+esc(lineName)+'</b> — '+detail+'</div>';
       }).join('');
       const dd=d.split('-').reverse().join('.');
