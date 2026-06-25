@@ -393,6 +393,9 @@ td:first-child{font-family:var(--mono);font-size:11px;color:var(--text3)}
     </div>
   </div>
 
+  <h2>Plan mot faktisk — i dag</h2>
+  <div class="card"><div id="pva-body"><div class="autohint" style="color:var(--text3);font-size:12px">Ingen plan importert for i dag.</div></div></div>
+
   <h2>Effektivitet &amp; nedetid — oversikt</h2>
   <div class="card">
     <div style="display:flex;gap:6px;margin-bottom:.7rem;flex-wrap:wrap;align-items:center">
@@ -691,7 +694,7 @@ activeRef.off('value');
 activeRef.on('value',snap=>{
   const m={};
   if(snap.exists())snap.forEach(ls=>{m[ls.key]=(ls.val()&&ls.val().product)||null;});
-  ACTIVE_PROD=m; renderAll();
+  ACTIVE_PROD=m; renderAll(); stampProductHour();
 });
 
 // ── KALIBRERINGS-BEHANDLINGER (effektivitet over 100%) ──
@@ -708,6 +711,25 @@ db.ref('calibrationReviews').on('value',snap=>{
 
 // ── SKIFTRAPPORTER (for timekontroll-prompt) ──
 db.ref('shiftReports').on('value',snap=>{ SHIFT_REPORTS=snap.val()||{}; checkHourlyPrompt(); });
+
+// ── PLAN MOT FAKTISK ──
+let PLAN_DATA={};
+db.ref('plan/production').on('value',snap=>{ PLAN_DATA=snap.val()||{}; renderPlanVsActual(); });
+
+// ── PRODUKT-PER-TIME-LOGGER (stempler aktivt produkt; krever at dashbordet står på) ──
+let _phStamp={};
+function stampProductHour(){
+  if(!ACTIVE_PROD)return;
+  const now=new Date(), dk=dateKeyOf(now), hh=pad(now.getHours());
+  Object.keys(ACTIVE_PROD).forEach(lkey=>{
+    const prod=ACTIVE_PROD[lkey]; if(!prod)return;
+    const ck=dk+'_'+lkey+'_'+hh;
+    if(_phStamp[ck]===prod)return;
+    _phStamp[ck]=prod;
+    db.ref('productHourly/'+dk+'/'+lkey+'/'+hh).set(prod).catch(()=>{});
+  });
+}
+setInterval(stampProductHour,180000);
 
 // ── SET DEFAULTS ──
 (()=>{
@@ -1014,6 +1036,7 @@ function _doRenderAll(){
   updateUnhandledBanner();
   checkHourlyPrompt();
   renderEffTrend();
+  renderPlanVsActual();
   renderLineStatusPanel();updateOpStatus();
 }
 
@@ -1654,6 +1677,31 @@ function renderProdChart(prodData, dateKeys, LINES_ALL){
 // ── UNHANDLED DOWNTIME ──
 function getUnhandled(){
   return EVENTS.filter(e=>e.unhandled===true);
+}
+
+// ── PLAN MOT FAKTISK (render) ──
+function renderPlanVsActual(){
+  const wrap=document.getElementById('pva-body'); if(!wrap)return;
+  const dk=dateKeyOf(new Date()), dayPlan=(PLAN_DATA[dk])||{};
+  const sel=filterLine, lines=(sel&&sel!=='Alle')?[sel]:LINES_ALL;
+  const rows=lines.map(line=>{
+    const key=lk(line);
+    const raw=dayPlan[key]; if(!raw)return null;
+    const arr=Array.isArray(raw)?raw:[raw];
+    const mal=arr.reduce((s,r)=>s+(parseFloat(r.antall)||0),0);
+    if(mal<=0)return null;
+    const faktisk=(PROD_ALL[dk]||{})[key]||0;
+    const pct=Math.round(faktisk/mal*100);
+    const prods=arr.map(r=>r.product).filter(Boolean).join(', ');
+    const col=pct>=100?'var(--green)':pct>=66?'var(--teal)':pct>=33?'var(--amber)':'var(--red)';
+    return '<div style="margin-bottom:12px">'
+      +'<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><b>'+line+'</b>'
+      +'<span style="color:var(--text2)">'+faktisk.toLocaleString('no-NO')+' / '+mal.toLocaleString('no-NO')+' dpack · <b style="color:'+col+'">'+pct+'%</b></span></div>'
+      +'<div style="background:var(--bg3);border-radius:6px;height:10px;overflow:hidden"><div style="height:100%;width:'+Math.min(pct,100)+'%;background:'+col+';transition:width .4s"></div></div>'
+      +(prods?'<div style="font-size:10px;color:var(--text3);margin-top:2px">'+prods.replace(/</g,'&lt;')+'</div>':'')
+      +'</div>';
+  }).filter(Boolean);
+  wrap.innerHTML=rows.length?rows.join(''):'<div class="autohint" style="color:var(--text3);font-size:12px">Ingen plan importert for i dag'+(sel&&sel!=='Alle'?' for '+sel:'')+'.</div>';
 }
 
 // ── EFFEKTIVITET & NEDETID — TREND (periodefilter, standard måned) ──

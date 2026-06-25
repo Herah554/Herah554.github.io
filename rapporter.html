@@ -175,6 +175,13 @@ td:first-child{font-family:var(--mono);font-size:11px;color:var(--text3);white-s
     <div class="cw"><canvas id="ch-nd-trend"></canvas></div>
   </div>
 
+  <h2>Hastighet per produkt</h2>
+  <div class="card no-print">
+    <input id="speed-search" placeholder="Søk på artikkel/produkt…" oninput="renderSpeedStats()" style="max-width:340px;margin-bottom:.5rem">
+    <div class="autohint" style="margin-bottom:.6rem;font-size:11px;color:var(--text3)">Hastighet = dpk/t per time linja produserte. Bygger seg opp etter hvert som produkt-per-time logges fra dashbordet.</div>
+    <div id="speed-body"></div>
+  </div>
+
   <div id="report-content"><div class="loading">Laster data...</div></div>
 </main>
 
@@ -396,6 +403,59 @@ db.ref('events').on('value',snap=>{
   scheduleRender();
 });
 
+// ── HASTIGHET PER PRODUKT ──
+let PRODUCT_HOURLY={};
+db.ref('productHourly').on('value',snap=>{ PRODUCT_HOURLY=snap.val()||{}; renderSpeedStats(); });
+function _esc(s){return String(s==null?'':s).replace(/</g,'&lt;');}
+function buildSpeedStats(){
+  const stats={};
+  Object.keys(PRODUCT_HOURLY).forEach(date=>{
+    const lines=PRODUCT_HOURLY[date]||{};
+    Object.keys(lines).forEach(lkey=>{
+      const hrs=lines[lkey]||{};
+      Object.keys(hrs).forEach(hh=>{
+        const prod=hrs[hh]; if(!prod)return;
+        const speed=((PROD_HOURLY[date]||{})[lkey]||{})[hh]||0;
+        if(speed<=0)return;
+        (stats[prod]=stats[prod]||{hours:[]}).hours.push({date,line:lkey,hour:hh,speed});
+      });
+    });
+  });
+  return stats;
+}
+function productRuns(hours){
+  const sorted=hours.slice().sort((a,b)=>(a.date+a.line+a.hour).localeCompare(b.date+b.line+b.hour));
+  const runs=[]; let cur=null;
+  sorted.forEach(h=>{
+    if(cur && cur.date===h.date && cur.line===h.line && parseInt(h.hour)===cur.lastHour+1){
+      cur.speeds.push(h.speed); cur.lastHour=parseInt(h.hour);
+    }else{ cur={date:h.date,line:h.line,lastHour:parseInt(h.hour),speeds:[h.speed]}; runs.push(cur); }
+  });
+  return runs;
+}
+function renderSpeedStats(){
+  const el=document.getElementById('speed-body'); if(!el)return;
+  const q=(document.getElementById('speed-search').value||'').trim().toLowerCase();
+  const stats=buildSpeedStats();
+  let names=Object.keys(stats);
+  if(q)names=names.filter(n=>n.toLowerCase().includes(q));
+  if(!names.length){el.innerHTML='<div class="autohint" style="color:var(--text3)">'+(Object.keys(stats).length?'Ingen treff på «'+_esc(q)+'».':'Ingen hastighetsdata logget ennå. Den bygger seg opp når dashbordet står på og et produkt er aktivt.')+'</div>';return;}
+  const rows=names.map(n=>{
+    const hours=stats[n].hours, speeds=hours.map(h=>h.speed);
+    const avg=Math.round(speeds.reduce((a,b)=>a+b,0)/speeds.length);
+    const high=Math.round(Math.max.apply(null,speeds));
+    const runs=productRuns(hours);
+    const first2=runs.map(r=>{const f=r.speeds.slice(0,2);return f.reduce((a,b)=>a+b,0)/f.length;});
+    const avgFirst2=first2.length?Math.round(first2.reduce((a,b)=>a+b,0)/first2.length):0;
+    const runAvgs=runs.map(r=>r.speeds.reduce((a,b)=>a+b,0)/r.speeds.length);
+    const bestRun=runAvgs.length?Math.round(Math.max.apply(null,runAvgs)):0;
+    return {n,timer:hours.length,runs:runs.length,avg,high,bestRun,avgFirst2};
+  }).sort((a,b)=>b.avg-a.avg);
+  el.innerHTML='<div class="tw"><table><thead><tr><th>Produkt</th><th>Timer</th><th>Kjøringer</th><th>Snitt dpk/t</th><th>Høyeste time</th><th>Høyeste kjøring (snitt)</th><th>Snitt 2 første t</th></tr></thead><tbody>'
+    +rows.map(r=>'<tr><td>'+_esc(r.n)+'</td><td>'+r.timer+'</td><td>'+r.runs+'</td><td><b>'+r.avg.toLocaleString('no-NO')+'</b></td><td>'+r.high.toLocaleString('no-NO')+'</td><td>'+r.bestRun.toLocaleString('no-NO')+'</td><td>'+r.avgFirst2.toLocaleString('no-NO')+'</td></tr>').join('')
+    +'</tbody></table></div>';
+}
+
 function initYearSelects(){
   const years=new Set();
   const now=new Date().getFullYear();
@@ -441,6 +501,7 @@ function render(){
   else if(mode==='week') renderWeek(year,month,line);
   else if(mode==='compare') renderCompare(year,year2,line);
   renderEffTrend();
+  renderSpeedStats();
 }
 
 // ── YEAR VIEW ──
