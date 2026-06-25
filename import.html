@@ -87,6 +87,7 @@ input:focus,select:focus{border-color:var(--accent)}
   <div class="tabs">
     <div class="tab on" id="tab-prod" onclick="setTab('prod')">Produksjonsplan (mål)</div>
     <div class="tab" id="tab-shift" onclick="setTab('shift')">Skiftplan</div>
+    <div class="tab" id="tab-product" onclick="setTab('product')">Produkter (grunndata)</div>
   </div>
 
   <div class="card">
@@ -140,11 +141,13 @@ function showToast(m,e){const t=document.getElementById('toast');t.textContent=m
 // felt vi trenger per plantype
 const FIELDS={
   prod:[['date','Dato',true],['line','Linje/Maskin',true],['product','Produkt',false],['antall','Antall (mål)',true],['timer','Produksjonstid',false]],
-  shift:[['date','Dato',true],['line','Linje/Maskin',true],['shift','Skift',false],['bemanning','Bemanning',false],['product','Produkt',false]]
+  shift:[['date','Dato',true],['line','Linje/Maskin',true],['shift','Skift',false],['bemanning','Bemanning',false],['product','Produkt',false]],
+  product:[['artnr','Art.nr',false],['name','Produkt',true],['line','Linje/Maskin',true],['teknKapasitet','Teknisk kapasitet',true],['stkPerDpack','STK per dpack',true]]
 };
 const NOTES={
   prod:'Importer den kortsiktige produksjonsplanen (mål/antall per linje og dag). Eksporter tabellen fra Power BI til Excel/CSV og last den opp her. Ny opplasting erstatter forrige plan.',
-  shift:'Importer skiftplanen (hvilke skift som kjøres per linje og dag). Eksporter fra Power BI / skiftplanen til Excel/CSV og last den opp her.'
+  shift:'Importer skiftplanen (hvilke skift som kjøres per linje og dag). Eksporter fra Power BI / skiftplanen til Excel/CSV og last den opp her.',
+  product:'Importer grunndata per produkt (teknisk kapasitet + stk per dpack per linje). Verdiene flettes inn i produktoppsettet: eksisterende produkter oppdateres, nye legges til. Esker-per-dpack og aktivt produkt røres ikke.'
 };
 
 auth.onAuthStateChanged(async user=>{
@@ -173,6 +176,7 @@ function setTab(t){
   TAB=t; ROWS=[];HEADERS=[];MAP={};
   document.getElementById('tab-prod').classList.toggle('on',t==='prod');
   document.getElementById('tab-shift').classList.toggle('on',t==='shift');
+  document.getElementById('tab-product').classList.toggle('on',t==='product');
   document.getElementById('note').textContent=NOTES[t];
   document.getElementById('mapper').style.display='none';
   document.getElementById('fname').textContent='';
@@ -231,7 +235,9 @@ function autoMap(){
   MAP={};
   const guess={date:/dato|date/i,line:/maskin|linje|line/i,product:/art|produkt|vare|product/i,
     antall:/antall|mål|mal|stk|d.?pk|quantity/i,timer:/tid|timer|hours|produksjonstid/i,
-    shift:/skift|shift/i,bemanning:/beman|antall pers|personer/i};
+    shift:/skift|shift/i,bemanning:/beman|antall pers|personer/i,
+    name:/produkt|navn|name/i,teknKapasitet:/teknisk|kapasitet|capacity/i,
+    stkPerDpack:/stk.?per|per.?dpack|per.?dfp|dpack|dfp/i,artnr:/art.?nr|artikkelnr/i};
   FIELDS[TAB].forEach(f=>{
     const re=guess[f[0]];
     const hit=HEADERS.find(h=>re&&re.test(h));
@@ -284,6 +290,37 @@ function numOnly(v){const n=parseFloat(String(v).replace(/\s/g,'').replace(',','
 async function saveImport(){
   const fields=FIELDS[TAB];
   for(const f of fields){if(f[2]&&!MAP[f[0]]){showToast('Mangler kobling for «'+f[1]+'»',true);return;}}
+
+  if(TAB==='product'){
+    const byLine={}; let n=0,skipped=0;
+    ROWS.forEach(r=>{
+      const line=normLine(r[MAP.line]); const name=(MAP.name?String(r[MAP.name]||''):'').trim();
+      if(!line||!name){skipped++;return;}
+      const key=lk(line), tk=numOnly(r[MAP.teknKapasitet]), sp=numOnly(r[MAP.stkPerDpack]);
+      (byLine[key]=byLine[key]||[]).push({artnr:MAP.artnr?String(r[MAP.artnr]||'').trim():'',name,teknKapasitet:tk===''?0:tk,stkPerDpack:sp===''?0:sp});
+      n++;
+    });
+    if(!n){showToast('Ingen gyldige rader (sjekk linje/produkt)',true);return;}
+    if(!confirm('Flette inn '+n+' produkter i produktoppsettet?'+(skipped?'\n('+skipped+' hoppet over)':'')+'\n\nEksisterende produkter med samme navn oppdateres (teknisk kapasitet + stk/dpack), nye legges til. Esker-per-dpack beholdes.'))return;
+    try{
+      const cur=(await db.ref('settings/products').once('value')).val()||{};
+      Object.keys(byLine).forEach(key=>{
+        const existing=Array.isArray(cur[key])?cur[key].slice():[];
+        byLine[key].forEach(np=>{
+          const idx=existing.findIndex(x=>x&&x.name===np.name);
+          if(idx>=0)existing[idx]=Object.assign({},existing[idx],{teknKapasitet:np.teknKapasitet,stkPerDpack:np.stkPerDpack,artnr:np.artnr||existing[idx].artnr});
+          else existing.push(Object.assign({eskerPerDpack:1},np));
+        });
+        cur[key]=existing;
+      });
+      await db.ref('settings/products').set(cur);
+      showToast('Importerte '+n+' produkter');
+      document.getElementById('save-info').textContent=n+' produkter flettet inn'+(skipped?' · '+skipped+' hoppet over':'');
+      renderOverview();
+    }catch(e){showToast('Lagring feilet',true);}
+    return;
+  }
+
   const node=TAB==='prod'?'plan/production':'plan/shift';
   const out={}; let n=0, skipped=0;
   ROWS.forEach(r=>{
@@ -312,13 +349,27 @@ async function saveImport(){
   }catch(e){showToast('Lagring feilet',true);}
 }
 async function clearImport(){
+  if(TAB==='product'){showToast('Produkter ryddes i Innstillinger, ikke her',true);return;}
   const node=TAB==='prod'?'plan/production':'plan/shift';
   if(!confirm('Tømme all importert '+(TAB==='prod'?'produksjonsplan':'skiftplan')+'?'))return;
   try{await db.ref(node).remove();showToast('Tømt');renderOverview();}catch(e){showToast('Feilet',true);}
 }
 
-// ── OVERSIKT (se skift / plan) ──
+// ── OVERSIKT (se skift / plan / produkter) ──
 function renderOverview(){
+  if(TAB==='product'){
+    db.ref('settings/products').once('value').then(s=>{
+      const v=s.val()||{}; const el=document.getElementById('overview');
+      const keys=Object.keys(v).filter(k=>Array.isArray(v[k])&&v[k].length);
+      if(!keys.length){el.innerHTML='<div class="autohint">Ingen produkter ennå.</div>';return;}
+      el.innerHTML=keys.map(k=>{
+        const lineName=LINES.find(L=>lk(L)===k)||k.replace(/_/g,' ');
+        const rows=v[k].map(p=>'<div class="ov-row"><b>'+esc(p.name||'—')+'</b> — kap '+esc(p.teknKapasitet||'—')+' stk/t · '+esc(p.stkPerDpack||'—')+' stk/dpack</div>').join('');
+        return '<div class="ov-day">'+esc(lineName)+' ('+v[k].length+')</div>'+rows;
+      }).join('');
+    });
+    return;
+  }
   const node=TAB==='prod'?'plan/production':'plan/shift';
   db.ref(node).once('value').then(s=>{
     const v=s.val()||{}; const el=document.getElementById('overview');
