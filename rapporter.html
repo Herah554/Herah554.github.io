@@ -53,7 +53,7 @@ select:focus,input:focus{border-color:var(--accent)}
 .kpi::after{content:'';position:absolute;top:0;left:0;right:0;height:3px}
 .kpi.green::after{background:var(--green)}.kpi.red::after{background:var(--red)}.kpi.blue::after{background:var(--blue)}.kpi.amber::after{background:var(--amber)}
 .klbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;font-family:var(--mono);margin-bottom:4px}
-.kval{font-size:22px;font-weight:600;line-height:1;margin-bottom:3px}
+.kval{font-size:30px;font-weight:600;line-height:1.05;margin-bottom:4px;letter-spacing:-.015em;font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
 .ksub{font-size:10px;color:var(--text3)}
 .trend{font-size:11px;font-weight:500;margin-top:3px}
 .trend.up{color:var(--green)}.trend.dn{color:var(--red)}.trend.eq{color:var(--text3)}
@@ -95,6 +95,8 @@ td:first-child{font-family:var(--mono);font-size:11px;color:var(--text3);white-s
   #print-header .ph-sub{font-size:12px;color:#444;margin-top:2px}
   @page{margin:14mm}
 }
+/* Sifre med fast bredde i tabeller */
+table{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
 </style>
 </head>
 <body>
