@@ -89,9 +89,21 @@ input:focus,select:focus{border-color:var(--accent)}
 .sched tr.off .day,.sched tr.off input[type=time]{opacity:.4}
 
 /* ── Skiftkalender ── */
-.cal-head{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:4px}
+.cal-head{display:grid;grid-template-columns:34px repeat(7,1fr);gap:4px;margin-bottom:4px}
 .cal-head>div{font-size:10px;font-family:var(--mono);color:var(--text3);text-transform:uppercase;letter-spacing:.06em;text-align:center}
-.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cal-grid{display:grid;grid-template-columns:34px repeat(7,1fr);gap:4px}
+.cal-wk{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:4px;padding-top:5px}
+.cal-wknum{font-size:10px;font-family:var(--mono);color:var(--text3)}
+.cal-cp{border:1px solid var(--border);background:var(--bg2);color:var(--text3);border-radius:4px;cursor:pointer;font-size:10px;line-height:1;padding:3px 4px}
+.cal-cp:hover{border-color:var(--accent);color:var(--accent)}
+.cal-dim{opacity:.45}
+.cal-red{background:#fef2f2;border-color:#fecaca}
+.cal-red .cal-num{color:var(--red);font-weight:600}
+.cal-sun .cal-num{color:var(--red)}
+.cal-soft{background:#fffbeb;border-color:#fde68a}
+.cal-soft .cal-num{color:var(--amber);font-weight:600}
+.cal-holname{font-size:8.5px;color:var(--red);line-height:1.15;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cal-soft .cal-holname{color:var(--amber)}
 .cal-cell{min-height:74px;border:1px solid var(--border);border-radius:var(--r);padding:4px;background:var(--bg2);cursor:pointer;display:flex;flex-direction:column;gap:3px}
 .cal-cell:hover{border-color:var(--accent)}
 .cal-cell.cal-out{background:transparent;border:none;cursor:default}
@@ -214,7 +226,7 @@ input:focus,select:focus{border-color:var(--accent)}
       <span id="cal-sum" style="margin-left:auto;font-size:12px;color:var(--text2)"></span>
     </div>
     <div class="cal-head">
-      <div>Man</div><div>Tir</div><div>Ons</div><div>Tor</div><div>Fre</div><div>Lør</div><div>Søn</div>
+      <div>Uke</div><div>Man</div><div>Tir</div><div>Ons</div><div>Tor</div><div>Fre</div><div>Lør</div><div>Søn</div>
     </div>
     <div class="cal-grid" id="cal-grid"></div>
   </div>
@@ -226,6 +238,9 @@ input:focus,select:focus{border-color:var(--accent)}
       <div id="day-bubbles" style="margin-bottom:.9rem"></div>
       <div class="lbl">Legg til skift</div>
       <div id="day-tpls" class="chips" style="margin-bottom:.4rem"></div>
+      <div class="sep"></div>
+      <div class="lbl">Kopier</div>
+      <div id="day-copy" style="display:flex;gap:6px;flex-wrap:wrap"></div>
       <div style="display:flex;gap:8px;margin-top:1rem">
         <button class="bg" style="flex:1" onclick="closeDayModal()">Lukk</button>
       </div>
@@ -992,11 +1007,129 @@ function delTemplate(id,name){
     .then(()=>showT('Mal slettet',true)).catch(()=>showT('Sletting feilet',true));
 }
 
+/* ── Norske helligdager ─────────────────────────────────────
+   Røde dager er lovfestede helligdager pluss søndager.
+   Julaften og nyttårsaften er ikke røde, men merkes gult fordi
+   de i praksis er halve dager i produksjonen. */
+function easterSunday(y){
+  const a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,
+        f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),
+        h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,
+        l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451),
+        mo=Math.floor((h+l-7*m+114)/31),da=((h+l-7*m+114)%31)+1;
+  return new Date(y,mo-1,da);
+}
+const HOLI_CACHE={};
+function holidays(y){
+  if(HOLI_CACHE[y])return HOLI_CACHE[y];
+  const map={};
+  const put=(d,name,soft)=>{map[dk(d)]={name:name,soft:!!soft};};
+  const e=easterSunday(y);
+  const off=n=>{const d=new Date(e);d.setDate(e.getDate()+n);return d;};
+  put(new Date(y,0,1),'Nyttårsdag');
+  put(off(-3),'Skjærtorsdag');
+  put(off(-2),'Langfredag');
+  put(off(0),'Første påskedag');
+  put(off(1),'Andre påskedag');
+  put(new Date(y,4,1),'Arbeidernes dag');
+  put(new Date(y,4,17),'Grunnlovsdagen');
+  put(off(39),'Kristi himmelfartsdag');
+  put(off(49),'Første pinsedag');
+  put(off(50),'Andre pinsedag');
+  put(new Date(y,11,25),'Første juledag');
+  put(new Date(y,11,26),'Andre juledag');
+  put(new Date(y,11,24),'Julaften',true);
+  put(new Date(y,11,31),'Nyttårsaften',true);
+  HOLI_CACHE[y]=map;
+  return map;
+}
+function holidayFor(date){return holidays(date.getFullYear())[dk(date)]||null;}
+/* ISO-ukenummer */
+function isoWeek(d){
+  const t=new Date(d.getFullYear(),d.getMonth(),d.getDate());
+  t.setDate(t.getDate()+3-((t.getDay()+6)%7));
+  const first=new Date(t.getFullYear(),0,4);
+  return 1+Math.round(((t-first)/86400000-3+((first.getDay()+6)%7))/7);
+}
+
+/* ── Kopiering ──────────────────────────────────────────────
+   Innliming erstatter måldagen for den linjen, så resultatet
+   alltid er en tro kopi og ikke en sammenblanding. */
+let DAY_CLIP=null;
+function shiftDate(key,days){
+  const d=new Date(key+'T12:00:00');
+  d.setDate(d.getDate()+days);
+  return dk(d);
+}
+function stripId(b){
+  const o={};
+  ['tplId','name','start','end','bemanning','color'].forEach(k=>{if(b[k]!==undefined)o[k]=b[k];});
+  o.addedAt=Date.now();
+  return o;
+}
+async function writeDay(dstKey,line,list){
+  if(!list.length){
+    await db.ref('shiftPlan/'+dstKey+'/'+lk(line)).remove();
+    return;
+  }
+  const payload={};
+  list.forEach(b=>{
+    const id=db.ref('shiftPlan').push().key;
+    payload[id]=stripId(b);
+  });
+  await db.ref('shiftPlan/'+dstKey+'/'+lk(line)).set(payload);
+}
+async function copyDayTo(srcKey,dstKey,line,quiet){
+  const src=bubblesFor(srcKey,line);
+  if(!src.length){showT('Ingen skift å kopiere',true);return false;}
+  const dst=bubblesFor(dstKey,line);
+  if(dst.length&&!quiet&&!confirm('Måldagen har allerede '+dst.length+' skift. Erstatte dem?'))return false;
+  try{await writeDay(dstKey,line,src);return true;}
+  catch(e){showT('Kopiering feilet',true);return false;}
+}
+function clipDay(line){
+  const bs=bubblesFor(dayKey,line);
+  if(!bs.length){showT('Ingen skift å kopiere',true);return;}
+  DAY_CLIP={line:line,list:bs.map(stripId)};
+  showT(bs.length+' skift kopiert');
+  renderDayModal(line);
+}
+async function pasteDay(line){
+  if(!DAY_CLIP||!dayKey)return;
+  const dst=bubblesFor(dayKey,line);
+  if(dst.length&&!confirm('Dagen har allerede '+dst.length+' skift. Erstatte dem?'))return;
+  try{
+    await writeDay(dayKey,line,DAY_CLIP.list);
+    showT('Limt inn');
+    renderDayModal(line);
+  }catch(e){showT('Innliming feilet',true);}
+}
+async function copyToTomorrow(line){
+  const dst=shiftDate(dayKey,1);
+  if(await copyDayTo(dayKey,dst,line))showT('Kopiert til '+dst);
+}
+/* Kopierer en hel uke sju dager fram. Tomme dager i kilden tømmer
+   tilsvarende dag i målet, ellers ville rester bli stående igjen. */
+async function copyWeek(mondayKey,line){
+  const src=[],dst=[];
+  for(let i=0;i<7;i++){src.push(shiftDate(mondayKey,i));dst.push(shiftDate(mondayKey,i+7));}
+  const any=src.some(k=>bubblesFor(k,line).length);
+  if(!any){showT('Uka er tom',true);return;}
+  const occupied=dst.filter(k=>bubblesFor(k,line).length).length;
+  if(occupied&&!confirm('Neste uke har skift på '+occupied+' dager. Erstatte hele uka?'))return;
+  try{
+    for(let i=0;i<7;i++)await writeDay(dst[i],line,bubblesFor(src[i],line).map(stripId));
+    showT('Uke kopiert til neste uke');
+  }catch(e){showT('Kopiering feilet',true);}
+}
+
 /* ── Kalender ── */
 function handlePlan(snap){PLAN=snap.val()||{};renderCal();}
 function listenPlan(){
-  const from=dk(new Date(calYear,calMonth,1));
-  const to=dk(new Date(calYear,calMonth+1,0));
+  // Buffer rundt måneden: rutenettet viser nabodager, og ukekopiering
+  // leser sju dager fram fra siste uke.
+  const from=dk(new Date(calYear,calMonth,-7));
+  const to=dk(new Date(calYear,calMonth+1,14));
   if(planRef)planRef.off('value',handlePlan);
   planRef=db.ref('shiftPlan').orderByKey().startAt(from).endAt(to);
   planRef.on('value',handlePlan);
@@ -1035,37 +1168,95 @@ function renderCal(){
   const days=new Date(calYear,calMonth+1,0).getDate();
   const todayK=dk(new Date());
   let sumMin=0, sumDays=0;
-  for(let i=0;i<lead;i++){
-    const c=document.createElement('div');c.className='cal-cell cal-out';grid.appendChild(c);
-  }
-  for(let d=1;d<=days;d++){
-    const date=new Date(calYear,calMonth,d);
-    const key=dk(date);
-    const cell=document.createElement('div');
-    cell.className='cal-cell'+(key===todayK?' cal-today':'');
-    const num=document.createElement('div');
-    num.className='cal-num';num.textContent=d;
-    cell.appendChild(num);
-    const bs=bubblesFor(key,line);
-    if(bs.length)sumDays++;
-    bs.forEach(b=>{
-      const mins=durMin(b.start,b.end);
-      sumMin+=mins;
-      const el=document.createElement('div');
-      el.className='cal-bub';
-      el.style.background=(b.color||'#2563eb');
-      el.textContent=hhmm(b.start)+'–'+hhmm(b.end)+(b.bemanning?' · '+b.bemanning+'p':'');
-      el.title=b.name+' — '+fmtH(mins)+(b.bemanning?', '+b.bemanning+' personer':'');
-      cell.appendChild(el);
-    });
-    cell.addEventListener('click',function(){openDayModal(key,line);});
-    grid.appendChild(cell);
+
+  const rows=Math.ceil((lead+days)/7);
+  for(let w=0;w<rows;w++){
+    const monday=new Date(calYear,calMonth,1-lead+w*7);
+    // Ukekolonne med nummer og kopier-knapp
+    const wk=document.createElement('div');
+    wk.className='cal-wk';
+    const wn=document.createElement('div');
+    wn.className='cal-wknum';wn.textContent=isoWeek(monday);
+    wk.appendChild(wn);
+    const cp=document.createElement('button');
+    cp.className='cal-cp';cp.textContent='⧉';
+    cp.title='Kopier uke '+isoWeek(monday)+' til neste uke';
+    cp.addEventListener('click',function(){copyWeek(dk(monday),line);});
+    wk.appendChild(cp);
+    grid.appendChild(wk);
+
+    for(let i=0;i<7;i++){
+      const date=new Date(calYear,calMonth,1-lead+w*7+i);
+      const inMonth=date.getMonth()===calMonth;
+      const key=dk(date);
+      const cell=document.createElement('div');
+      const hol=holidayFor(date);
+      const sunday=date.getDay()===0;
+      let cls='cal-cell';
+      if(!inMonth)cls+=' cal-dim';
+      if(key===todayK)cls+=' cal-today';
+      if(hol&&!hol.soft)cls+=' cal-red';
+      else if(sunday)cls+=' cal-sun';
+      else if(hol&&hol.soft)cls+=' cal-soft';
+      cell.className=cls;
+
+      const num=document.createElement('div');
+      num.className='cal-num';num.textContent=date.getDate();
+      cell.appendChild(num);
+      if(hol){
+        const hn=document.createElement('div');
+        hn.className='cal-holname';hn.textContent=hol.name;hn.title=hol.name;
+        cell.appendChild(hn);
+      }
+      const bs=bubblesFor(key,line);
+      if(inMonth&&bs.length)sumDays++;
+      bs.forEach(b=>{
+        const mins=durMin(b.start,b.end);
+        if(inMonth)sumMin+=mins;
+        const el=document.createElement('div');
+        el.className='cal-bub';
+        el.style.background=(b.color||'#2563eb');
+        el.textContent=hhmm(b.start)+'–'+hhmm(b.end)+(b.bemanning?' · '+b.bemanning+'p':'');
+        el.title=b.name+' — '+fmtH(mins)+(b.bemanning?', '+b.bemanning+' personer':'');
+        cell.appendChild(el);
+      });
+      cell.addEventListener('click',function(){openDayModal(key,line);});
+      grid.appendChild(cell);
+    }
   }
   document.getElementById('cal-sum').textContent=
     sumDays?(sumDays+' dager planlagt · '+fmtH(sumMin)+' totalt'):'Ingen skift lagt inn — ukesplanen gjelder';
 }
 
 /* ── Dag-modal ── */
+/* Kopieringsknappene i dagvinduet. "Lim inn" dukker bare opp når det
+   faktisk ligger noe på utklippstavla. */
+function renderDayCopy(line){
+  const wrap=document.getElementById('day-copy');
+  if(!wrap)return;
+  wrap.innerHTML='';
+  const mk=(txt,title,fn)=>{
+    const b=document.createElement('button');
+    b.className='bg';b.textContent=txt;b.title=title||'';
+    b.style.fontSize='12px';b.style.padding='5px 10px';
+    b.addEventListener('click',fn);
+    wrap.appendChild(b);
+    return b;
+  };
+  const has=bubblesFor(dayKey,line).length>0;
+  if(has){
+    mk('Kopier dag','Legg dagens skift på utklippstavla',function(){clipDay(line);});
+    mk('→ Neste dag','Kopier til dagen etter',function(){copyToTomorrow(line);});
+  }
+  if(DAY_CLIP){
+    const b=mk('Lim inn ('+DAY_CLIP.list.length+')','Erstatt denne dagen med det kopierte',function(){pasteDay(line);});
+    b.style.borderColor='var(--accent)';b.style.color='var(--accent)';
+  }
+  if(!has&&!DAY_CLIP){
+    wrap.innerHTML='<span style="font-size:12px;color:var(--text3)">Legg inn et skift først.</span>';
+  }
+}
+
 function openDayModal(key,line){
   dayKey=key;
   const d=new Date(key+'T12:00:00');
@@ -1131,6 +1322,7 @@ function renderDayModal(line){
     tw.innerHTML='<span style="font-size:12px;color:var(--text3)">Lag en skiftmal først.</span>';
     return;
   }
+  renderDayCopy(line);
   keys.forEach(k=>{
     const t=TPLS[k];
     const b=document.createElement('button');

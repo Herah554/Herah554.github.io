@@ -63,6 +63,14 @@ trekkes fra i begge tilfeller (`_subBreaks`). Bobler over midnatt klippes ved d�
 natt-timene må legges inn på neste dag også. index.html laster bare et tre måneders vindu av
 `shiftPlan` (`orderByKey/startAt/endAt`), ellers ville noden vokse uten grense i minnet.
 
+Kalenderen viser ISO-ukenummer og norske helligdager. `easterSunday()` (anonym gregoriansk
+algoritme, verifisert 2024–2030) driver de bevegelige. Røde dager = lovfestede helligdager +
+søndager; julaften og nyttårsaften merkes gult siden de i praksis er halve dager, men ikke er
+røde. Kopiering finnes på tre nivåer: utklippstavle for enkeltdager (`DAY_CLIP`), «→ Neste dag»,
+og ⧉ per ukerad som kopierer uka sju dager fram. Innliming **erstatter** måldagen for den linjen
+— tomme kildedager tømmer målet, ellers ville rester bli stående. Derfor laster
+innstillinger.html en måned pluss buffer (−7/+14 dager), så ukekopiering ser dagene den skriver.
+
 ### Chatbot
 Lokal databot i index.html — ingen API-nøkkel, ingen server. `botLocal()` tolker norske
 spørsmål (nedetid, OEE, produksjon, verste maskin/årsak, status, ubehandlede) og regner svarene
