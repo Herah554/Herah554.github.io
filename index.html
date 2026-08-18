@@ -294,6 +294,10 @@ td:first-child{font-family:var(--mono);font-size:11px;color:var(--text3)}
 </div>
 
 <main class="page">
+  <div class="dash-bar">
+    <button class="dash-btn" id="dash-open-btn">⚙ Dashboard: <b id="dash-cur">Standard</b></button>
+  </div>
+  <section class="dsec" data-sec="filter">
   <h2 id="filter-sec-h">Filtrer</h2>
   <div class="fbar" id="fbar">
     <button class="fb on" onclick="setFilter('Alle',this)">Alle linjer</button>
@@ -311,7 +315,9 @@ td:first-child{font-family:var(--mono);font-size:11px;color:var(--text3)}
     <div class="ct"><div class="ca" style="background:var(--teal)"></div>Linjestatus — drift akkurat nå</div>
     <div class="lstat" id="lstat"></div>
   </div>
+  </section>
 
+  <section class="dsec" data-sec="kpi">
   <h2>Nøkkeltall</h2>
   <div class="kpis">
     <div class="kpi red"><div class="klbl">Nedetid i dag</div><div class="kval" id="k-today">—</div><div class="ksub" id="k-goal">Mål: —</div></div>
@@ -321,7 +327,9 @@ td:first-child{font-family:var(--mono);font-size:11px;color:var(--text3)}
     <div class="kpi purple"><div class="klbl">OEE denne måneden</div><div class="kval" id="k-oee-mtd">—</div><div class="ksub">Month to date</div></div>
     <div class="kpi amber"><div class="klbl">Hendelser denne uke</div><div class="kval" id="k-week">—</div><div class="ksub">Registrerte stopp</div></div>
   </div>
+  </section>
 
+  <section class="dsec" data-sec="oversikt">
   <h2>Oversikt</h2>
   <div style="display:flex;align-items:center;gap:8px;margin-bottom:.65rem;flex-wrap:wrap">
     <div class="tabs" id="main-tabs" style="margin-bottom:0">
@@ -351,7 +359,9 @@ td:first-child{font-family:var(--mono);font-size:11px;color:var(--text3)}
       <div class="cw"><canvas id="ch-prod"></canvas></div>
     </div>
   </div>
+  </section>
 
+  <section class="dsec" data-sec="nedetid">
   <h2>Nedetidsanalyse</h2>
   <div class="tabs" id="nd-tabs">
     <button class="tab on" onclick="showND('daily',this)">Daglig</button>
@@ -392,10 +402,14 @@ td:first-child{font-family:var(--mono);font-size:11px;color:var(--text3)}
       <div class="hmg" id="hm"></div>
     </div>
   </div>
+  </section>
 
+  <section class="dsec" data-sec="plan">
   <h2>Plan mot faktisk — i dag</h2>
   <div class="card"><div id="pva-body"><div class="autohint" style="color:var(--text3);font-size:12px">Ingen plan importert for i dag.</div></div></div>
+  </section>
 
+  <section class="dsec" data-sec="effektivitet">
   <h2>Effektivitet &amp; nedetid — oversikt</h2>
   <div class="card">
     <div style="display:flex;gap:6px;margin-bottom:.7rem;flex-wrap:wrap;align-items:center">
@@ -412,7 +426,9 @@ td:first-child{font-family:var(--mono);font-size:11px;color:var(--text3)}
     <div class="ct" style="margin-top:.6rem"><div class="ca" style="background:var(--accent)"></div>Nedetid over tid</div>
     <div class="cw"><canvas id="ch-nd-trend"></canvas></div>
   </div>
+  </section>
 
+  <section class="dsec" data-sec="registrer">
   <h2>Registrer hendelse</h2>
   <div class="g2">
     <div class="card">
@@ -446,11 +462,14 @@ td:first-child{font-family:var(--mono);font-size:11px;color:var(--text3)}
       <div class="hist" id="hist"><div style="color:var(--text3);font-size:12px;padding:.5rem 0">Ingen hendelser enda.</div></div>
     </div>
   </div>
+  </section>
 
+  <section class="dsec" data-sec="logg">
   <div class="card">
     <div class="ct"><div class="ca" style="background:var(--accent)"></div>Hendelseslogg</div>
     <div class="tw"><table><thead><tr><th>Tid</th><th>Linje</th><th>Maskin</th><th>Årsak</th><th>Varighet</th><th>Type</th><th>Kommentar</th><th></th></tr></thead><tbody id="tbl"><tr><td colspan="8" style="color:var(--text3);text-align:center;padding:1.5rem">Ingen hendelser enda</td></tr></tbody></table></div>
   </div>
+  </section>
 </main>
 
 <!-- Handle modal -->
@@ -635,6 +654,10 @@ auth.onAuthStateChanged(async user=>{
       }
       if(filterLine&&filterLine!=='Alle')updateProductSelector(filterLine);
     }
+    // Dashboard-mal: last brukerens valg og lytt på hans egne maler
+    CUR_DASH=myProfile.dashboardId||'std';
+    initUserDash(user.uid);
+    applyDashboard(CUR_DASH);
   }catch(e){console.error(e);}
 });
 
@@ -646,6 +669,8 @@ function handleSettings(snap){
   if(snap.exists()){
     SETTINGS=Object.assign({globalGoal:30,oeeGoal:97,defaultDayHours:8,lineGoals:{},oeeGoals:{},machines:{},causes:{},generalCauses:[],plannedStops:[],prodPlan:{}},snap.val());
   }
+  SHARED_DASH=SETTINGS.dashboards||{};
+  applyDashboard(CUR_DASH);
   onLine();renderAll();
   // Fill the operator's "Velg produkt" dropdown from the product database
   if(myProfile&&myProfile.role==='linjeoperator'&&filterLine&&filterLine!=='Alle'){
@@ -2004,6 +2029,554 @@ function closeHandleModal(){
 Chart.defaults.font.family="'IBM Plex Sans',sans-serif";
 Chart.defaults.color='#8a95a8';
 Chart.defaults.animation=false;        // ingen re-animasjon ved oppdatering → grafer hopper ikke
+
+/* ═══════════════════════════════════════════════════════════
+   DASHBOARD-MALER
+   Standard ('std') er innebygd og kan ikke slettes.
+   Delte maler: settings/dashboards/{id}   (master oppretter)
+   Egne maler:  userDashboards/{uid}/{id}  (alle kan opprette)
+   Valg lagres i users/{uid}.dashboardId som 'std' | 'sh:<id>' | 'me:<id>'
+   ═══════════════════════════════════════════════════════════ */
+const DSECTIONS=[
+  {key:'filter',       name:'Filtrer & linjestatus'},
+  {key:'kpi',          name:'Nøkkeltall'},
+  {key:'oversikt',     name:'Oversikt (OEE / Produksjon)'},
+  {key:'nedetid',      name:'Nedetidsanalyse'},
+  {key:'plan',         name:'Plan mot faktisk'},
+  {key:'effektivitet', name:'Effektivitet & nedetid'},
+  {key:'registrer',    name:'Registrer hendelse'},
+  {key:'logg',         name:'Hendelseslogg'}
+];
+let SHARED_DASH={}, MY_DASH={}, CUR_DASH='std', DASH_DRAFT=null, DRAFT_ID=null;
+let userDashRef=null;
+
+function stdSections(){const o={};DSECTIONS.forEach((s,i)=>{o[s.key]={on:true,order:i};});return o;}
+function dashById(id){
+  if(!id||id==='std')return{name:'Standard',sections:stdSections(),builtin:true};
+  if(id.slice(0,3)==='sh:')return SHARED_DASH[id.slice(3)]||null;
+  if(id.slice(0,3)==='me:')return MY_DASH[id.slice(3)]||null;
+  return null;
+}
+function dashList(){
+  const out=[{id:'std',name:'Standard',kind:'Innebygd'}];
+  Object.keys(SHARED_DASH).forEach(k=>out.push({id:'sh:'+k,name:SHARED_DASH[k].name||'Uten navn',kind:'Delt mal'}));
+  Object.keys(MY_DASH).forEach(k=>out.push({id:'me:'+k,name:MY_DASH[k].name||'Uten navn',kind:'Min'}));
+  return out;
+}
+function normSections(secs){
+  const src=secs||{};
+  return DSECTIONS.map((s,i)=>{
+    const c=src[s.key]||{};
+    return {key:s.key,name:s.name,on:c.on!==false,order:(typeof c.order==='number')?c.order:i};
+  }).sort(function(a,b){return a.order-b.order;});
+}
+function applyDashboard(id){
+  const cfg=dashById(id);
+  if(!cfg){ if(id!=='std'){CUR_DASH='std';applyDashboard('std');} return; }
+  const main=document.querySelector('main.page');
+  if(!main)return;
+  normSections(cfg.sections).forEach(function(item){
+    const el=main.querySelector('[data-sec="'+item.key+'"]');
+    if(!el)return;
+    el.style.display=item.on?'':'none';
+    main.appendChild(el);
+  });
+  const lbl=document.getElementById('dash-cur');
+  if(lbl)lbl.textContent=cfg.name||'Standard';
+}
+function handleUserDash(snap){
+  MY_DASH=snap.val()||{};
+  applyDashboard(CUR_DASH);
+  const m=document.getElementById('dash-modal');
+  if(m&&m.classList.contains('on'))renderDashList();
+}
+function initUserDash(uid){
+  if(userDashRef)userDashRef.off('value',handleUserDash);
+  userDashRef=db.ref('userDashboards/'+uid);
+  userDashRef.on('value',handleUserDash);
+}
+
+/* ── Modal: velg / opprett / dupliser / rediger ── */
+function openDashModal(){
+  DASH_DRAFT=null;DRAFT_ID=null;
+  document.getElementById('dash-modal').classList.add('on');
+  renderDashList();
+}
+function closeDashModal(){
+  document.getElementById('dash-modal').classList.remove('on');
+  DASH_DRAFT=null;DRAFT_ID=null;
+}
+function renderDashList(){
+  const wrap=document.getElementById('dash-list');
+  document.getElementById('dash-edit').style.display='none';
+  document.getElementById('dash-browse').style.display='';
+  wrap.innerHTML='';
+  dashList().forEach(function(d){
+    const row=document.createElement('div');
+    row.className='dash-row'+(d.id===CUR_DASH?' on':'');
+    const info=document.createElement('div');
+    info.style.flex='1';info.style.cursor='pointer';info.style.minWidth='0';
+    const nm=document.createElement('div');
+    nm.style.fontWeight='600';nm.style.fontSize='13px';nm.textContent=d.name;
+    const kd=document.createElement('div');
+    kd.style.fontSize='11px';kd.style.color='var(--text3)';
+    kd.textContent=d.kind+(d.id===CUR_DASH?' · aktiv':'');
+    info.appendChild(nm);info.appendChild(kd);
+    info.addEventListener('click',function(){selectDash(d.id);});
+    row.appendChild(info);
+    const bDup=document.createElement('button');
+    bDup.className='dash-mini';bDup.textContent='Dupliser';
+    bDup.addEventListener('click',function(){duplicateDash(d.id);});
+    row.appendChild(bDup);
+    const canEdit=(d.id.slice(0,3)==='me:')||(d.id.slice(0,3)==='sh:'&&myProfile&&myProfile.role==='master');
+    if(canEdit){
+      const bEd=document.createElement('button');
+      bEd.className='dash-mini';bEd.textContent='Rediger';
+      bEd.addEventListener('click',function(){editDash(d.id);});
+      row.appendChild(bEd);
+      const bDel=document.createElement('button');
+      bDel.className='dash-mini danger';bDel.textContent='Slett';
+      bDel.addEventListener('click',function(){deleteDash(d.id,d.name);});
+      row.appendChild(bDel);
+    }
+    wrap.appendChild(row);
+  });
+}
+async function selectDash(id){
+  CUR_DASH=id;
+  applyDashboard(id);
+  renderDashList();
+  const u=auth.currentUser;
+  if(u){try{await db.ref('users/'+u.uid).update({dashboardId:id});}catch(e){}}
+  showToast('Dashboard byttet');
+}
+function duplicateDash(id){
+  const src=dashById(id);
+  if(!src)return;
+  DASH_DRAFT={name:(src.name||'Standard')+' (kopi)',sections:JSON.parse(JSON.stringify(src.sections||stdSections())),shared:false};
+  DRAFT_ID=null;
+  openDashEditor();
+}
+function newDash(){
+  DASH_DRAFT={name:'Nytt dashboard',sections:stdSections(),shared:false};
+  DRAFT_ID=null;
+  openDashEditor();
+}
+function editDash(id){
+  const src=dashById(id);
+  if(!src)return;
+  DASH_DRAFT={name:src.name||'',sections:JSON.parse(JSON.stringify(src.sections||stdSections())),shared:id.slice(0,3)==='sh:'};
+  DRAFT_ID=id;
+  openDashEditor();
+}
+function openDashEditor(){
+  document.getElementById('dash-browse').style.display='none';
+  document.getElementById('dash-edit').style.display='';
+  document.getElementById('dash-name').value=DASH_DRAFT.name;
+  const sh=document.getElementById('dash-shared-wrap');
+  sh.style.display=(myProfile&&myProfile.role==='master')?'':'none';
+  document.getElementById('dash-shared').checked=!!DASH_DRAFT.shared;
+  renderDashEditor();
+}
+function renderDashEditor(){
+  const wrap=document.getElementById('dash-secs');
+  wrap.innerHTML='';
+  const list=normSections(DASH_DRAFT.sections);
+  list.forEach(function(item,idx){
+    const row=document.createElement('div');
+    row.className='dash-sec';
+    const cb=document.createElement('input');
+    cb.type='checkbox';cb.checked=item.on;
+    cb.addEventListener('change',function(){
+      DASH_DRAFT.sections[item.key]={on:cb.checked,order:idx};
+      syncDraftOrder(list);
+    });
+    row.appendChild(cb);
+    const nm=document.createElement('span');
+    nm.style.flex='1';nm.style.fontSize='13px';nm.textContent=item.name;
+    if(!item.on){nm.style.color='var(--text3)';nm.style.textDecoration='line-through';}
+    row.appendChild(nm);
+    const up=document.createElement('button');
+    up.className='dash-mini';up.textContent='↑';up.disabled=idx===0;
+    up.addEventListener('click',function(){moveSec(list,idx,-1);});
+    row.appendChild(up);
+    const dn=document.createElement('button');
+    dn.className='dash-mini';dn.textContent='↓';dn.disabled=idx===list.length-1;
+    dn.addEventListener('click',function(){moveSec(list,idx,1);});
+    row.appendChild(dn);
+    wrap.appendChild(row);
+  });
+}
+function syncDraftOrder(list){
+  const o={};
+  list.forEach(function(it,i){
+    const prev=DASH_DRAFT.sections[it.key]||{};
+    o[it.key]={on:(typeof prev.on==='boolean')?prev.on:it.on,order:i};
+  });
+  DASH_DRAFT.sections=o;
+  renderDashEditor();
+}
+function moveSec(list,idx,dir){
+  const j=idx+dir;
+  if(j<0||j>=list.length)return;
+  const tmp=list[idx];list[idx]=list[j];list[j]=tmp;
+  syncDraftOrder(list);
+}
+async function saveDash(){
+  const name=document.getElementById('dash-name').value.trim();
+  if(!name){showToast('Gi dashboardet et navn',true);return;}
+  const shared=!!((myProfile&&myProfile.role==='master')&&document.getElementById('dash-shared').checked);
+  const u=auth.currentUser;
+  if(!u){showToast('Ikke innlogget',true);return;}
+  const payload={name:name,sections:DASH_DRAFT.sections,updatedAt:Date.now(),updatedBy:(myProfile&&myProfile.name)||''};
+  try{
+    let newId;
+    if(DRAFT_ID&&((DRAFT_ID.slice(0,3)==='sh:')===shared)){
+      const raw=DRAFT_ID.slice(3);
+      const ref=shared?db.ref('settings/dashboards/'+raw):db.ref('userDashboards/'+u.uid+'/'+raw);
+      await ref.update(payload);
+      newId=DRAFT_ID;
+    }else{
+      payload.createdAt=Date.now();
+      payload.createdBy=(myProfile&&myProfile.name)||'';
+      const ref=shared?db.ref('settings/dashboards').push():db.ref('userDashboards/'+u.uid).push();
+      await ref.set(payload);
+      newId=(shared?'sh:':'me:')+ref.key;
+      if(DRAFT_ID){
+        const oldRaw=DRAFT_ID.slice(3);
+        if(DRAFT_ID.slice(0,3)==='sh:')await db.ref('settings/dashboards/'+oldRaw).remove();
+        else await db.ref('userDashboards/'+u.uid+'/'+oldRaw).remove();
+      }
+    }
+    showToast('Dashboard lagret');
+    await selectDash(newId);
+    renderDashList();
+  }catch(e){showToast('Lagring feilet',true);}
+}
+async function deleteDash(id,name){
+  if(!confirm('Slette dashboardet "'+name+'"?'))return;
+  const u=auth.currentUser;if(!u)return;
+  const raw=id.slice(3);
+  try{
+    if(id.slice(0,3)==='sh:')await db.ref('settings/dashboards/'+raw).remove();
+    else await db.ref('userDashboards/'+u.uid+'/'+raw).remove();
+    if(CUR_DASH===id)await selectDash('std');
+    showToast('Dashboard slettet');
+    renderDashList();
+  }catch(e){showToast('Sletting feilet',true);}
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CHATBOT — lokal databot
+   Svarene regnes ut med de samme funksjonene som dashboardet
+   (downtimeForDates, oeeOutput, eskerFor), så tallene stemmer
+   alltid med det som vises på skjermen.
+
+   AI-KLAR: botAsk() er eneste inngang. Sett BOT.backend='api' og
+   BOT.endpoint til en proxy-URL (f.eks. en Cloudflare Worker som
+   holder Claude-API-nøkkelen server-side) for å bytte motor.
+   Nøkkelen skal ALDRI ligge i denne filen — siden er offentlig.
+   ═══════════════════════════════════════════════════════════ */
+const BOT={backend:'local',endpoint:''};
+let BOT_BUSY=false;
+
+function botEsc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+async function botAsk(q){
+  if(BOT.backend==='api'&&BOT.endpoint)return botRemote(q);
+  return botLocal(q);
+}
+/* Stub — aktiveres når en proxy finnes. Sender spørsmålet og et kompakt
+   sammendrag, aldri hele databasen. */
+async function botRemote(q){
+  try{
+    const res=await fetch(BOT.endpoint,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({question:q,context:botContext()})
+    });
+    if(!res.ok)throw new Error('HTTP '+res.status);
+    const data=await res.json();
+    return data.answer||'Tomt svar fra AI-tjenesten.';
+  }catch(e){
+    return 'Fikk ikke kontakt med AI-tjenesten. Svarer lokalt i stedet:<br><br>'+botLocal(q);
+  }
+}
+/* Kompakt sammendrag til en framtidig AI-backend */
+function botContext(){
+  const t=new Date();t.setHours(12,0,0,0);
+  return{
+    dato:dateKeyOf(t),
+    linjer:LINES_ALL.map(function(l){
+      return{linje:l,status:lineStatus(l),
+        nedetidIDagMin:downtimeForDates(l,[t]),
+        eskerIDag:eskerFor(l,todayKey()),
+        oeeIDag:oeeOutput(l,[t])};
+    }),
+    maal:{nedetid:SETTINGS.globalGoal,oee:SETTINGS.oeeGoal}
+  };
+}
+
+function botPeriod(q){
+  const n=q.toLowerCase();
+  const t=new Date();
+  if(/i\s*g[åa]r|g[åa]rsdag/.test(n)){const d=new Date(t);d.setDate(t.getDate()-1);d.setHours(12,0,0,0);return{label:'i går',days:[d]};}
+  if(/forrige\s*uke|siste?\s*uke/.test(n)){
+    const a=daysThisWeek().map(function(d){const x=new Date(d);x.setDate(d.getDate()-7);return x;});
+    return{label:'forrige uke',days:a};
+  }
+  if(/denne\s*uk|hittil\s*i\s*uk|uken|uke/.test(n))return{label:'denne uken',days:daysThisWeek().filter(function(d){return d<=t;})};
+  if(/denne\s*m[åa]ned|hittil\s*i\s*m[åa]ned|m[åa]neden/.test(n))return{label:'denne måneden',days:daysThisMonth().filter(function(d){return d<=t;})};
+  const d=new Date(t);d.setHours(12,0,0,0);
+  return{label:'i dag',days:[d]};
+}
+function botLine(q){
+  const n=q.toLowerCase();
+  for(let i=0;i<LINES_ALL.length;i++){
+    if(n.indexOf(LINES_ALL[i].toLowerCase())>=0)return LINES_ALL[i];
+  }
+  if(/alle|totalt|samlet|hele fabrikk/.test(n))return 'Alle';
+  return null;
+}
+function botLines(line){return(line&&line!=='Alle')?[line]:LINES_ALL;}
+function botRange(days){
+  return[days[0].getTime()-43200000, days[days.length-1].getTime()+43200000];
+}
+function botTopBy(field,line,days){
+  const r=botRange(days), agg={};
+  EVENTS.forEach(function(ev){
+    if(ev.ts<r[0]||ev.ts>r[1])return;
+    if(line&&line!=='Alle'&&ev.line!==line)return;
+    const k=ev[field]||'Ukjent';
+    agg[k]=(agg[k]||0)+(ev.duration||0);
+  });
+  return Object.keys(agg).map(function(k){return[k,agg[k]];}).sort(function(a,b){return b[1]-a[1];});
+}
+
+function botLocal(q){
+  const n=(q||'').toLowerCase().trim();
+  if(!n)return 'Still meg gjerne et spørsmål om produksjonen.';
+  const per=botPeriod(q);
+  const line=botLine(q);
+  const lines=botLines(line);
+  const scope=(line&&line!=='Alle')?line:'alle linjer';
+
+  if(/hjelp|hva kan du|hvordan bruk/.test(n))return botHelp();
+
+  /* Status akkurat nå */
+  if(/status|kj[øo]rer|st[åa]r stille|g[åa]r linj/.test(n)&&!/nedetid/.test(n)){
+    const rows=lines.map(function(l){
+      const st=lineStatus(l);
+      const txt=st==='run'?'<span style="color:var(--green)">kjører</span>':st==='stop'?'<span style="color:var(--red)">stoppet</span>':'<span style="color:var(--text3)">ingen data</span>';
+      return '• <b>'+l+'</b>: '+txt;
+    });
+    return 'Status akkurat nå:<br>'+rows.join('<br>');
+  }
+
+  /* Verste maskin */
+  if(/maskin/.test(n)&&/verst|mest|h[øo]yest|st[øo]rst|hvilken/.test(n)){
+    const arr=botTopBy('machine',line,per.days);
+    if(!arr.length)return 'Ingen registrerte stopp for '+scope+' '+per.label+'.';
+    return 'Mest nedetid per maskin ('+scope+', '+per.label+'):<br>'+
+      arr.slice(0,5).map(function(x,i){return (i+1)+'. <b>'+botEsc(x[0])+'</b> — '+fmtD(Math.round(x[1]));}).join('<br>');
+  }
+
+  /* Verste årsak */
+  if(/[åa]rsak|grunn|hvorfor/.test(n)){
+    const arr=botTopBy('cause',line,per.days);
+    if(!arr.length)return 'Ingen registrerte årsaker for '+scope+' '+per.label+'.';
+    return 'Største årsaker ('+scope+', '+per.label+'):<br>'+
+      arr.slice(0,5).map(function(x,i){return (i+1)+'. <b>'+botEsc(x[0])+'</b> — '+fmtD(Math.round(x[1]));}).join('<br>');
+  }
+
+  /* Nedetid */
+  if(/nedetid|stopp|stans|stillstand/.test(n)){
+    if(!line){
+      const arr=LINES_ALL.map(function(l){return[l,downtimeForDates(l,per.days)];}).sort(function(a,b){return b[1]-a[1];});
+      const tot=arr.reduce(function(s,x){return s+x[1];},0);
+      if(!tot)return 'Ingen registrert nedetid '+per.label+'.';
+      return 'Nedetid '+per.label+' — totalt <b>'+fmtD(tot)+'</b><br>'+
+        arr.filter(function(x){return x[1]>0;}).map(function(x){return '• '+x[0]+': '+fmtD(x[1]);}).join('<br>');
+    }
+    const mins=downtimeForDates(line,per.days);
+    const goal=(line==='Alle')?null:getGoal(line);
+    let s='Nedetid for <b>'+scope+'</b> '+per.label+': <b>'+fmtD(mins)+'</b>';
+    if(goal&&per.days.length===1)s+='<br>Mål: '+fmtD(goal)+' — '+(mins<=goal?'<span style="color:var(--green)">innenfor</span>':'<span style="color:var(--red)">over målet</span>');
+    return s;
+  }
+
+  /* OEE */
+  if(/oee|effektivitet|utnyttelse/.test(n)){
+    if(!line){
+      const rows=LINES_ALL.map(function(l){return[l,oeeOutput(l,per.days)];}).filter(function(x){return x[1]!==null;});
+      if(!rows.length)return 'Ingen OEE-data for '+per.label+'. Det krever produkt med teknisk kapasitet og registrert produksjon.';
+      const avg=oeeOutputAvg(LINES_ALL,per.days);
+      return 'OEE '+per.label+' — snitt <b>'+(avg===null?'—':avg.toFixed(1)+' %')+'</b><br>'+
+        rows.sort(function(a,b){return b[1]-a[1];}).map(function(x){return '• '+x[0]+': '+x[1].toFixed(1)+' %';}).join('<br>');
+    }
+    const v=(line==='Alle')?oeeOutputAvg(LINES_ALL,per.days):oeeOutput(line,per.days);
+    if(v===null)return 'Mangler data for å regne OEE på '+scope+' '+per.label+'. Sjekk at produktet har teknisk kapasitet satt i Innstillinger.';
+    const goal=SETTINGS.oeeGoal||97;
+    return 'OEE for <b>'+scope+'</b> '+per.label+': <b>'+v.toFixed(1)+' %</b><br>Mål: '+goal+' % — '+
+      (v>=goal?'<span style="color:var(--green)">innfridd</span>':'<span style="color:var(--red)">under målet</span>');
+  }
+
+  /* Produksjon / esker */
+  if(/esker|dpack|produsert|produksjon|antall|volum/.test(n)){
+    const sum=function(l){return per.days.reduce(function(s,d){return s+eskerFor(l,dateKeyOf(d));},0);};
+    if(!line){
+      const arr=LINES_ALL.map(function(l){return[l,sum(l)];}).filter(function(x){return x[1]>0;}).sort(function(a,b){return b[1]-a[1];});
+      const tot=arr.reduce(function(s,x){return s+x[1];},0);
+      if(!tot)return 'Ingen registrert produksjon '+per.label+'.';
+      return 'Produksjon '+per.label+' — totalt <b>'+tot.toLocaleString('no-NO')+'</b> esker<br>'+
+        arr.map(function(x){return '• '+x[0]+': '+x[1].toLocaleString('no-NO');}).join('<br>');
+    }
+    const tot=lines.reduce(function(s,l){return s+sum(l);},0);
+    return 'Produksjon for <b>'+scope+'</b> '+per.label+': <b>'+tot.toLocaleString('no-NO')+'</b> esker';
+  }
+
+  /* Ubehandlede */
+  if(/ubehandl|m[åa] behandles|venter/.test(n)){
+    const u=EVENTS.filter(function(e){return e.unhandled===true;});
+    if(!u.length)return 'Ingen ubehandlede nedetider.';
+    return '<b>'+u.length+'</b> ubehandlede nedetider:<br>'+
+      u.slice(0,8).map(function(e){return '• '+botEsc(e.line)+' — '+fmtT(e.ts)+' ('+fmtD(e.duration||0)+')';}).join('<br>');
+  }
+
+  return 'Det spørsmålet forsto jeg ikke.<br><br>'+botHelp();
+}
+function botHelp(){
+  return 'Jeg svarer på tall fra dashboardet. Prøv for eksempel:<br>'+
+    '• «nedetid på Glacier i dag»<br>'+
+    '• «OEE denne uken»<br>'+
+    '• «hvilken maskin har mest nedetid»<br>'+
+    '• «største årsaker forrige uke»<br>'+
+    '• «hvor mange esker produserte Løp 1 i går»<br>'+
+    '• «status» eller «ubehandlede»';
+}
+
+/* ── Chat-UI ── */
+function toggleChat(){
+  const p=document.getElementById('chat-panel');
+  const open=p.classList.toggle('on');
+  if(open){
+    document.getElementById('chat-input').focus();
+    if(!document.getElementById('chat-body').childNodes.length)
+      botSay('Hei'+((myProfile&&myProfile.name)?' '+myProfile.name.split(' ')[0]:'')+'! '+botHelp(),'bot');
+  }
+}
+function botSay(html,who){
+  const body=document.getElementById('chat-body');
+  const el=document.createElement('div');
+  el.className='chat-msg '+who;
+  el.innerHTML=html;
+  body.appendChild(el);
+  body.scrollTop=body.scrollHeight;
+  return el;
+}
+async function chatSend(){
+  if(BOT_BUSY)return;
+  const inp=document.getElementById('chat-input');
+  const q=inp.value.trim();
+  if(!q)return;
+  inp.value='';
+  botSay(botEsc(q),'me');
+  BOT_BUSY=true;
+  const thinking=botSay('<span style="color:var(--text3)">tenker …</span>','bot');
+  try{
+    const ans=await botAsk(q);
+    thinking.innerHTML=ans;
+  }catch(e){
+    thinking.innerHTML='<span style="color:var(--red)">Noe gikk galt.</span>';
+  }
+  BOT_BUSY=false;
+  const body=document.getElementById('chat-body');
+  body.scrollTop=body.scrollHeight;
+}
+function chatKey(e){if(e.key==='Enter'){e.preventDefault();chatSend();}}
+</script>
+<style>
+/* ── Dashboard-velger & modal ── */
+.dash-bar{display:flex;align-items:center;gap:8px;margin:0 0 .9rem}
+.dash-btn{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border:1px solid var(--border);background:var(--bg2);border-radius:var(--r);cursor:pointer;font-size:12px;color:var(--text2);font-family:inherit}
+.dash-btn:hover{background:var(--bg3)}
+.dash-row{display:flex;align-items:center;gap:6px;padding:9px 10px;border:1px solid var(--border);border-radius:var(--r);margin-bottom:6px;background:var(--bg2)}
+.dash-row.on{border-color:var(--accent);background:var(--bg3)}
+.dash-mini{padding:4px 9px;border:1px solid var(--border);background:var(--bg2);border-radius:var(--r);cursor:pointer;font-size:11px;color:var(--text2);font-family:inherit;white-space:nowrap}
+.dash-mini:hover{background:var(--bg3)}
+.dash-mini:disabled{opacity:.35;cursor:default}
+.dash-mini.danger{color:var(--red);border-color:#fecaca}
+.dash-sec{display:flex;align-items:center;gap:9px;padding:7px 10px;border:1px solid var(--border);border-radius:var(--r);margin-bottom:5px;background:var(--bg2)}
+.dash-field{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;font-family:inherit;background:var(--bg2);color:var(--text)}
+
+/* ── Chatbot ── */
+.chat-fab{position:fixed;bottom:20px;right:20px;width:52px;height:52px;border-radius:50%;border:none;background:var(--accent);color:#fff;font-size:22px;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.22);z-index:60}
+.chat-fab:hover{filter:brightness(1.08)}
+.chat-panel{position:fixed;bottom:82px;right:20px;width:370px;max-width:calc(100vw - 40px);height:480px;max-height:calc(100vh - 120px);background:var(--bg2);border:1px solid var(--border);border-radius:12px;box-shadow:0 10px 34px rgba(0,0,0,.2);display:none;flex-direction:column;z-index:60;overflow:hidden}
+.chat-panel.on{display:flex}
+.chat-head{padding:11px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;background:var(--bg3)}
+.chat-title{font-weight:600;font-size:13px;flex:1}
+.chat-body{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:9px}
+.chat-msg{max-width:86%;padding:8px 11px;border-radius:11px;font-size:12.5px;line-height:1.5;word-wrap:break-word}
+.chat-msg.bot{background:var(--bg3);border:1px solid var(--border);align-self:flex-start;border-bottom-left-radius:3px}
+.chat-msg.me{background:var(--accent);color:#fff;align-self:flex-end;border-bottom-right-radius:3px}
+.chat-foot{padding:10px;border-top:1px solid var(--border);display:flex;gap:7px}
+.chat-input{flex:1;padding:8px 11px;border:1px solid var(--border);border-radius:var(--r);font-size:12.5px;font-family:inherit;background:var(--bg);color:var(--text)}
+.chat-send{padding:8px 13px;border:none;background:var(--accent);color:#fff;border-radius:var(--r);cursor:pointer;font-size:12.5px;font-family:inherit}
+@media(max-width:700px){.chat-panel{width:calc(100vw - 24px);right:12px;bottom:76px}.chat-fab{right:14px;bottom:14px}}
+</style>
+
+<!-- Dashboard-modal -->
+<div class="mover" id="dash-modal">
+  <div class="hmodal">
+    <h3>Dashboard</h3>
+    <div id="dash-browse">
+      <div class="hmodal-sub">Velg hvilket oppsett du vil bruke. Standard er det innebygde.</div>
+      <div id="dash-list"></div>
+      <div style="display:flex;gap:8px;margin-top:1rem">
+        <button class="dash-btn" style="flex:1;justify-content:center" id="dash-new-btn">+ Nytt dashboard</button>
+        <button class="dash-btn" style="flex:1;justify-content:center" id="dash-close-btn">Lukk</button>
+      </div>
+    </div>
+    <div id="dash-edit" style="display:none">
+      <div class="hmodal-sub">Huk av hvilke seksjoner som skal vises, og sorter dem med pilene.</div>
+      <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">Navn</label>
+      <input class="dash-field" id="dash-name" type="text" style="margin-bottom:.8rem">
+      <div id="dash-secs"></div>
+      <label id="dash-shared-wrap" style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text2);margin-top:.7rem">
+        <input type="checkbox" id="dash-shared"> Delt mal — synlig for alle brukere
+      </label>
+      <div style="display:flex;gap:8px;margin-top:1rem">
+        <button class="dash-btn" style="flex:1;justify-content:center;background:var(--accent);color:#fff;border-color:var(--accent)" id="dash-save-btn">Lagre</button>
+        <button class="dash-btn" style="flex:1;justify-content:center" id="dash-back-btn">Avbryt</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Chatbot -->
+<button class="chat-fab" id="chat-fab" title="Spør om produksjonen">💬</button>
+<div class="chat-panel" id="chat-panel">
+  <div class="chat-head">
+    <div class="chat-title">Spør om produksjonen</div>
+    <button class="dash-mini" id="chat-close">Lukk</button>
+  </div>
+  <div class="chat-body" id="chat-body"></div>
+  <div class="chat-foot">
+    <input class="chat-input" id="chat-input" type="text" placeholder="F.eks. nedetid på Glacier i dag" autocomplete="off">
+    <button class="chat-send" id="chat-send">Send</button>
+  </div>
+</div>
+
+<script>
+document.getElementById('chat-fab').addEventListener('click',toggleChat);
+document.getElementById('chat-close').addEventListener('click',toggleChat);
+document.getElementById('chat-send').addEventListener('click',chatSend);
+document.getElementById('chat-input').addEventListener('keydown',chatKey);
+document.getElementById('dash-new-btn').addEventListener('click',newDash);
+document.getElementById('dash-close-btn').addEventListener('click',closeDashModal);
+document.getElementById('dash-save-btn').addEventListener('click',saveDash);
+document.getElementById('dash-back-btn').addEventListener('click',renderDashList);
+document.getElementById('dash-open-btn').addEventListener('click',openDashModal);
 </script>
 </body>
 </html>

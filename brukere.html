@@ -109,6 +109,7 @@ input:focus,select:focus{border-color:var(--accent)}
       <div class="lchecks" id="n-lchecks"></div>
     </div>
     <div class="fr"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="n-shift" style="width:auto;margin:0">Skiftrapport-tilgang (kan levere/se skiftrapporter)</label></div>
+    <div class="fr"><label>Dashboard</label><select id="n-dash"><option value="std">Standard</option></select></div>
     <button class="btn" onclick="createUser()">Opprett bruker</button>
   </div>
 
@@ -130,6 +131,7 @@ input:focus,select:focus{border-color:var(--accent)}
     </div>
     <div id="e-lsec" class="fr"><label>Linjetilgang</label><div class="lchecks" id="e-lchecks"></div></div>
     <div class="fr"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="e-shift" style="width:auto;margin:0">Skiftrapport-tilgang</label></div>
+    <div class="fr"><label>Dashboard</label><select id="e-dash"><option value="std">Standard</option></select></div>
     <span class="pw-toggle" onclick="document.getElementById('pw-sec').style.display=document.getElementById('pw-sec').style.display==='none'?'block':'none'">🔑 Endre passord</span>
     <div class="pw-sec" id="pw-sec"><label style="margin-bottom:4px">Nytt passord</label><input type="password" id="e-pw" placeholder="Minst 8 tegn"/></div>
     <div class="mbtns">
@@ -223,6 +225,53 @@ auth.onAuthStateChanged(async user=>{
   }
 });
 
+/* ── Dashboard-maler: master kan tildele delte maler til brukere.
+   Egne maler (userDashboards/) tilhører brukeren selv og kan ikke tildeles. ── */
+let SHARED_DASH={};
+function handleDashSettings(snap){
+  SHARED_DASH=snap.val()||{};
+  ['n-dash','e-dash'].forEach(id=>{
+    const sel=document.getElementById(id);
+    if(!sel)return;
+    const keep=sel.value;
+    sel.innerHTML='';
+    const std=document.createElement('option');
+    std.value='std';std.textContent='Standard';
+    sel.appendChild(std);
+    Object.keys(SHARED_DASH).forEach(k=>{
+      const o=document.createElement('option');
+      o.value='sh:'+k;o.textContent=SHARED_DASH[k].name||'Uten navn';
+      sel.appendChild(o);
+    });
+    // Behold en egen mal (me:...) hvis den var valgt — ellers ville lagring
+    // overskrive brukerens eget valg med Standard.
+    if(keep&&keep.slice(0,3)==='me:'){
+      const o=document.createElement('option');
+      o.value=keep;o.textContent='Egen mal (valgt av brukeren)';
+      sel.appendChild(o);
+    }
+    sel.value=keep||'std';
+    if(!sel.value)sel.value='std';
+  });
+}
+/* Brukeren kan selv ha valgt en egen mal (me:...) som master ikke kan tildele.
+   Da vises den som et eget, informativt valg så den ikke overskrives ved lagring. */
+function setDashSelect(id){
+  const sel=document.getElementById('e-dash');
+  if(!sel)return;
+  const own=sel.querySelector('option[value="'+id+'"]');
+  if(!own&&id&&id.slice(0,3)==='me:'){
+    const o=document.createElement('option');
+    o.value=id;o.textContent='Egen mal (valgt av brukeren)';
+    sel.appendChild(o);
+  }
+  sel.value=id;
+  if(!sel.value)sel.value='std';
+}
+const dashSettingsRef=db.ref('settings/dashboards');
+dashSettingsRef.off('value',handleDashSettings);
+dashSettingsRef.on('value',handleDashSettings);
+
 async function createUser(){
   const name=document.getElementById('n-name').value.trim();
   const email=document.getElementById('n-email').value.trim();
@@ -230,6 +279,7 @@ async function createUser(){
   const role=document.getElementById('n-role').value;
   const lines=role==='linjeoperator'?getChecked('n-lchecks'):[];
   const shiftAccess=document.getElementById('n-shift').checked;
+  const dashboardId=document.getElementById('n-dash').value||'std';
   document.getElementById('cerr').style.display='none';
   document.getElementById('cok').style.display='none';
   if(!name||!email||!pass){showMsg('cerr','Fyll inn alle feltene.');return;}
@@ -239,7 +289,7 @@ async function createUser(){
     const sec=firebase.initializeApp(FB,'tmp-'+Date.now());
     const cred=await sec.auth().createUserWithEmailAndPassword(email,pass);
     await sec.auth().signOut();await sec.delete();
-    await db.ref('users/'+cred.user.uid).set({name,email,role,lines,shiftAccess,createdAt:Date.now()});
+    await db.ref('users/'+cred.user.uid).set({name,email,role,lines,shiftAccess,dashboardId,createdAt:Date.now()});
     document.getElementById('n-name').value='';document.getElementById('n-email').value='';document.getElementById('n-pass').value='';document.getElementById('n-shift').checked=false;
     showMsg('cok','✓ Bruker "'+name+'" er opprettet.');
     showToast('Bruker opprettet');
@@ -260,6 +310,7 @@ function openEdit(uid){
     document.getElementById('pw-sec').style.display='none';
     buildChecks('e-lchecks',u.lines||[]);
     document.getElementById('e-shift').checked=u.shiftAccess===true;
+    setDashSelect(u.dashboardId||'std');
     toggleSec('e-role','e-lsec');
     document.getElementById('emodal').classList.add('on');
   });
@@ -271,9 +322,10 @@ async function saveEdit(){
   const role=document.getElementById('e-role').value;
   const lines=role==='linjeoperator'?getChecked('e-lchecks'):[];
   const shiftAccess=document.getElementById('e-shift').checked;
+  const dashboardId=document.getElementById('e-dash').value||'std';
   const pw=document.getElementById('e-pw').value;
   if(!name){showToast('Skriv inn navn',true);return;}
-  await db.ref('users/'+editUid).update({name,role,lines,shiftAccess});
+  await db.ref('users/'+editUid).update({name,role,lines,shiftAccess,dashboardId});
   if(pw){if(pw.length<8){showToast('Passord må være minst 8 tegn',true);return;}await db.ref('pwResets/'+editUid).set({pw,at:Date.now()});}
   showToast('Lagret');closeEdit();
 }

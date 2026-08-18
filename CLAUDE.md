@@ -34,6 +34,24 @@ Siemens S7-1500 PLS → bridge.py (OPC-UA, fabrikk-PC) → Firebase RTDB → Git
 - `plan/shift/{YYYY-MM-DD}/{lk}` — `{skift, bemanning, product, importedAt, importedBy}`
 - `calibrationReviews/{lk}/{pushId}` — logg over kapasitetskalibrering: `{ts, by, byName, line, product, dateKey, hour, dpk, impliedRateDpk, impliedCap, currentCap, pct, decision:"accept"|"reject", newCap, comment}`
 - `pwResets/{uid}` — `{pw, at}` fra brukere.html. **⚠️ Passord i klartekst i en database med åpne regler — se sikkerhetsnotatet under.**
+- `settings/dashboards/{id}` — **delte** dashboard-maler (master): `{name, sections{sekKey:{on,order}}, createdAt, createdBy, updatedAt, updatedBy}`
+- `userDashboards/{uid}/{id}` — brukerens **egne** maler, samme form
+
+### Dashboard-maler
+Seksjonene i index.html er pakket i `<section class="dsec" data-sec="KEY">`. Nøklene er
+`filter, kpi, oversikt, nedetid, plan, effektivitet, registrer, logg` (se `DSECTIONS`).
+`applyDashboard(id)` slår seksjoner av/på og sorterer dem med `appendChild` — ingen CSS-order,
+så det fungerer uavhengig av layout. `users/{uid}.dashboardId` er `'std'` (innebygd standard,
+kan ikke slettes), `'sh:<id>'` (delt mal) eller `'me:<id>'` (egen mal). Master tildeler delte
+maler i brukere.html; alle kan duplisere til en egen variant via ⚙ Dashboard på dashboardet.
+
+### Chatbot
+Lokal databot i index.html — ingen API-nøkkel, ingen server. `botLocal()` tolker norske
+spørsmål (nedetid, OEE, produksjon, verste maskin/årsak, status, ubehandlede) og regner svarene
+med de **samme** funksjonene som dashboardet (`downtimeForDates`, `oeeOutput`, `eskerFor`), så
+tallene stemmer alltid med skjermen. `botAsk()` er eneste inngang: sett `BOT.backend='api'` og
+`BOT.endpoint` til en proxy-URL for å bytte til Claude API senere. **Nøkkelen skal aldri i denne
+repoen** — siden er offentlig. `botContext()` sender et kompakt sammendrag, aldri hele databasen.
 
 ### Nøkkelfunksjon
 `lk(line)` = linjenavn med mellomrom/skråstrek → `_` (f.eks. "Løp 1" → "Løp_1"). Maskinnøkkel: `lk(line)+'__'+lk(machine)`.
