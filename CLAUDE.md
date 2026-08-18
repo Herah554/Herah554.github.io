@@ -30,6 +30,10 @@ Siemens S7-1500 PLS → bridge.py (OPC-UA, fabrikk-PC) → Firebase RTDB → Git
 - `productHourly/{date}/{lineKey}/{HH}` — esker per time (logges fra åpent dashboard hvert 3. min)
 - `active_product/{lk}` — `{product, setAt}`
 - `opc_status/` — `{connected, last_seen, url}`
+- `plan/production/{YYYY-MM-DD}/{lk}` — array av `{product, antall, timer, importedAt, importedBy}` (fra import.html; brukes av «Plan mot faktisk» i index.html)
+- `plan/shift/{YYYY-MM-DD}/{lk}` — `{skift, bemanning, product, importedAt, importedBy}`
+- `calibrationReviews/{lk}/{pushId}` — logg over kapasitetskalibrering: `{ts, by, byName, line, product, dateKey, hour, dpk, impliedRateDpk, impliedCap, currentCap, pct, decision:"accept"|"reject", newCap, comment}`
+- `pwResets/{uid}` — `{pw, at}` fra brukere.html. **⚠️ Passord i klartekst i en database med åpne regler — se sikkerhetsnotatet under.**
 
 ### Nøkkelfunksjon
 `lk(line)` = linjenavn med mellomrom/skråstrek → `_` (f.eks. "Løp 1" → "Løp_1"). Maskinnøkkel: `lk(line)+'__'+lk(machine)`.
@@ -42,11 +46,11 @@ Siemens S7-1500 PLS → bridge.py (OPC-UA, fabrikk-PC) → Firebase RTDB → Git
 - `rapporter.html` — år/måned/uke-oversikter, sammenlign år, hastighet per produkt (master/leder)
 - `skiftrapport.html` — skiftrapport per linje/dato (ny/rediger + historikk), skriver til `shiftReports/`. Tilgang: master, leder, eller bruker med `shiftAccess:true`. Operatør ser kun sine egne linjer i historikken.
 - `logg.html` — «Logg & data» (**kun master**): rediger dagstall i `production/`, full hendelseslogg med retting/sletting, systemstatus fra `opc_status/`
+- `import.html` — CSV-import (master/leder): plandata til `plan/production` og `plan/shift`, samt fletting av produkter inn i `settings/products`
 - `login.html` — innlogging
 
 Referert, men ikke i repoet:
 - `bridge.py` — OPC-UA→Firebase. Kjører kun på fabrikk-PC (`C:\Users\Teknisk-Felles\Documents\bridge.py`); ingen kopi er sjekket inn her.
-- `import.html` — CSV-import av produksjonsplaner/grunndata. Finnes ikke i repoet pt.
 
 ## Linjer
 Løp 1, Løp 2, Løp 3, Rollo, Koba, Glacier, Krokan. Kun **Glacier** er koblet til OPC-UA pt.
@@ -93,6 +97,8 @@ Node-IDer:
 ## Pågående / neste oppgaver
 
 1. **Firebase-sikkerhet (VIKTIGST):** Firebase Auth-bruker for bridge.py → skriv om bridge.py til ekte auth → rollebaserte regler. Må gjøres på fabrikk-PC.
+   - Verifisert 18.08.2026: `curl` mot `/opc_status.json` og `/users.json?shallow=true` uten auth gir HTTP 200. Hele basen er lesbar og skrivbar for hvem som helst.
+   - `pwResets/{uid}` lagrer passord i **klartekst** — verst rammede node. Bør fjernes til fordel for Firebase Auth sin egen passord-reset, uavhengig av regelfiksen.
 2. bridge.py som Windows-tjeneste (NSSM) med reconnect, buffering, logging.
 3. Grunndata for 12xxx-produktserien mangler (har t.o.m. art.nr 11934).
 4. Flere linjer på OPC-UA.
