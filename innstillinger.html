@@ -87,6 +87,24 @@ input:focus,select:focus{border-color:var(--accent)}
 .sched input[type=time]{padding:5px 7px;font-size:12px;width:108px}
 .sched input[type=checkbox]{width:auto;cursor:pointer}
 .sched tr.off .day,.sched tr.off input[type=time]{opacity:.4}
+
+/* ── Skiftkalender ── */
+.cal-head{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:4px}
+.cal-head>div{font-size:10px;font-family:var(--mono);color:var(--text3);text-transform:uppercase;letter-spacing:.06em;text-align:center}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cal-cell{min-height:74px;border:1px solid var(--border);border-radius:var(--r);padding:4px;background:var(--bg2);cursor:pointer;display:flex;flex-direction:column;gap:3px}
+.cal-cell:hover{border-color:var(--accent)}
+.cal-cell.cal-out{background:transparent;border:none;cursor:default}
+.cal-cell.cal-today{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.cal-num{font-size:11px;font-family:var(--mono);color:var(--text3)}
+.cal-bub{font-size:9.5px;color:#fff;border-radius:99px;padding:2px 7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500}
+.mover{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:200;align-items:center;justify-content:center;padding:1rem}
+.mover.on{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:1.4rem;width:420px;max-width:100%;max-height:90vh;overflow-y:auto;box-shadow:var(--sh)}
+.modal h3{font-size:15px;font-weight:600;margin-bottom:.3rem}
+.day-row{display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--r);margin-bottom:5px}
+.day-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+@media(max-width:700px){.cal-cell{min-height:58px}.cal-bub{font-size:8.5px;padding:1px 5px}}
 </style>
 </head>
 <body>
@@ -158,6 +176,60 @@ input:focus,select:focus{border-color:var(--accent)}
     <label style="display:flex;align-items:center;gap:9px;font-size:13px;margin-bottom:8px;cursor:pointer"><input type="checkbox" id="sh-prompt" style="width:auto">Vis prompt på dashbordet når en timekontroll mangler</label>
     <label style="display:flex;align-items:center;gap:9px;font-size:13px;margin-bottom:12px;cursor:pointer"><input type="checkbox" id="sh-auto" style="width:auto">Auto-forslag fra MES (operatør bekrefter likevel)</label>
     <button class="bp" onclick="saveTimekontroll()">Lagre timekontroll-innstillinger</button>
+  </div>
+
+  <h2 class="master-only">Skiftmaler</h2>
+  <div class="card master-only">
+    <div class="ct"><div class="ca" style="background:var(--amber)"></div>Skiftmaler</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:.7rem;line-height:1.55">
+      Lag malene én gang, og legg dem inn i kalenderen under. En mal som krysser midnatt
+      (f.eks. 22:00–06:00) klippes ved døgnskillet, så legg inn natt-timene på neste dag også
+      hvis de skal telle der.
+    </div>
+    <div id="tpl-list" class="chips" style="margin-bottom:.7rem"></div>
+    <div class="row" style="flex-wrap:wrap;gap:8px;align-items:flex-end">
+      <div><div class="lbl">Navn</div><input type="text" id="tpl-name" placeholder="Dagskift" style="width:130px"></div>
+      <div><div class="lbl">Fra</div><input type="time" id="tpl-start" value="06:00" style="width:110px"></div>
+      <div><div class="lbl">Til</div><input type="time" id="tpl-end" value="14:00" style="width:110px"></div>
+      <div><div class="lbl">Bemanning</div><input type="number" id="tpl-bem" min="0" step="1" placeholder="4" style="width:90px"></div>
+      <div><div class="lbl">Farge</div><input type="color" id="tpl-color" value="#2563eb" style="width:52px;padding:2px;height:34px"></div>
+      <button class="bgrn" onclick="addTemplate()">+ Legg til mal</button>
+    </div>
+  </div>
+
+  <h2 class="master-only">Skiftkalender</h2>
+  <div class="card master-only">
+    <div class="ct"><div class="ca" style="background:var(--blue)"></div>Skiftkalender</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:.8rem;line-height:1.55">
+      Bobler her <b>overstyrer ukesplanen</b> for den linjen den datoen, og blir grunnlaget for
+      planlagt tid i OEE. Dager uten bobler bruker ukesplanen som før. Linjas pauser trekkes fra
+      i begge tilfeller.
+    </div>
+    <div class="row" style="gap:8px;align-items:center;margin-bottom:.8rem;flex-wrap:wrap">
+      <select id="cal-line" onchange="renderCal()" style="width:150px"></select>
+      <button class="bg" onclick="calMove(-1)">←</button>
+      <b id="cal-label" style="min-width:150px;text-align:center;font-size:13px">—</b>
+      <button class="bg" onclick="calMove(1)">→</button>
+      <button class="bg" onclick="calToday()">I dag</button>
+      <span id="cal-sum" style="margin-left:auto;font-size:12px;color:var(--text2)"></span>
+    </div>
+    <div class="cal-head">
+      <div>Man</div><div>Tir</div><div>Ons</div><div>Tor</div><div>Fre</div><div>Lør</div><div>Søn</div>
+    </div>
+    <div class="cal-grid" id="cal-grid"></div>
+  </div>
+
+  <div class="mover" id="day-modal">
+    <div class="modal">
+      <h3 id="day-title">Dag</h3>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:.8rem" id="day-sub">—</div>
+      <div id="day-bubbles" style="margin-bottom:.9rem"></div>
+      <div class="lbl">Legg til skift</div>
+      <div id="day-tpls" class="chips" style="margin-bottom:.4rem"></div>
+      <div style="display:flex;gap:8px;margin-top:1rem">
+        <button class="bg" style="flex:1" onclick="closeDayModal()">Lukk</button>
+      </div>
+    </div>
   </div>
 
   <h2 class="master-only">Dashboard-maler</h2>
@@ -853,6 +925,236 @@ function showT(msg,isE=false){
   t.style.opacity='1';
   setTimeout(()=>t.style.opacity='0',3000);
 }
+
+/* ═══════════════════════════════════════════════════════════
+   SKIFTMALER + SKIFTKALENDER
+   settings/shiftTemplates/{id} = {name,start,end,bemanning,color}
+   shiftPlan/{YYYY-MM-DD}/{lk}/{pushId} = {tplId,name,start,end,bemanning,color}
+
+   Bobler overstyrer ukesplanen i index.html (se dayWindows()).
+   Bare et vindu på tre måneder lastes der, så kalenderen her holder
+   seg til én måned om gangen.
+   ═══════════════════════════════════════════════════════════ */
+const CAL_LINES=['Løp 1','Løp 2','Løp 3','Rollo','Koba','Glacier','Krokan'];
+const MND=['januar','februar','mars','april','mai','juni','juli','august','september','oktober','november','desember'];
+let TPLS={}, PLAN={}, calYear=new Date().getFullYear(), calMonth=new Date().getMonth(), dayKey=null;
+let planRef=null;
+
+function dk(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function hhmm(t){return(t||'').slice(0,5);}
+function durMin(s,e){const a=tmin(s);let b=tmin(e);if(b<=a)b=1440;return Math.max(0,b-a);}
+function tmin(t){if(!t)return 0;const p=String(t).split(':');return(parseInt(p[0],10)||0)*60+(parseInt(p[1],10)||0);}
+function fmtH(m){const h=Math.floor(m/60),r=m%60;return r?h+'t '+r+'m':h+'t';}
+
+/* ── Maler ── */
+function handleTpls(snap){TPLS=snap.val()||{};renderTpls();renderCal();}
+db.ref('settings/shiftTemplates').off('value',handleTpls);
+db.ref('settings/shiftTemplates').on('value',handleTpls);
+
+function renderTpls(){
+  const wrap=document.getElementById('tpl-list');
+  if(!wrap)return;
+  wrap.innerHTML='';
+  const keys=Object.keys(TPLS);
+  if(!keys.length){
+    wrap.innerHTML='<span style="font-size:12px;color:var(--text3)">Ingen maler enda.</span>';
+    return;
+  }
+  keys.forEach(k=>{
+    const t=TPLS[k];
+    const c=document.createElement('span');
+    c.className='chip';
+    c.style.borderLeft='4px solid '+(t.color||'#2563eb');
+    c.textContent=t.name+' '+hhmm(t.start)+'–'+hhmm(t.end)+
+      ' ('+fmtH(durMin(t.start,t.end))+(t.bemanning?', '+t.bemanning+' pers':'')+')';
+    const x=document.createElement('span');
+    x.className='cd';x.textContent='✕';x.title='Slett mal';
+    x.addEventListener('click',function(){delTemplate(k,t.name);});
+    c.appendChild(x);
+    wrap.appendChild(c);
+  });
+}
+function addTemplate(){
+  const name=document.getElementById('tpl-name').value.trim();
+  const start=document.getElementById('tpl-start').value;
+  const end=document.getElementById('tpl-end').value;
+  const bem=parseInt(document.getElementById('tpl-bem').value,10);
+  const color=document.getElementById('tpl-color').value;
+  if(!name){showT('Gi malen et navn',true);return;}
+  if(!start||!end){showT('Sett fra- og til-tid',true);return;}
+  db.ref('settings/shiftTemplates').push({name,start,end,bemanning:isNaN(bem)?null:bem,color})
+    .then(()=>{document.getElementById('tpl-name').value='';document.getElementById('tpl-bem').value='';showT('Mal lagt til');})
+    .catch(()=>showT('Lagring feilet',true));
+}
+function delTemplate(id,name){
+  if(!confirm('Slette malen "'+name+'"? Bobler som allerede er lagt inn beholdes.'))return;
+  db.ref('settings/shiftTemplates/'+id).remove()
+    .then(()=>showT('Mal slettet',true)).catch(()=>showT('Sletting feilet',true));
+}
+
+/* ── Kalender ── */
+function handlePlan(snap){PLAN=snap.val()||{};renderCal();}
+function listenPlan(){
+  const from=dk(new Date(calYear,calMonth,1));
+  const to=dk(new Date(calYear,calMonth+1,0));
+  if(planRef)planRef.off('value',handlePlan);
+  planRef=db.ref('shiftPlan').orderByKey().startAt(from).endAt(to);
+  planRef.on('value',handlePlan);
+}
+function calMove(d){
+  calMonth+=d;
+  if(calMonth<0){calMonth=11;calYear--;}
+  if(calMonth>11){calMonth=0;calYear++;}
+  listenPlan();renderCal();
+}
+function calToday(){const n=new Date();calYear=n.getFullYear();calMonth=n.getMonth();listenPlan();renderCal();}
+
+function initCalLines(){
+  const sel=document.getElementById('cal-line');
+  if(!sel||sel.options.length)return;
+  CAL_LINES.forEach(l=>{
+    const o=document.createElement('option');o.value=l;o.textContent=l;sel.appendChild(o);
+  });
+}
+function bubblesFor(dateKey,line){
+  const d=PLAN[dateKey];
+  if(!d)return [];
+  const raw=d[lk(line)];
+  if(!raw)return [];
+  return Object.keys(raw).map(k=>Object.assign({_id:k},raw[k]));
+}
+function renderCal(){
+  initCalLines();
+  const grid=document.getElementById('cal-grid');
+  if(!grid)return;
+  const line=document.getElementById('cal-line').value||CAL_LINES[0];
+  document.getElementById('cal-label').textContent=MND[calMonth]+' '+calYear;
+  grid.innerHTML='';
+  const first=new Date(calYear,calMonth,1);
+  const lead=(first.getDay()+6)%7;               // mandag = 0
+  const days=new Date(calYear,calMonth+1,0).getDate();
+  const todayK=dk(new Date());
+  let sumMin=0, sumDays=0;
+  for(let i=0;i<lead;i++){
+    const c=document.createElement('div');c.className='cal-cell cal-out';grid.appendChild(c);
+  }
+  for(let d=1;d<=days;d++){
+    const date=new Date(calYear,calMonth,d);
+    const key=dk(date);
+    const cell=document.createElement('div');
+    cell.className='cal-cell'+(key===todayK?' cal-today':'');
+    const num=document.createElement('div');
+    num.className='cal-num';num.textContent=d;
+    cell.appendChild(num);
+    const bs=bubblesFor(key,line);
+    if(bs.length)sumDays++;
+    bs.forEach(b=>{
+      const mins=durMin(b.start,b.end);
+      sumMin+=mins;
+      const el=document.createElement('div');
+      el.className='cal-bub';
+      el.style.background=(b.color||'#2563eb');
+      el.textContent=hhmm(b.start)+'–'+hhmm(b.end)+(b.bemanning?' · '+b.bemanning+'p':'');
+      el.title=b.name+' — '+fmtH(mins)+(b.bemanning?', '+b.bemanning+' personer':'');
+      cell.appendChild(el);
+    });
+    cell.addEventListener('click',function(){openDayModal(key,line);});
+    grid.appendChild(cell);
+  }
+  document.getElementById('cal-sum').textContent=
+    sumDays?(sumDays+' dager planlagt · '+fmtH(sumMin)+' totalt'):'Ingen skift lagt inn — ukesplanen gjelder';
+}
+
+/* ── Dag-modal ── */
+function openDayModal(key,line){
+  dayKey=key;
+  const d=new Date(key+'T12:00:00');
+  document.getElementById('day-title').textContent=
+    d.getDate()+'. '+MND[d.getMonth()]+' '+d.getFullYear();
+  document.getElementById('day-sub').textContent=line;
+  renderDayModal(line);
+  document.getElementById('day-modal').classList.add('on');
+}
+function closeDayModal(){
+  document.getElementById('day-modal').classList.remove('on');
+  dayKey=null;
+}
+function renderDayModal(line){
+  const wrap=document.getElementById('day-bubbles');
+  const bs=bubblesFor(dayKey,line);
+  wrap.innerHTML='';
+  if(!bs.length){
+    wrap.innerHTML='<div style="font-size:12px;color:var(--text3)">Ingen skift denne dagen — ukesplanen gjelder.</div>';
+  }
+  let tot=0;
+  bs.forEach(b=>{
+    const mins=durMin(b.start,b.end);tot+=mins;
+    const row=document.createElement('div');
+    row.className='day-row';
+    const dot=document.createElement('span');
+    dot.className='day-dot';dot.style.background=b.color||'#2563eb';
+    row.appendChild(dot);
+    const txt=document.createElement('span');
+    txt.style.flex='1';txt.style.fontSize='12px';
+    txt.textContent=b.name+' · '+hhmm(b.start)+'–'+hhmm(b.end)+' ('+fmtH(mins)+')';
+    row.appendChild(txt);
+    const bem=document.createElement('input');
+    bem.type='number';bem.min='0';bem.step='1';bem.value=(b.bemanning==null?'':b.bemanning);
+    bem.placeholder='pers';bem.style.width='62px';bem.style.padding='4px 6px';bem.style.fontSize='12px';
+    bem.addEventListener('change',function(){
+      const v=parseInt(bem.value,10);
+      db.ref('shiftPlan/'+dayKey+'/'+lk(line)+'/'+b._id+'/bemanning').set(isNaN(v)?null:v)
+        .then(()=>showT('Bemanning oppdatert')).catch(()=>showT('Lagring feilet',true));
+    });
+    row.appendChild(bem);
+    const del=document.createElement('button');
+    del.className='cd';del.textContent='✕';del.title='Fjern';
+    del.style.border='none';del.style.background='none';del.style.cursor='pointer';
+    del.addEventListener('click',function(){
+      db.ref('shiftPlan/'+dayKey+'/'+lk(line)+'/'+b._id).remove()
+        .then(()=>{showT('Skift fjernet',true);renderDayModal(line);})
+        .catch(()=>showT('Sletting feilet',true));
+    });
+    row.appendChild(del);
+    wrap.appendChild(row);
+  });
+  if(bs.length){
+    const s=document.createElement('div');
+    s.style.fontSize='11px';s.style.color='var(--text3)';s.style.marginTop='6px';
+    s.textContent='Planlagt tid denne dagen: '+fmtH(tot)+' (før pauser trekkes fra)';
+    wrap.appendChild(s);
+  }
+  const tw=document.getElementById('day-tpls');
+  tw.innerHTML='';
+  const keys=Object.keys(TPLS);
+  if(!keys.length){
+    tw.innerHTML='<span style="font-size:12px;color:var(--text3)">Lag en skiftmal først.</span>';
+    return;
+  }
+  keys.forEach(k=>{
+    const t=TPLS[k];
+    const b=document.createElement('button');
+    b.className='chip';
+    b.style.cursor='pointer';b.style.border='1px solid var(--border)';
+    b.style.borderLeft='4px solid '+(t.color||'#2563eb');
+    b.textContent='+ '+t.name+' '+hhmm(t.start)+'–'+hhmm(t.end);
+    b.addEventListener('click',function(){addBubble(k,line);});
+    tw.appendChild(b);
+  });
+}
+function addBubble(tplId,line){
+  const t=TPLS[tplId];
+  if(!t||!dayKey)return;
+  db.ref('shiftPlan/'+dayKey+'/'+lk(line)).push({
+    tplId:tplId,name:t.name,start:t.start,end:t.end,
+    bemanning:(t.bemanning==null?null:t.bemanning),color:t.color||'#2563eb',
+    addedAt:Date.now()
+  }).then(()=>{showT('Skift lagt inn');renderDayModal(line);})
+    .catch(()=>showT('Lagring feilet',true));
+}
+
+listenPlan();
+
 </script>
 </body>
 </html>

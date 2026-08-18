@@ -523,7 +523,7 @@ let EVENTS=[], SETTINGS={globalGoal:30,oeeGoal:97,defaultDayHours:8,lineGoals:{}
 const LINES_ALL=['Løp 1','Løp 2','Løp 3','Rollo','Koba','Glacier','Krokan'];
 let filterLine='Alle', myProfile=null, delId=null, delAll=false, charts={}, oeeMode='wtd';
 let dateFrom=null, dateTo=null, datePreset='week';
-let PROD_ALL={}, PROD_HOURLY={}, ACTIVE_PROD={};
+let PROD_ALL={}, PROD_HOURLY={}, ACTIVE_PROD={}, SHIFT_PLAN={};
 let CAL_REVIEWS={}, CAL_EXCLUDED={}, calCtx=null, SHIFT_REPORTS={};
 // ── DRIFT/STOPP-STATUS (basert på om tellingen øker) ──
 const RUN_THRESHOLD=4*60000;            // 4 min uten økning = stoppet
@@ -703,6 +703,17 @@ eventsRef.off('value');
 settingsRef.on('value', handleSettings);
 eventsRef.on('value', handleEvents);
 
+// ── SKIFTKALENDER ──
+// Bare et vindu rundt dagens dato lastes — hele shiftPlan ville vokse uten grense.
+// Dekker forrige, denne og neste måned, som er alt renderAll kan spørre om.
+function handleShiftPlan(snap){SHIFT_PLAN=snap.val()||{};renderAll();}
+const _spNow=new Date();
+const shiftPlanRef=db.ref('shiftPlan').orderByKey()
+  .startAt(dateKeyOf(new Date(_spNow.getFullYear(),_spNow.getMonth()-1,1)))
+  .endAt(dateKeyOf(new Date(_spNow.getFullYear(),_spNow.getMonth()+2,0)));
+shiftPlanRef.off('value',handleShiftPlan);
+shiftPlanRef.on('value',handleShiftPlan);
+
 // ── PRODUCTION + ACTIVE PRODUCT LISTENERS (for OEE engine) ──
 const prodRef=db.ref('production'), activeRef=db.ref('active_product');
 prodRef.off('value');
@@ -865,29 +876,19 @@ function _brkmin(sched){return (sched.breaks||[]).reduce((a,b)=>a+Math.max(0,_tm
 function dateKeyOf(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
 
 function plannedMinForDate(line,dateObj){
-  const sched=getSched(line);
-  const day=sched[_WD[dateObj.getDay()]];
-  if(!day||!day.on)return 0;
-  const full=Math.max(0,_dmin(day)-_brkmin(sched));
+  const iv=_subBreaks(dayWindows(line,dateObj),getSched(line));
+  if(!iv.length)return 0;
+  const total=iv.reduce((t,x)=>t+(x[1]-x[0]),0);
   const now=new Date();
-  const sameDay=dateObj.toDateString()===now.toDateString();
-  if(!sameDay)return dateObj>now?0:full;
-  // I dag: planlagt tid som har gått innenfor produksjonsvinduet
-  const wStart=_tmin(day.start);
-  const wEnd=(day.end==='00:00'||day.end==='24:00')?1440:_tmin(day.end);
+  if(dateObj.toDateString()!==now.toDateString())return dateObj>now?0:total;
+  // I dag: bare den delen av arbeidsvinduet som faktisk har passert
   const nowMin=now.getHours()*60+now.getMinutes();
-  let elapsed=Math.max(0,Math.min(nowMin,wEnd)-wStart);
-  let eb=0;
-  (sched.breaks||[]).forEach(b=>{const lo=Math.max(_tmin(b.start),wStart),hi=Math.min(_tmin(b.end),Math.min(nowMin,wEnd));if(hi>lo)eb+=hi-lo;});
-  return Math.max(0,elapsed-eb);
+  return iv.reduce((t,x)=>t+Math.max(0,Math.min(nowMin,x[1])-x[0]),0);
 }
 
 // Full planlagt produksjonstid for hele dagen (uavhengig av klokkeslett nå)
 function plannedMinFullDay(line,dateObj){
-  const sched=getSched(line);
-  const day=sched[_WD[dateObj.getDay()]];
-  if(!day||!day.on)return 0;
-  return Math.max(0,_dmin(day)-_brkmin(sched));
+  return _subBreaks(dayWindows(line,dateObj),getSched(line)).reduce((t,x)=>t+(x[1]-x[0]),0);
 }
 
 function lineProduct(line){
@@ -944,15 +945,61 @@ function daysThisWeek(){const n=new Date();const mon=new Date(n);mon.setDate(n.g
 function daysThisMonth(){const n=new Date();const dim=new Date(n.getFullYear(),n.getMonth()+1,0).getDate();const a=[];for(let i=1;i<=dim;i++)a.push(new Date(n.getFullYear(),n.getMonth(),i,12,0,0));return a;}
 
 // ── NEDETID-FORDELING (klippet mot planlagt produksjonstid) ──
-function prodIntervalsForDate(line,dateObj){
+/* ── Arbeidsvinduer for en dato ──────────────────────────────
+   Skiftkalenderen (shiftPlan) overstyrer ukesplanen når det er lagt
+   inn bobler for linjen den datoen. Ellers brukes ukesplanen som før.
+   Pauser er en egenskap ved linja og trekkes fra i begge tilfeller,
+   slik at OEE, nedetid og plantid alltid regner likt. */
+function _subBreaks(iv,sched){
+  (sched.breaks||[]).forEach(b=>{
+    const bs=_tmin(b.start),be=_tmin(b.end);
+    if(be<=bs)return;
+    iv=iv.flatMap(([is,ie])=>{
+      if(be<=is||bs>=ie)return[[is,ie]];
+      const o=[];if(bs>is)o.push([is,bs]);if(be<ie)o.push([be,ie]);return o;
+    });
+  });
+  return iv;
+}
+/* Bobler fra skiftkalenderen, slått sammen ved overlapp.
+   En boble som krysser midnatt klippes ved døgnskillet. */
+function shiftWindowsFor(line,dateObj){
+  const day=SHIFT_PLAN[dateKeyOf(dateObj)];
+  if(!day)return null;
+  const raw=day[lk(line)];
+  if(!raw)return null;
+  const list=Object.keys(raw).map(k=>raw[k]).filter(Boolean);
+  if(!list.length)return null;
+  const iv=[];
+  list.forEach(b=>{
+    const s=_tmin(b.start);
+    let e=_tmin(b.end);
+    if(e<=s)e=1440;
+    if(e>s)iv.push([s,e]);
+  });
+  if(!iv.length)return null;
+  iv.sort((a,b)=>a[0]-b[0]);
+  const out=[iv[0]];
+  for(let i=1;i<iv.length;i++){
+    const last=out[out.length-1];
+    if(iv[i][0]<=last[1])last[1]=Math.max(last[1],iv[i][1]);
+    else out.push(iv[i]);
+  }
+  return out;
+}
+function dayWindows(line,dateObj){
+  const sh=shiftWindowsFor(line,dateObj);
+  if(sh)return sh;
   const sched=getSched(line);
   const day=sched[_WD[dateObj.getDay()]];
   if(!day||!day.on)return [];
-  const base=new Date(dateObj.getFullYear(),dateObj.getMonth(),dateObj.getDate()).getTime();
   const s=_tmin(day.start), e=(day.end==='00:00'||day.end==='24:00')?1440:_tmin(day.end);
-  if(e<=s)return [];
-  let iv=[[s,e]];
-  (sched.breaks||[]).forEach(b=>{const bs=_tmin(b.start),be=_tmin(b.end);if(be<=bs)return;iv=iv.flatMap(([is,ie])=>{if(be<=is||bs>=ie)return[[is,ie]];const o=[];if(bs>is)o.push([is,bs]);if(be<ie)o.push([be,ie]);return o;});});
+  return e>s?[[s,e]]:[];
+}
+function prodIntervalsForDate(line,dateObj){
+  const iv=_subBreaks(dayWindows(line,dateObj),getSched(line));
+  if(!iv.length)return [];
+  const base=new Date(dateObj.getFullYear(),dateObj.getMonth(),dateObj.getDate()).getTime();
   return iv.map(([is,ie])=>[base+is*60000,base+ie*60000]);
 }
 function downtimeOnDate(line,dateObj){

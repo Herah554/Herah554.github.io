@@ -34,16 +34,34 @@ Siemens S7-1500 PLS → bridge.py (OPC-UA, fabrikk-PC) → Firebase RTDB → Git
 - `plan/shift/{YYYY-MM-DD}/{lk}` — `{skift, bemanning, product, importedAt, importedBy}`
 - `calibrationReviews/{lk}/{pushId}` — logg over kapasitetskalibrering: `{ts, by, byName, line, product, dateKey, hour, dpk, impliedRateDpk, impliedCap, currentCap, pct, decision:"accept"|"reject", newCap, comment}`
 - `pwResets/{uid}` — `{pw, at}` fra brukere.html. **⚠️ Passord i klartekst i en database med åpne regler — se sikkerhetsnotatet under.**
-- `settings/dashboards/{id}` — **delte** dashboard-maler (master): `{name, sections{sekKey:{on,order}}, createdAt, createdBy, updatedAt, updatedBy}`
+- `settings/dashboards/{id}` — **delte** dashboard-maler (master): `{name, widgets{key:{on,order,w}}, createdAt, createdBy, updatedAt, updatedBy}`
 - `userDashboards/{uid}/{id}` — brukerens **egne** maler, samme form
+- `settings/shiftTemplates/{id}` — skiftmaler: `{name, start, end, bemanning, color}`
+- `shiftPlan/{YYYY-MM-DD}/{lk}/{pushId}` — skiftbobler: `{tplId, name, start, end, bemanning, color, addedAt}`
 
-### Dashboard-maler
-Seksjonene i index.html er pakket i `<section class="dsec" data-sec="KEY">`. Nøklene er
-`filter, kpi, oversikt, nedetid, plan, effektivitet, registrer, logg` (se `DSECTIONS`).
-`applyDashboard(id)` slår seksjoner av/på og sorterer dem med `appendChild` — ingen CSS-order,
-så det fungerer uavhengig av layout. `users/{uid}.dashboardId` er `'std'` (innebygd standard,
+### Widgets og dashboard-maler
+Dashboardet er 20 widgets i et 12-kolonners rutenett (`#wgrid`). Widgetene lager **ikke** ny
+markup — `buildWidgets()` adopterer elementer som allerede finnes og flytter dem inn i
+rutenettet, så alle id-er, lyttere og Chart.js-instanser overlever. Registeret er `WIDGETS`;
+`els`-syntaksen er `#id` eller `#id^.klasse` (nærmeste forelder). Fanebarene `#main-tabs` og
+`#nd-tabs` skjules fordi hver fane er blitt egen widget, og `renderAll` tegner derfor både OEE
+og Produksjon i stedet for én av gangen. Dra bruker pointer events (ikke HTML5 drag-and-drop)
+så det virker med mus og finger på fabrikkens eldre Chrome. Lagres som
+`widgets:{key:{on,order,w}}` der `w` er antall kolonner (1–12).
+`users/{uid}.dashboardId` er `'std'` (innebygd standard,
 kan ikke slettes), `'sh:<id>'` (delt mal) eller `'me:<id>'` (egen mal). Master tildeler delte
 maler i brukere.html; alle kan duplisere til en egen variant via ⚙ Dashboard på dashboardet.
+
+### Skiftkalender
+Maler settes opp i innstillinger.html og legges inn per linje og dato som bobler.
+**Bobler overstyrer ukesplanen** (`settings/schedule`) for den linjen den datoen — det er hele
+poenget: helligdager og ekstraskift kan ikke uttrykkes i en evig ukesplan, så OEE ble regnet mot
+plantid som ikke stemte. Integrasjonen er ett punkt: `dayWindows(line,dateObj)` gir bobler hvis
+de finnes, ellers ukesplanen. `prodIntervalsForDate`, `plannedMinForDate` og `plannedMinFullDay`
+bygger alle på den, så nedetid og OEE kan ikke komme i utakt. Pauser er en egenskap ved linja og
+trekkes fra i begge tilfeller (`_subBreaks`). Bobler over midnatt klippes ved døgnskillet —
+natt-timene må legges inn på neste dag også. index.html laster bare et tre måneders vindu av
+`shiftPlan` (`orderByKey/startAt/endAt`), ellers ville noden vokse uten grense i minnet.
 
 ### Chatbot
 Lokal databot i index.html — ingen API-nøkkel, ingen server. `botLocal()` tolker norske
