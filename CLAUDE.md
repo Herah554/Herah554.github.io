@@ -140,9 +140,22 @@ Node-IDer:
 
 ## Pågående / neste oppgaver
 
-1. **Firebase-sikkerhet (VIKTIGST):** Firebase Auth-bruker for bridge.py → skriv om bridge.py til ekte auth → rollebaserte regler. Må gjøres på fabrikk-PC.
-   - Verifisert 18.08.2026: `curl` mot `/opc_status.json` og `/users.json?shallow=true` uten auth gir HTTP 200. Hele basen er lesbar og skrivbar for hvem som helst.
-   - `pwResets/{uid}` lagrer passord i **klartekst** — verst rammede node. Bør fjernes til fordel for Firebase Auth sin egen passord-reset, uavhengig av regelfiksen.
+1. **Firebase-sikkerhet (VIKTIGST) — klar til utrulling, venter på fabrikk-PC.**
+   Basen er fortsatt **helt åpen**: verifisert 18.08.2026 gir `curl` mot `/opc_status.json`
+   og `/users.json?shallow=true` uten auth HTTP 200. Reglene er skrevet, men **ikke publisert**.
+   - `database.rules.json` — ferdig. Krever innlogging på alt, rollestyrt skriving. Operatører
+     kan opprette/oppdatere hendelser men ikke slette, så slettesøknadene ikke kan omgås.
+   - `bridge_auth.py` — ferdig. `py bridge_auth.py --oppsett` logger inn, henter UID selv,
+     oppretter `users/<UID>` med `role:"bridge"` og lagrer passordet i `bridge_pw.txt`
+     (som aldri skal i git). Uten argumenter kjører den selvtest.
+   - Auth-brukeren `bridge@diplom-is.no` er opprettet i Firebase Auth 19.08.2026.
+   - **Rekkefølgen er kritisk:** oppsett → endre bridge.py → test at telling kommer inn →
+     *deretter* publisere reglene. Publiseres reglene først, blokkeres oppsettets skriving
+     til `users/`, som etterpå er forbeholdt master.
+   - bridge.py er ikke i repoet. David sender den inn når han er på fabrikk-PC-en, så
+     endringen (`?auth=API_KEY` → `?auth=fb.token()`) kan gjøres konkret.
+   - Gjort allerede: `pwResets` er fjernet fra brukere.html til fordel for Firebase sin egen
+     e-postflyt. Noden var tom, så ingen passord lå lagret.
 2. bridge.py som Windows-tjeneste (NSSM) med reconnect, buffering, logging.
 3. Grunndata for 12xxx-produktserien mangler (har t.o.m. art.nr 11934).
 4. Flere linjer på OPC-UA.
