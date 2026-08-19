@@ -2108,6 +2108,7 @@ Chart.defaults.animation=false;        // ingen re-animasjon ved oppdatering →
    ═══════════════════════════════════════════════════════════ */
 const GRID_COLS=12;
 const WSTEPS=[2,3,4,6,8,12];
+const MIN_H=90;   // laveste widget-høyde i piksler
 const WIDGETS=[
   {key:'filter',       name:'Filtrer',                 w:12, els:['#fbar']},
   {key:'linjestatus',  name:'Linjestatus',             w:12, els:['#line-status-card']},
@@ -2155,7 +2156,8 @@ function normWidgets(cfg){
     return{key:w.key,name:w.name,
       on:c.on!==false,
       order:(typeof c.order==='number')?c.order:i,
-      w:(typeof c.w==='number'&&c.w>0&&c.w<=GRID_COLS)?c.w:w.w};
+      w:(typeof c.w==='number'&&c.w>0&&c.w<=GRID_COLS)?c.w:w.w,
+      h:(typeof c.h==='number'&&c.h>=MIN_H)?c.h:0};
   }).sort((a,b)=>a.order-b.order);
 }
 function resolveEl(spec){
@@ -2193,6 +2195,10 @@ function buildWidgets(){
     bMax.className='wgt-b';bMax.textContent='+';bMax.title='Bredere';
     bMax.addEventListener('click',function(){stepWidth(w.key,1);});
     bar.appendChild(bMax);
+    const bAuto=document.createElement('button');
+    bAuto.className='wgt-b';bAuto.textContent='⇕';bAuto.title='Tilbake til automatisk høyde';
+    bAuto.addEventListener('click',function(){autoHeight(w.key);});
+    bar.appendChild(bAuto);
     const bHide=document.createElement('button');
     bHide.className='wgt-b';bHide.textContent='✕';bHide.title='Skjul / vis';
     bHide.addEventListener('click',function(){toggleWidget(w.key);});
@@ -2203,8 +2209,19 @@ function buildWidgets(){
     const res=document.createElement("div");
     res.className="wgt-res";
     res.title="Dra for å endre bredde";
-    res.addEventListener("pointerdown",function(e){wgtResizeStart(e,box);});
+    res.addEventListener("pointerdown",function(e){wgtResizeStart(e,box,"x");});
     box.appendChild(res);
+    // Nedre kant: bare høyde. Hjørnet: begge deler.
+    const bot=document.createElement("div");
+    bot.className="wgt-res-b";
+    bot.title="Dra for å endre høyde";
+    bot.addEventListener("pointerdown",function(e){wgtResizeStart(e,box,"y");});
+    box.appendChild(bot);
+    const cor=document.createElement("div");
+    cor.className="wgt-res-c";
+    cor.title="Dra for å endre bredde og høyde";
+    cor.addEventListener("pointerdown",function(e){wgtResizeStart(e,box,"xy");});
+    box.appendChild(cor);
     const body=document.createElement('div');
     body.className='wgt-body';
     w.els.forEach(function(sp){
@@ -2239,6 +2256,9 @@ function applyDashboard(id){
     if(!box)return;
     box.style.gridColumn='span '+item.w;
     box.setAttribute('data-w',item.w);
+    // Høyde i piksler. 0 betyr la innholdet bestemme, som før.
+    if(item.h){box.style.height=item.h+'px';box.setAttribute('data-h',item.h);}
+    else{box.style.height='';box.removeAttribute('data-h');}
     box.classList.toggle('off',!item.on);
     // Enkelte widgets er forbeholdt master/leder uansett hva malen sier
     const def=WIDGETS.filter(function(w){return w.key===item.key;})[0];
@@ -2272,7 +2292,9 @@ function curLayout(){
   const o={};
   Array.prototype.forEach.call(grid.children,function(box,i){
     const k=box.getAttribute('data-wkey');
-    o[k]={on:!box.classList.contains('off'),order:i,w:parseInt(box.getAttribute('data-w'),10)||6};
+    o[k]={on:!box.classList.contains('off'),order:i,
+      w:parseInt(box.getAttribute('data-w'),10)||6,
+      h:parseInt(box.getAttribute('data-h'),10)||0};
   });
   return o;
 }
@@ -2347,15 +2369,15 @@ function wgtDragEnd(){
 /* Endre bredde ved å dra i høyre kant.
    Bredden regnes om til hele kolonner mens du drar, slik at widgeten
    alltid lander på rutenettet og ikke mellom to kolonner. */
-let resBox=null, resCol=0;
-function wgtResizeStart(e,box){
+let resBox=null, resCol=0, resAxis="x";
+function wgtResizeStart(e,box,axis){
   if(!WEDIT)return;
   if(e.button!==undefined&&e.button!==0)return;
   resBox=box;
+  resAxis=axis||"x";
   const grid=document.getElementById("wgrid");
-  const gw=grid.getBoundingClientRect().width;
   const gap=12;
-  resCol=(gw-(GRID_COLS-1)*gap)/GRID_COLS+gap;   // bredden av én kolonne inkl. mellomrom
+  resCol=(grid.getBoundingClientRect().width-(GRID_COLS-1)*gap)/GRID_COLS+gap;
   box.classList.add("resizing");
   document.addEventListener("pointermove",wgtResizeMove);
   document.addEventListener("pointerup",wgtResizeEnd);
@@ -2364,15 +2386,25 @@ function wgtResizeStart(e,box){
   e.stopPropagation();
 }
 function wgtResizeMove(e){
-  if(!resBox||!resCol)return;
-  const left=resBox.getBoundingClientRect().left;
-  let cols=Math.round((e.clientX-left+12)/resCol);
-  cols=Math.max(1,Math.min(GRID_COLS,cols));
-  if(String(cols)===resBox.getAttribute("data-w"))return;
-  resBox.setAttribute("data-w",cols);
-  resBox.style.gridColumn="span "+cols;
-  const sz=resBox.querySelector(".wgt-size");
-  if(sz)sz.textContent=Math.round(cols/GRID_COLS*100)+"%";
+  if(!resBox)return;
+  const r=resBox.getBoundingClientRect();
+  if(resAxis.indexOf("x")>=0&&resCol){
+    let cols=Math.round((e.clientX-r.left+12)/resCol);
+    cols=Math.max(1,Math.min(GRID_COLS,cols));
+    if(String(cols)!==resBox.getAttribute("data-w")){
+      resBox.setAttribute("data-w",cols);
+      resBox.style.gridColumn="span "+cols;
+      const sz=resBox.querySelector(".wgt-size");
+      if(sz)sz.textContent=Math.round(cols/GRID_COLS*100)+"%";
+    }
+  }
+  if(resAxis.indexOf("y")>=0){
+    // Fri høyde i piksler — da kan widgeten få akkurat den fasongen man vil,
+    // i stedet for å måtte lande på faste rader.
+    const h=Math.max(MIN_H,Math.round(e.clientY-r.top));
+    resBox.style.height=h+"px";
+    resBox.setAttribute("data-h",h);
+  }
 }
 function wgtResizeEnd(){
   if(!resBox)return;
@@ -2381,6 +2413,15 @@ function wgtResizeEnd(){
   document.removeEventListener("pointermove",wgtResizeMove);
   document.removeEventListener("pointerup",wgtResizeEnd);
   document.removeEventListener("pointercancel",wgtResizeEnd);
+  resizeCharts();
+  markDirty();
+}
+/* Tilbake til innholdsstyrt høyde */
+function autoHeight(key){
+  const box=document.querySelector('#wgrid [data-wkey="'+key+'"]');
+  if(!box)return;
+  box.style.height="";
+  box.removeAttribute("data-h");
   resizeCharts();
   markDirty();
 }
@@ -3000,6 +3041,20 @@ body.wedit .wgt.off{opacity:.38}
 body.wedit .wgt-res{display:block}
 body.wedit .wgt-res:hover::after{background:var(--accent)}
 .wgt.resizing{outline:1px solid var(--accent)!important}
+/* Fri høyde: når data-h er satt, strekkes kortet og grafen til å fylle boksen.
+   Uten data-h oppfører widgeten seg som før og følger innholdet. */
+.wgt-res-b{display:none;position:absolute;left:0;bottom:-6px;height:12px;width:100%;cursor:ns-resize;touch-action:none;z-index:5}
+.wgt-res-b::after{content:"";position:absolute;left:50%;bottom:4px;height:4px;width:34px;margin-left:-17px;border-radius:2px;background:var(--border)}
+.wgt-res-c{display:none;position:absolute;right:-6px;bottom:-6px;width:16px;height:16px;cursor:nwse-resize;touch-action:none;z-index:6}
+.wgt-res-c::after{content:"";position:absolute;right:4px;bottom:4px;width:9px;height:9px;border-right:2px solid var(--text3);border-bottom:2px solid var(--text3)}
+body.wedit .wgt-res-b,body.wedit .wgt-res-c{display:block}
+body.wedit .wgt-res-b:hover::after{background:var(--accent)}
+body.wedit .wgt-res-c:hover::after{border-color:var(--accent)}
+.wgt[data-h]{display:flex;flex-direction:column;overflow:hidden}
+.wgt[data-h]>.wgt-body{flex:1;min-height:0;display:flex;flex-direction:column}
+.wgt[data-h]>.wgt-body>*{flex:1;min-height:0;display:flex;flex-direction:column;overflow:auto}
+.wgt[data-h] .cw{flex:1;min-height:60px;height:auto}
+.wgt[data-h] .tw{flex:1;min-height:0;overflow:auto}
 .wgt-grip{cursor:grab;font-size:14px;color:var(--text3);touch-action:none;user-select:none;padding:0 2px}
 .wgt-grip:active{cursor:grabbing}
 .wgt-name{flex:1;font-size:11px;color:var(--text2);font-family:var(--mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
