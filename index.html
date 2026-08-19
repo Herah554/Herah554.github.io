@@ -314,7 +314,7 @@ table,#eff-kpi-eff,#eff-kpi-nd,.klbl,.ksub{font-variant-numeric:tabular-nums;fon
     <button class="fb" onclick="setFilter('Koba',this)">Koba</button>
     <button class="fb" onclick="setFilter('Glacier',this)">Glacier</button>
     <button class="fb" onclick="setFilter('Krokan',this)">Krokan</button>
-    <button class="btn-da" onclick="askDelAll()">Slett alle</button>
+    <button class="btn-da" onclick="openDreqModal()">Be om sletting</button>
   </div>
 
   <div class="card" id="line-status-card" style="display:none">
@@ -471,6 +471,11 @@ table,#eff-kpi-eff,#eff-kpi-nd,.klbl,.ksub{font-variant-numeric:tabular-nums;fon
   </section>
 
   <section class="dsec" data-sec="logg">
+  <div class="card" id="dreq-card" style="display:none">
+    <div class="ct"><div class="ca" style="background:var(--amber)"></div>Slettesøknader
+      <span id="dreq-count" class="dreq-badge" style="display:none"></span></div>
+    <div id="dreq-list"></div>
+  </div>
   <div class="card">
     <div class="ct"><div class="ca" style="background:var(--accent)"></div>Hendelseslogg</div>
     <div class="tw"><table><thead><tr><th>Tid</th><th>Linje</th><th>Maskin</th><th>Årsak</th><th>Varighet</th><th>Type</th><th>Kommentar</th><th></th></tr></thead><tbody id="tbl"><tr><td colspan="8" style="color:var(--text3);text-align:center;padding:1.5rem">Ingen hendelser enda</td></tr></tbody></table></div>
@@ -664,6 +669,7 @@ auth.onAuthStateChanged(async user=>{
     CUR_DASH=myProfile.dashboardId||'std';
     initUserDash(user.uid);
     applyDashboard(CUR_DASH);
+    renderDreq();
   }catch(e){console.error(e);}
 });
 
@@ -1152,7 +1158,9 @@ function renderTable(fil){
     tr.innerHTML='<td>'+fmtT(e.ts)+'</td><td>'+e.line+(e.wholeLine?'<span style="font-size:9px;background:#f0fdf4;color:var(--green);border:1px solid #bbf7d0;border-radius:2px;padding:0 3px;margin-left:3px">HL</span>':'')+'</td>'
       +'<td>'+(e.machine||'—')+'</td><td>'+e.cause+'</td><td>'+fmtD(e.duration)+'</td>'
       +'<td><span class="badge '+badge+'">'+lbl+'</span></td><td>'+(e.comment||'—')+'</td>'
-      +'<td><button class="rdel" onclick="askDel(\''+e.id+'\',\''+( e.cause||'').replace(/'/g,"\\'")+'\')">✕</button></td>';
+      // Direkte sletting av enkelthendelser er en korreksjon, ikke en opprydding —
+      // forbeholdt master og leder. Andre bruker slettesøknad.
+      +'<td>'+(isStaff()?'<button class="rdel" onclick="askDel(\''+e.id+'\',\''+( e.cause||'').replace(/'/g,"\\'")+'\')">✕</button>':'')+'</td>';
     tb.appendChild(tr);
   });
 }
@@ -1448,9 +1456,8 @@ function showND(id,btn){
   setTimeout(()=>Object.values(charts).forEach(c=>{try{c.resize();}catch(e){}}),50);
 }
 function askDel(id,name){delId=id;delAll=false;document.getElementById('m-title').textContent='Slett hendelse?';document.getElementById('m-desc').textContent='Vil du slette "'+name+'"?';document.getElementById('m-btn').textContent='Slett';document.getElementById('modal').classList.add('on');}
-function askDelAll(){delAll=true;delId=null;document.getElementById('m-title').textContent='Slett alle?';document.getElementById('m-desc').textContent='Dette sletter ALLE hendelser permanent.';document.getElementById('m-btn').textContent='Slett alle';document.getElementById('modal').classList.add('on');}
 function closeM(){document.getElementById('modal').classList.remove('on');delId=null;delAll=false;}
-async function doDelete(){if(delAll)await db.ref('events').remove();else if(delId)await db.ref('events/'+delId).remove();closeM();showToast(delAll?'Alle slettet':'Slettet',true);}
+async function doDelete(){if(delId)await db.ref('events/'+delId).remove();closeM();showToast('Slettet',true);}
 function signout(){auth.signOut().then(()=>location.href='login.html');}
 function showToast(msg,isE=false){const t=document.getElementById('toast');t.textContent=(isE?'✕ ':'✓ ')+msg;t.className='toast'+(isE?' e':'');t.style.opacity='1';setTimeout(()=>t.style.opacity='0',2500);}
 document.getElementById('modal').addEventListener('click',function(e){if(e.target===this)closeM();});
@@ -2121,6 +2128,7 @@ const WIDGETS=[
   {key:'effektivitet', name:'Effektivitet over tid',   w:12, els:['#ch-eff-trend^.card']},
   {key:'registrer',    name:'Registrer hendelse',      w:6,  els:['#f-line^.card']},
   {key:'siste',        name:'Siste hendelser',         w:6,  els:['#hist^.card']},
+  {key:'slettesok',    name:'Slettesøknader',        w:12, els:['#dreq-card'], staff:true},
   {key:'logg',         name:'Hendelseslogg',           w:12, els:['#tbl^.card']}
 ];
 let SHARED_DASH={}, MY_DASH={}, CUR_DASH='std', DASH_DRAFT=null, DRAFT_ID=null;
@@ -2191,6 +2199,12 @@ function buildWidgets(){
     bar.appendChild(bHide);
     grip.addEventListener('pointerdown',function(e){wgtDragStart(e,box);});
     box.appendChild(bar);
+    // Dra i høyre kant for å sette bredden fritt
+    const res=document.createElement("div");
+    res.className="wgt-res";
+    res.title="Dra for å endre bredde";
+    res.addEventListener("pointerdown",function(e){wgtResizeStart(e,box);});
+    box.appendChild(res);
     const body=document.createElement('div');
     body.className='wgt-body';
     w.els.forEach(function(sp){
@@ -2226,7 +2240,10 @@ function applyDashboard(id){
     box.style.gridColumn='span '+item.w;
     box.setAttribute('data-w',item.w);
     box.classList.toggle('off',!item.on);
-    box.style.display=(item.on||WEDIT)?'':'none';
+    // Enkelte widgets er forbeholdt master/leder uansett hva malen sier
+    const def=WIDGETS.filter(function(w){return w.key===item.key;})[0];
+    const blocked=!!(def&&def.staff&&!isStaff());
+    box.style.display=(!blocked&&(item.on||WEDIT))?'':'none';
     const sz=box.querySelector('.wgt-size');
     if(sz)sz.textContent=Math.round(item.w/GRID_COLS*100)+'%';
     grid.appendChild(box);
@@ -2323,6 +2340,47 @@ function wgtDragEnd(){
   document.removeEventListener('pointermove',wgtDragMove);
   document.removeEventListener('pointerup',wgtDragEnd);
   document.removeEventListener('pointercancel',wgtDragEnd);
+  resizeCharts();
+  markDirty();
+}
+
+/* Endre bredde ved å dra i høyre kant.
+   Bredden regnes om til hele kolonner mens du drar, slik at widgeten
+   alltid lander på rutenettet og ikke mellom to kolonner. */
+let resBox=null, resCol=0;
+function wgtResizeStart(e,box){
+  if(!WEDIT)return;
+  if(e.button!==undefined&&e.button!==0)return;
+  resBox=box;
+  const grid=document.getElementById("wgrid");
+  const gw=grid.getBoundingClientRect().width;
+  const gap=12;
+  resCol=(gw-(GRID_COLS-1)*gap)/GRID_COLS+gap;   // bredden av én kolonne inkl. mellomrom
+  box.classList.add("resizing");
+  document.addEventListener("pointermove",wgtResizeMove);
+  document.addEventListener("pointerup",wgtResizeEnd);
+  document.addEventListener("pointercancel",wgtResizeEnd);
+  e.preventDefault();
+  e.stopPropagation();
+}
+function wgtResizeMove(e){
+  if(!resBox||!resCol)return;
+  const left=resBox.getBoundingClientRect().left;
+  let cols=Math.round((e.clientX-left+12)/resCol);
+  cols=Math.max(1,Math.min(GRID_COLS,cols));
+  if(String(cols)===resBox.getAttribute("data-w"))return;
+  resBox.setAttribute("data-w",cols);
+  resBox.style.gridColumn="span "+cols;
+  const sz=resBox.querySelector(".wgt-size");
+  if(sz)sz.textContent=Math.round(cols/GRID_COLS*100)+"%";
+}
+function wgtResizeEnd(){
+  if(!resBox)return;
+  resBox.classList.remove("resizing");
+  resBox=null;
+  document.removeEventListener("pointermove",wgtResizeMove);
+  document.removeEventListener("pointerup",wgtResizeEnd);
+  document.removeEventListener("pointercancel",wgtResizeEnd);
   resizeCharts();
   markDirty();
 }
@@ -2515,6 +2573,187 @@ async function deleteDash(id,name){
     showToast('Dashboard slettet');
     renderDashList();
   }catch(e){showToast('Sletting feilet',true);}
+}
+
+
+/* ═══════════════════════════════════════════════════════════
+   SLETTESØKNADER
+   Sletting av hendelser skjer ikke lenger direkte. Alle går via en
+   søknad med linje, tidsrom og begrunnelse, som master eller leder
+   må godkjenne. Reglene i database.rules.json håndhever det samme:
+   operatører kan opprette og oppdatere hendelser, men ikke slette.
+
+   deleteRequests/{id} = {line, from, to, reason, requestedBy,
+     requestedByName, requestedAt, affectedCount, status,
+     decidedBy, decidedByName, decidedAt, decisionNote}
+   ═══════════════════════════════════════════════════════════ */
+let DREQ={};
+function isStaff(){
+  return !!(myProfile&&(myProfile.role==='master'||myProfile.role==='leder'));
+}
+function handleDreq(snap){
+  DREQ=snap.val()||{};
+  renderDreq();
+}
+const dreqRef=db.ref('deleteRequests');
+dreqRef.off('value',handleDreq);
+dreqRef.on('value',handleDreq);
+
+/* Hendelser som treffes av et tidsrom. Til-datoen er inkluderende,
+   så «17.08 til 17.08» betyr hele den dagen. */
+function eventsInRange(line,from,to){
+  if(!from||!to)return [];
+  const a=new Date(from+'T00:00:00').getTime();
+  const b=new Date(to+'T23:59:59.999').getTime();
+  if(isNaN(a)||isNaN(b)||b<a)return [];
+  return EVENTS.filter(function(e){
+    if(line&&line!=='Alle'&&e.line!==line)return false;
+    return e.ts>=a&&e.ts<=b;
+  });
+}
+
+/* ── Søknadsskjema ── */
+function openDreqModal(){
+  const sel=document.getElementById('dr-line');
+  sel.innerHTML='';
+  let lines=LINES_ALL.slice();
+  if(myProfile&&myProfile.role==='linjeoperator')lines=(myProfile.lines||[]).slice();
+  else{const o=document.createElement('option');o.value='Alle';o.textContent='Alle linjer';sel.appendChild(o);}
+  lines.forEach(function(l){
+    const o=document.createElement('option');o.value=l;o.textContent=l;sel.appendChild(o);
+  });
+  if(filterLine&&filterLine!=='Alle'&&lines.indexOf(filterLine)>=0)sel.value=filterLine;
+  const t=dateKeyOf(new Date());
+  document.getElementById('dr-from').value=t;
+  document.getElementById('dr-to').value=t;
+  document.getElementById('dr-reason').value='';
+  dreqPreview();
+  document.getElementById('dreq-modal').classList.add('on');
+}
+function closeDreqModal(){document.getElementById('dreq-modal').classList.remove('on');}
+function dreqPreview(){
+  const n=eventsInRange(
+    document.getElementById('dr-line').value,
+    document.getElementById('dr-from').value,
+    document.getElementById('dr-to').value).length;
+  const el=document.getElementById('dr-preview');
+  el.textContent=n?('Dette omfatter '+n+' hendelse'+(n===1?'':'r')+'.')
+                  :'Ingen hendelser i dette tidsrommet.';
+  el.style.color=n?'var(--text2)':'var(--text3)';
+}
+async function submitDreq(){
+  const line=document.getElementById('dr-line').value;
+  const from=document.getElementById('dr-from').value;
+  const to=document.getElementById('dr-to').value;
+  const reason=document.getElementById('dr-reason').value.trim();
+  if(!from||!to){showToast('Velg tidsrom',true);return;}
+  if(new Date(to)<new Date(from)){showToast('Til-dato er før fra-dato',true);return;}
+  if(reason.length<10){showToast('Skriv en begrunnelse (minst 10 tegn)',true);return;}
+  const n=eventsInRange(line,from,to).length;
+  if(!n){showToast('Ingen hendelser i tidsrommet',true);return;}
+  try{
+    await db.ref('deleteRequests').push({
+      line:line,from:from,to:to,reason:reason,
+      requestedBy:(auth.currentUser&&auth.currentUser.uid)||'',
+      requestedByName:(myProfile&&myProfile.name)||'',
+      requestedAt:Date.now(),
+      affectedCount:n,
+      status:'pending'
+    });
+    closeDreqModal();
+    showToast('Søknad sendt til godkjenning');
+  }catch(e){showToast('Kunne ikke sende søknad',true);}
+}
+
+/* ── Behandling (master / leder) ── */
+function renderDreq(){
+  const card=document.getElementById('dreq-card');
+  if(!card)return;
+  const staff=isStaff();
+  const mine=(auth.currentUser&&auth.currentUser.uid)||'';
+  const all=Object.keys(DREQ).map(function(k){return Object.assign({_id:k},DREQ[k]);})
+    .sort(function(a,b){return (b.requestedAt||0)-(a.requestedAt||0);});
+  // Operatører ser bare sine egne søknader, og bare for å følge status
+  const list=staff?all:all.filter(function(r){return r.requestedBy===mine;});
+  const pending=list.filter(function(r){return r.status==='pending';});
+  card.style.display=list.length?'':'none';
+  const cnt=document.getElementById('dreq-count');
+  if(cnt){cnt.textContent=pending.length?pending.length+' venter':'';cnt.style.display=pending.length?'':'none';}
+  const wrap=document.getElementById('dreq-list');
+  wrap.innerHTML='';
+  if(!list.length)return;
+  list.slice(0,25).forEach(function(r){
+    const row=document.createElement('div');
+    row.className='dreq-row'+(r.status==='pending'?' pending':'');
+    const head=document.createElement('div');
+    head.style.display='flex';head.style.alignItems='center';head.style.gap='8px';head.style.flexWrap='wrap';
+    const st=document.createElement('span');
+    st.className='dreq-st '+r.status;
+    st.textContent=r.status==='pending'?'Venter':r.status==='approved'?'Godkjent':'Avslått';
+    head.appendChild(st);
+    const who=document.createElement('span');
+    who.style.fontSize='12px';who.style.fontWeight='600';
+    who.textContent=(r.line||'—')+' · '+(r.from===r.to?r.from:r.from+' → '+r.to);
+    head.appendChild(who);
+    const meta=document.createElement('span');
+    meta.style.fontSize='11px';meta.style.color='var(--text3)';
+    meta.textContent=(r.affectedCount||0)+' hendelser · '+(r.requestedByName||'ukjent')+
+      ' · '+(r.requestedAt?fmtT(r.requestedAt):'');
+    head.appendChild(meta);
+    row.appendChild(head);
+    const why=document.createElement('div');
+    why.style.fontSize='12px';why.style.color='var(--text2)';why.style.marginTop='4px';
+    why.textContent=r.reason||'';
+    row.appendChild(why);
+    if(r.status!=='pending'){
+      const d=document.createElement('div');
+      d.style.fontSize='11px';d.style.color='var(--text3)';d.style.marginTop='3px';
+      d.textContent=(r.status==='approved'?'Godkjent av ':'Avslått av ')+(r.decidedByName||'—')+
+        (r.decidedAt?' · '+fmtT(r.decidedAt):'')+(r.decisionNote?' · '+r.decisionNote:'');
+      row.appendChild(d);
+    }else if(staff){
+      const btns=document.createElement('div');
+      btns.style.display='flex';btns.style.gap='6px';btns.style.marginTop='7px';
+      const ok=document.createElement('button');
+      ok.className='dreq-b ok';ok.textContent='Godkjenn og slett';
+      ok.addEventListener('click',function(){decideDreq(r,'approved');});
+      btns.appendChild(ok);
+      const no=document.createElement('button');
+      no.className='dreq-b';no.textContent='Avslå';
+      no.addEventListener('click',function(){decideDreq(r,'rejected');});
+      btns.appendChild(no);
+      row.appendChild(btns);
+    }
+    wrap.appendChild(row);
+  });
+}
+async function decideDreq(r,decision){
+  if(!isStaff()){showToast('Bare master eller leder kan behandle',true);return;}
+  const hits=eventsInRange(r.line,r.from,r.to);
+  if(decision==='approved'){
+    if(!confirm('Slette '+hits.length+' hendelser på '+r.line+' i perioden '+r.from+' til '+r.to+'?\n\nDette kan ikke angres.'))return;
+  }
+  const note=prompt(decision==='approved'?'Kommentar til godkjenningen (valgfritt):'
+                                         :'Hvorfor avslås søknaden?','');
+  if(note===null)return;
+  if(decision==='rejected'&&!note.trim()){showToast('Avslag krever en begrunnelse',true);return;}
+  try{
+    if(decision==='approved'){
+      // Ett samlet skriv i stedet for én per hendelse: enten går alt, eller ingenting
+      const upd={};
+      hits.forEach(function(e){upd[e.id]=null;});
+      if(Object.keys(upd).length)await db.ref('events').update(upd);
+    }
+    await db.ref('deleteRequests/'+r._id).update({
+      status:decision,
+      decidedBy:(auth.currentUser&&auth.currentUser.uid)||'',
+      decidedByName:(myProfile&&myProfile.name)||'',
+      decidedAt:Date.now(),
+      decisionNote:note.trim(),
+      deletedCount:decision==='approved'?hits.length:0
+    });
+    showToast(decision==='approved'?(hits.length+' hendelser slettet'):'Søknad avslått');
+  }catch(e){showToast('Behandling feilet',true);}
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -2755,6 +2994,12 @@ body.wedit .wgt-bar{display:flex}
 body.wedit .wgt{outline:1px dashed var(--border);outline-offset:3px;border-radius:var(--r)}
 body.wedit .wgt.off{opacity:.38}
 .wgt.dragging{opacity:.55}
+.wgt{position:relative}
+.wgt-res{display:none;position:absolute;top:0;right:-6px;width:12px;height:100%;cursor:ew-resize;touch-action:none;z-index:5}
+.wgt-res::after{content:"";position:absolute;top:50%;right:4px;width:4px;height:34px;margin-top:-17px;border-radius:2px;background:var(--border)}
+body.wedit .wgt-res{display:block}
+body.wedit .wgt-res:hover::after{background:var(--accent)}
+.wgt.resizing{outline:1px solid var(--accent)!important}
 .wgt-grip{cursor:grab;font-size:14px;color:var(--text3);touch-action:none;user-select:none;padding:0 2px}
 .wgt-grip:active{cursor:grabbing}
 .wgt-name{flex:1;font-size:11px;color:var(--text2);font-family:var(--mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -2763,6 +3008,19 @@ body.wedit .wgt.off{opacity:.38}
 .wgt-b:hover{background:var(--bg)}
 @media(max-width:1200px){.wgt{grid-column:span 6!important}}
 @media(max-width:640px){.wgt{grid-column:span 12!important}}
+
+/* ── Slettesøknader ── */
+.dreq-badge{font-size:10px;font-family:var(--mono);background:#fffbeb;border:1px solid #fde68a;color:var(--amber);border-radius:99px;padding:1px 8px}
+.dreq-row{border:1px solid var(--border);border-radius:var(--r);padding:9px 11px;margin-bottom:6px;background:var(--bg2)}
+.dreq-row.pending{border-color:#fde68a;background:#fffbeb}
+.dreq-st{font-size:9px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.05em;border-radius:3px;padding:2px 7px;font-weight:600}
+.dreq-st.pending{background:#fffbeb;border:1px solid #fde68a;color:var(--amber)}
+.dreq-st.approved{background:#f0fdf4;border:1px solid #bbf7d0;color:var(--green)}
+.dreq-st.rejected{background:#fef2f2;border:1px solid #fecaca;color:var(--red)}
+.dreq-b{border:1px solid var(--border);background:var(--bg2);color:var(--text2);border-radius:var(--r);cursor:pointer;font-size:12px;padding:5px 11px;font-family:inherit}
+.dreq-b:hover{background:var(--bg3)}
+.dreq-b.ok{border-color:var(--red);color:var(--red)}
+.dreq-b.ok:hover{background:var(--red);color:#fff}
 
 /* ── Dashboard-velger & modal ── */
 .dash-bar{display:flex;align-items:center;gap:8px;margin:0 0 .9rem;flex-wrap:wrap}
@@ -2793,6 +3051,33 @@ body.wedit .wgt.off{opacity:.38}
 .chat-send{padding:8px 13px;border:none;background:var(--accent);color:#fff;border-radius:var(--r);cursor:pointer;font-size:12.5px;font-family:inherit}
 @media(max-width:700px){.chat-panel{width:calc(100vw - 24px);right:12px;bottom:76px}.chat-fab{right:14px;bottom:14px}}
 </style>
+
+<!-- Slettesøknad -->
+<div class="mover" id="dreq-modal">
+  <div class="hmodal">
+    <h3>Be om sletting av hendelser</h3>
+    <div class="hmodal-sub">Sletting må godkjennes av master eller leder. Beskriv hvorfor.</div>
+    <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">Linje</label>
+    <select class="dash-field" id="dr-line" style="margin-bottom:.7rem"></select>
+    <div style="display:flex;gap:8px;margin-bottom:.7rem">
+      <div style="flex:1">
+        <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">Fra dato</label>
+        <input class="dash-field" type="date" id="dr-from">
+      </div>
+      <div style="flex:1">
+        <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">Til dato</label>
+        <input class="dash-field" type="date" id="dr-to">
+      </div>
+    </div>
+    <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">Begrunnelse</label>
+    <textarea class="dash-field" id="dr-reason" rows="3" placeholder="F.eks. dobbeltregistrering etter strømbrudd 17.08"></textarea>
+    <div id="dr-preview" style="font-size:12px;margin-top:.6rem"></div>
+    <div style="display:flex;gap:8px;margin-top:1rem">
+      <button class="dash-btn" style="flex:1;justify-content:center;background:var(--accent);color:#fff;border-color:var(--accent)" id="dr-send">Send søknad</button>
+      <button class="dash-btn" style="flex:1;justify-content:center" id="dr-cancel">Avbryt</button>
+    </div>
+  </div>
+</div>
 
 <!-- Dashboard-modal -->
 <div class="mover" id="dash-modal">
@@ -2848,6 +3133,11 @@ document.getElementById('dash-back-btn').addEventListener('click',renderDashList
 document.getElementById('dash-open-btn').addEventListener('click',openDashModal);
 document.getElementById('wedit-btn').addEventListener('click',toggleWEdit);
 document.getElementById('wsave-btn').addEventListener('click',saveLayout);
+document.getElementById('dr-send').addEventListener('click',submitDreq);
+document.getElementById('dr-cancel').addEventListener('click',closeDreqModal);
+['dr-line','dr-from','dr-to'].forEach(function(id){
+  document.getElementById(id).addEventListener('change',dreqPreview);
+});
 </script>
 </body>
 </html>
