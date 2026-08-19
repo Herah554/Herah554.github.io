@@ -1,0 +1,84 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "users": {
+      ".read": "auth != null",
+      "$uid": {
+        ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'master')",
+        "dashboardId": {
+          ".write": "auth != null && ($uid === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'master')"
+        }
+      }
+    },
+
+    "events": {
+      ".read": "auth != null",
+      "$id": {
+        ".write": "auth != null && (newData.exists() || root.child('users').child(auth.uid).child('role').val() === 'master' || root.child('users').child(auth.uid).child('role').val() === 'leder')",
+        ".validate": "newData.hasChildren(['line','ts'])"
+      }
+    },
+
+    "deleteRequests": {
+      ".read": "auth != null",
+      "$id": {
+        ".write": "auth != null && (!data.exists() || root.child('users').child(auth.uid).child('role').val() === 'master' || root.child('users').child(auth.uid).child('role').val() === 'leder')",
+        ".validate": "newData.hasChildren(['line','from','to','reason','requestedBy','status'])"
+      }
+    },
+
+    "settings": {
+      ".read": "auth != null",
+      ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'master' || root.child('users').child(auth.uid).child('role').val() === 'leder')"
+    },
+
+    "production": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "productHourly": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "active_product": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "opc_status": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "calibrationReviews": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+
+    "plan": {
+      ".read": "auth != null",
+      ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'master' || root.child('users').child(auth.uid).child('role').val() === 'leder')"
+    },
+    "shiftPlan": {
+      ".read": "auth != null",
+      ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'master' || root.child('users').child(auth.uid).child('role').val() === 'leder')"
+    },
+
+    "shiftReports": {
+      ".read": "auth != null",
+      ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'master' || root.child('users').child(auth.uid).child('role').val() === 'leder' || root.child('users').child(auth.uid).child('shiftAccess').val() === true)"
+    },
+
+    "userDashboards": {
+      "$uid": {
+        ".read": "auth != null && $uid === auth.uid",
+        ".write": "auth != null && $uid === auth.uid"
+      }
+    },
+
+    "pwResets": {
+      ".read": false,
+      ".write": false
+    }
+  }
+}

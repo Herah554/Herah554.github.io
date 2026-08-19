@@ -132,8 +132,11 @@ input:focus,select:focus{border-color:var(--accent)}
     <div id="e-lsec" class="fr"><label>Linjetilgang</label><div class="lchecks" id="e-lchecks"></div></div>
     <div class="fr"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="e-shift" style="width:auto;margin:0">Skiftrapport-tilgang</label></div>
     <div class="fr"><label>Dashboard</label><select id="e-dash"><option value="std">Standard</option></select></div>
-    <span class="pw-toggle" onclick="document.getElementById('pw-sec').style.display=document.getElementById('pw-sec').style.display==='none'?'block':'none'">🔑 Endre passord</span>
-    <div class="pw-sec" id="pw-sec"><label style="margin-bottom:4px">Nytt passord</label><input type="password" id="e-pw" placeholder="Minst 8 tegn"/></div>
+    <span class="pw-toggle" onclick="sendPwReset()">🔑 Send passord-tilbakestilling på e-post</span>
+    <div style="font-size:11px;color:var(--text3);margin-top:4px;line-height:1.5">
+      Brukeren får en lenke fra Firebase og setter passordet selv. Passord skal aldri
+      lagres i databasen.
+    </div>
     <div class="mbtns">
       <button class="mcan" onclick="closeEdit()">Avbryt</button>
       <button class="msav" onclick="saveEdit()">Lagre</button>
@@ -306,8 +309,6 @@ function openEdit(uid){
     document.getElementById('e-name').value=u.name||'';
     document.getElementById('e-email').value=u.email||'';
     document.getElementById('e-role').value=u.role||'linjeoperator';
-    document.getElementById('e-pw').value='';
-    document.getElementById('pw-sec').style.display='none';
     buildChecks('e-lchecks',u.lines||[]);
     document.getElementById('e-shift').checked=u.shiftAccess===true;
     setDashSelect(u.dashboardId||'std');
@@ -316,6 +317,19 @@ function openEdit(uid){
   });
 }
 function closeEdit(){document.getElementById('emodal').classList.remove('on');editUid=null;}
+
+/* Passord-tilbakestilling går via Firebase Auth sin egen e-postflyt.
+   Tidligere ble nytt passord skrevet i klartekst til pwResets/ — i en
+   database hvem som helst kunne lese. Den noden er nå stengt i reglene. */
+function sendPwReset(){
+  const epost=document.getElementById('e-email').value.trim();
+  if(!epost){showToast('Mangler e-postadresse',true);return;}
+  if(!confirm('Sende tilbakestillingslenke til '+epost+'?'))return;
+  auth.sendPasswordResetEmail(epost)
+    .then(()=>showToast('Lenke sendt til '+epost))
+    .catch(e=>showToast('Sending feilet: '+(e.code||e.message),true));
+}
+
 async function saveEdit(){
   if(!editUid)return;
   const name=document.getElementById('e-name').value.trim();
@@ -323,10 +337,10 @@ async function saveEdit(){
   const lines=role==='linjeoperator'?getChecked('e-lchecks'):[];
   const shiftAccess=document.getElementById('e-shift').checked;
   const dashboardId=document.getElementById('e-dash').value||'std';
-  const pw=document.getElementById('e-pw').value;
+
   if(!name){showToast('Skriv inn navn',true);return;}
   await db.ref('users/'+editUid).update({name,role,lines,shiftAccess,dashboardId});
-  if(pw){if(pw.length<8){showToast('Passord må være minst 8 tegn',true);return;}await db.ref('pwResets/'+editUid).set({pw,at:Date.now()});}
+
   showToast('Lagret');closeEdit();
 }
 async function delUser(uid,namePct){
