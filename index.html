@@ -3051,10 +3051,23 @@ body.wedit .wgt-res-b,body.wedit .wgt-res-c{display:block}
 body.wedit .wgt-res-b:hover::after{background:var(--accent)}
 body.wedit .wgt-res-c:hover::after{border-color:var(--accent)}
 .wgt[data-h]{display:flex;flex-direction:column;overflow:hidden}
-.wgt[data-h]>.wgt-body{flex:1;min-height:0;display:flex;flex-direction:column}
-.wgt[data-h]>.wgt-body>*{flex:1;min-height:0;display:flex;flex-direction:column;overflow:auto}
-.wgt[data-h] .cw{flex:1;min-height:60px;height:auto}
-.wgt[data-h] .tw{flex:1;min-height:0;overflow:auto}
+.wgt[data-h]>.wgt-body{flex:1;min-height:0;display:flex;flex-direction:column;gap:.55rem}
+/* Bare innholdet skal vokse. Fanelinjer og filterrader beholder sin
+   naturlige høyde — får de flex:1 blir knappene stående under hverandre. */
+.wgt[data-h]>.wgt-body>*{flex:0 0 auto;min-height:0}
+.wgt[data-h]>.wgt-body>.card,
+.wgt[data-h]>.wgt-body>.cp,
+.wgt[data-h]>.wgt-body>.prod-view{flex:1 1 auto;display:flex;flex-direction:column;min-height:0;margin-bottom:0}
+.wgt[data-h] .cp>.card,
+.wgt[data-h] .prod-view>.card,
+.wgt[data-h] .cp>.g2{flex:1 1 auto;min-height:0;margin-bottom:0}
+.wgt[data-h] .cp>.card,
+.wgt[data-h] .prod-view>.card,
+.wgt[data-h] .g2>.card{display:flex;flex-direction:column}
+.wgt[data-h] .cw{flex:1 1 auto;min-height:60px;height:auto}
+.wgt[data-h] .tw{flex:1 1 auto;min-height:0;overflow:auto}
+.wgt[data-h] .hist,
+.wgt[data-h] #mach-list{flex:1 1 auto;min-height:0;overflow:auto}
 .wgt-grip{cursor:grab;font-size:14px;color:var(--text3);touch-action:none;user-select:none;padding:0 2px}
 .wgt-grip:active{cursor:grabbing}
 .wgt-name{flex:1;font-size:11px;color:var(--text2);font-family:var(--mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
