@@ -304,10 +304,8 @@ table,#eff-kpi-eff,#eff-kpi-nd,.klbl,.ksub{font-variant-numeric:tabular-nums;fon
     <a href="index.html" style="margin-left:auto;color:#92400e;font-weight:600">Tilbake til mitt →</a>
   </div>
   <div class="dash-bar">
-    <button class="dash-btn" id="dash-open-btn">⚙ Dashboard: <b id="dash-cur">Standard</b></button>
-    <button class="dash-btn" id="wedit-btn">✎ Tilpass</button>
-    <button class="dash-btn" id="wsave-btn" style="display:none;background:var(--accent);color:#fff;border-color:var(--accent)">Lagre plassering</button>
-    <span id="wedit-hint" style="display:none;font-size:11px;color:var(--text3)">Dra i ⠿ for å flytte · − og + endrer bredde · ✕ skjuler</span>
+    <button class="dash-btn" id="dash-open-btn">⚙ Dashbord: <b id="dash-cur">Standard</b></button>
+    <a class="dash-btn" id="dash-edit-link" href="dashbord.html" style="text-decoration:none">✎ Sett opp dashbord</a>
   </div>
   <div class="wgrid" id="wgrid"></div>
   <section class="dsec" data-sec="filter">
@@ -674,6 +672,13 @@ auth.onAuthStateChanged(async user=>{
     }
     // Dashboard-mal: last brukerens valg og lytt på hans egne maler
     CUR_DASH=PREVIEW||myProfile.dashboardId||'std';
+    // Operatører følger malen de er tildelt
+    if(!canSwitchDash()){
+      const bar=document.querySelector('.dash-bar');
+      if(bar)bar.style.display='none';
+      const nd=document.getElementById('nav-dash');
+      if(nd)nd.style.display='none';
+    }
     if(PREVIEW){
       const b=document.getElementById('preview-bar');
       if(b)b.style.display='flex';
@@ -2117,13 +2122,18 @@ Chart.defaults.animation=false;        // ingen re-animasjon ved oppdatering →
    Egne maler:  userDashboards/{uid}/{id}
    Valg:        users/{uid}.dashboardId = 'std' | 'sh:<id>' | 'me:<id>'
    ═══════════════════════════════════════════════════════════ */
-let SHARED_DASH={}, MY_DASH={}, CUR_DASH='std', DASH_DRAFT=null, DRAFT_ID=null;
-let userDashRef=null, WEDIT=false, BUILT=false;
+let SHARED_DASH={}, MY_DASH={}, CUR_DASH='std';
+let userDashRef=null, BUILT=false;
 // ?dash=<id> viser en mal midlertidig, uten å endre hva brukeren bruker
 const PREVIEW=(function(){
   const m=location.search.match(/[?&]dash=([^&]+)/);
   return m?decodeURIComponent(m[1]):null;
 })();
+/* Operatører følger malen de er tildelt og kan ikke bytte selv.
+   Databasereglene håndhever det samme, så det ikke kan omgås. */
+function canSwitchDash(){
+  return !!(myProfile&&myProfile.role!=='linjeoperator');
+}
 
 function dashById(id){
   if(!id||id==='std')return{name:'Standard',widgets:stdWidgets(),builtin:true};
@@ -2137,14 +2147,10 @@ function dashList(){
   Object.keys(MY_DASH).forEach(k=>out.push({id:'me:'+k,name:MY_DASH[k].name||'Uten navn',kind:'Min'}));
   return out;
 }
-function resolveEl(spec){
-  const cut=spec.indexOf('^');
-  if(cut<0)return document.querySelector(spec);
-  const base=document.querySelector(spec.slice(0,cut));
-  return base?base.closest(spec.slice(cut+1)):null;
-}
 
-/* Bygges én gang: flytter eksisterende elementer inn i rutenettet */
+/* Bygges én gang: flytter eksisterende elementer inn i rutenettet.
+   Widgetene lager ikke ny markup, så id-er, lyttere og Chart.js-instanser
+   overlever flyttingen. */
 function buildWidgets(){
   if(BUILT)return;
   const grid=document.getElementById('wgrid');
@@ -2153,52 +2159,6 @@ function buildWidgets(){
     const box=document.createElement('div');
     box.className='wgt';
     box.setAttribute('data-wkey',w.key);
-    const bar=document.createElement('div');
-    bar.className='wgt-bar';
-    const grip=document.createElement('span');
-    grip.className='wgt-grip';grip.textContent='⠿';grip.title='Dra for å flytte';
-    bar.appendChild(grip);
-    const nm=document.createElement('span');
-    nm.className='wgt-name';nm.textContent=w.name;
-    bar.appendChild(nm);
-    const bMin=document.createElement('button');
-    bMin.className='wgt-b';bMin.textContent='−';bMin.title='Smalere';
-    bMin.addEventListener('click',function(){stepWidth(w.key,-1);});
-    bar.appendChild(bMin);
-    const size=document.createElement('span');
-    size.className='wgt-size';
-    bar.appendChild(size);
-    const bMax=document.createElement('button');
-    bMax.className='wgt-b';bMax.textContent='+';bMax.title='Bredere';
-    bMax.addEventListener('click',function(){stepWidth(w.key,1);});
-    bar.appendChild(bMax);
-    const bAuto=document.createElement('button');
-    bAuto.className='wgt-b';bAuto.textContent='⇕';bAuto.title='Tilbake til automatisk høyde';
-    bAuto.addEventListener('click',function(){autoHeight(w.key);});
-    bar.appendChild(bAuto);
-    const bHide=document.createElement('button');
-    bHide.className='wgt-b';bHide.textContent='✕';bHide.title='Skjul / vis';
-    bHide.addEventListener('click',function(){toggleWidget(w.key);});
-    bar.appendChild(bHide);
-    grip.addEventListener('pointerdown',function(e){wgtDragStart(e,box);});
-    box.appendChild(bar);
-    // Dra i høyre kant for å sette bredden fritt
-    const res=document.createElement("div");
-    res.className="wgt-res";
-    res.title="Dra for å endre bredde";
-    res.addEventListener("pointerdown",function(e){wgtResizeStart(e,box,"x");});
-    box.appendChild(res);
-    // Nedre kant: bare høyde. Hjørnet: begge deler.
-    const bot=document.createElement("div");
-    bot.className="wgt-res-b";
-    bot.title="Dra for å endre høyde";
-    bot.addEventListener("pointerdown",function(e){wgtResizeStart(e,box,"y");});
-    box.appendChild(bot);
-    const cor=document.createElement("div");
-    cor.className="wgt-res-c";
-    cor.title="Dra for å endre bredde og høyde";
-    cor.addEventListener("pointerdown",function(e){wgtResizeStart(e,box,"xy");});
-    box.appendChild(cor);
     const body=document.createElement('div');
     body.className='wgt-body';
     w.els.forEach(function(sp){
@@ -2212,13 +2172,11 @@ function buildWidgets(){
   ['main-tabs','nd-tabs'].forEach(function(id){
     const el=document.getElementById(id);if(el)el.style.display='none';
   });
-  // Panelene styres nå av widgets, ikke av .on-klassen
   Array.prototype.forEach.call(document.querySelectorAll('.cp'),function(p){p.classList.add('on');});
   ['oee-tabs','prod-tabs','oee-card','pv-main'].forEach(function(id){
     const el=document.getElementById(id);if(el)el.style.display='';
   });
-  // Tomme rester av den gamle seksjonsinndelingen
-  Array.prototype.forEach.call(document.querySelectorAll('.dsec'),function(s){s.style.display='none';});
+  Array.prototype.forEach.call(document.querySelectorAll('.dsec'),function(sec){sec.style.display='none';});
   BUILT=true;
 }
 
@@ -2233,16 +2191,13 @@ function applyDashboard(id){
     if(!box)return;
     box.style.gridColumn='span '+item.w;
     box.setAttribute('data-w',item.w);
-    // Høyde i piksler. 0 betyr la innholdet bestemme, som før.
+    // Høyde i piksler. 0 betyr la innholdet bestemme.
     if(item.h){box.style.height=item.h+'px';box.setAttribute('data-h',item.h);}
     else{box.style.height='';box.removeAttribute('data-h');}
-    box.classList.toggle('off',!item.on);
     // Enkelte widgets er forbeholdt master/leder uansett hva malen sier
     const def=WIDGETS.filter(function(w){return w.key===item.key;})[0];
     const blocked=!!(def&&def.staff&&!isStaff());
-    box.style.display=(!blocked&&(item.on||WEDIT))?'':'none';
-    const sz=box.querySelector('.wgt-size');
-    if(sz)sz.textContent=Math.round(item.w/GRID_COLS*100)+'%';
+    box.style.display=(!blocked&&item.on)?'':'none';
     grid.appendChild(box);
   });
   const lbl=document.getElementById('dash-cur');
@@ -2253,180 +2208,6 @@ function resizeCharts(){
   setTimeout(function(){
     Object.values(charts).forEach(function(c){try{c.resize();}catch(e){}});
   },60);
-}
-
-/* ── Redigeringsmodus på sida: dra og endre bredde ── */
-function toggleWEdit(){
-  WEDIT=!WEDIT;
-  document.body.classList.toggle('wedit',WEDIT);
-  document.getElementById('wedit-btn').textContent=WEDIT?'✓ Ferdig':'✎ Tilpass';
-  const bar=document.getElementById('wedit-hint');
-  if(bar)bar.style.display=WEDIT?'':'none';
-  applyDashboard(CUR_DASH);
-}
-function curLayout(){
-  const grid=document.getElementById('wgrid');
-  const o={};
-  Array.prototype.forEach.call(grid.children,function(box,i){
-    const k=box.getAttribute('data-wkey');
-    o[k]={on:!box.classList.contains('off'),order:i,
-      w:parseInt(box.getAttribute('data-w'),10)||6,
-      h:parseInt(box.getAttribute('data-h'),10)||0};
-  });
-  return o;
-}
-function stepWidth(key,dir){
-  const box=document.querySelector('#wgrid [data-wkey="'+key+'"]');
-  if(!box)return;
-  const cur=parseInt(box.getAttribute('data-w'),10)||6;
-  let i=WSTEPS.indexOf(cur);
-  if(i<0){i=WSTEPS.reduce(function(best,v,idx){return Math.abs(v-cur)<Math.abs(WSTEPS[best]-cur)?idx:best;},0);}
-  const next=WSTEPS[Math.max(0,Math.min(WSTEPS.length-1,i+dir))];
-  box.setAttribute('data-w',next);
-  box.style.gridColumn='span '+next;
-  const sz=box.querySelector('.wgt-size');
-  if(sz)sz.textContent=Math.round(next/GRID_COLS*100)+'%';
-  resizeCharts();
-  markDirty();
-}
-/* I redigeringsmodus blir skjulte widgets stående nedtonet, slik at
-   samme knapp kan slå dem på igjen. Utenfor modus forsvinner de helt. */
-function toggleWidget(key){
-  const box=document.querySelector('#wgrid [data-wkey="'+key+'"]');
-  if(!box)return;
-  const nowOff=!box.classList.contains('off');
-  box.classList.toggle('off',nowOff);
-  box.style.display=(!nowOff||WEDIT)?'':'none';
-  resizeCharts();
-  markDirty();
-}
-function markDirty(){
-  const b=document.getElementById('wsave-btn');
-  if(b)b.style.display=WEDIT?'':'none';
-}
-
-/* Dra med pointer events — virker med både mus og finger */
-let dragBox=null;
-function wgtDragStart(e,box){
-  if(!WEDIT)return;
-  if(e.button!==undefined&&e.button!==0)return;
-  dragBox=box;
-  box.classList.add('dragging');
-  document.addEventListener('pointermove',wgtDragMove);
-  document.addEventListener('pointerup',wgtDragEnd);
-  document.addEventListener('pointercancel',wgtDragEnd);
-  e.preventDefault();
-}
-function wgtDragMove(e){
-  if(!dragBox)return;
-  const grid=document.getElementById('wgrid');
-  const boxes=Array.prototype.slice.call(grid.children).filter(function(b){
-    return b!==dragBox&&b.style.display!=='none';
-  });
-  for(let i=0;i<boxes.length;i++){
-    const b=boxes[i], r=b.getBoundingClientRect();
-    if(e.clientX>=r.left&&e.clientX<=r.right&&e.clientY>=r.top&&e.clientY<=r.bottom){
-      const after=(e.clientY>r.top+r.height/2)||(e.clientX>r.left+r.width/2);
-      grid.insertBefore(dragBox,after?b.nextSibling:b);
-      break;
-    }
-  }
-}
-function wgtDragEnd(){
-  if(!dragBox)return;
-  dragBox.classList.remove('dragging');
-  dragBox=null;
-  document.removeEventListener('pointermove',wgtDragMove);
-  document.removeEventListener('pointerup',wgtDragEnd);
-  document.removeEventListener('pointercancel',wgtDragEnd);
-  resizeCharts();
-  markDirty();
-}
-
-/* Endre bredde ved å dra i høyre kant.
-   Bredden regnes om til hele kolonner mens du drar, slik at widgeten
-   alltid lander på rutenettet og ikke mellom to kolonner. */
-let resBox=null, resCol=0, resAxis="x";
-function wgtResizeStart(e,box,axis){
-  if(!WEDIT)return;
-  if(e.button!==undefined&&e.button!==0)return;
-  resBox=box;
-  resAxis=axis||"x";
-  const grid=document.getElementById("wgrid");
-  const gap=12;
-  resCol=(grid.getBoundingClientRect().width-(GRID_COLS-1)*gap)/GRID_COLS+gap;
-  box.classList.add("resizing");
-  document.addEventListener("pointermove",wgtResizeMove);
-  document.addEventListener("pointerup",wgtResizeEnd);
-  document.addEventListener("pointercancel",wgtResizeEnd);
-  e.preventDefault();
-  e.stopPropagation();
-}
-function wgtResizeMove(e){
-  if(!resBox)return;
-  const r=resBox.getBoundingClientRect();
-  if(resAxis.indexOf("x")>=0&&resCol){
-    let cols=Math.round((e.clientX-r.left+12)/resCol);
-    cols=Math.max(1,Math.min(GRID_COLS,cols));
-    if(String(cols)!==resBox.getAttribute("data-w")){
-      resBox.setAttribute("data-w",cols);
-      resBox.style.gridColumn="span "+cols;
-      const sz=resBox.querySelector(".wgt-size");
-      if(sz)sz.textContent=Math.round(cols/GRID_COLS*100)+"%";
-    }
-  }
-  if(resAxis.indexOf("y")>=0){
-    // Fri høyde i piksler — da kan widgeten få akkurat den fasongen man vil,
-    // i stedet for å måtte lande på faste rader.
-    const h=Math.max(MIN_H,Math.round(e.clientY-r.top));
-    resBox.style.height=h+"px";
-    resBox.setAttribute("data-h",h);
-  }
-}
-function wgtResizeEnd(){
-  if(!resBox)return;
-  resBox.classList.remove("resizing");
-  resBox=null;
-  document.removeEventListener("pointermove",wgtResizeMove);
-  document.removeEventListener("pointerup",wgtResizeEnd);
-  document.removeEventListener("pointercancel",wgtResizeEnd);
-  resizeCharts();
-  markDirty();
-}
-/* Tilbake til innholdsstyrt høyde */
-function autoHeight(key){
-  const box=document.querySelector('#wgrid [data-wkey="'+key+'"]');
-  if(!box)return;
-  box.style.height="";
-  box.removeAttribute("data-h");
-  resizeCharts();
-  markDirty();
-}
-
-/* Lagre gjeldende plassering rett i den aktive malen.
-   Standard kan ikke endres — da lages en egen kopi i stedet. */
-async function saveLayout(){
-  const layout=curLayout();
-  const u=auth.currentUser;
-  if(!u){showToast('Ikke innlogget',true);return;}
-  try{
-    if(CUR_DASH==='std'){
-      const ref=db.ref('userDashboards/'+u.uid).push();
-      await ref.set({name:'Mitt dashboard',widgets:layout,createdAt:Date.now(),
-        createdBy:(myProfile&&myProfile.name)||''});
-      await selectDash('me:'+ref.key);
-      showToast('Lagret som "Mitt dashboard"');
-    }else{
-      const raw=CUR_DASH.slice(3);
-      const ref=CUR_DASH.slice(0,3)==='sh:'
-        ?db.ref('settings/dashboards/'+raw)
-        :db.ref('userDashboards/'+u.uid+'/'+raw);
-      await ref.update({widgets:layout,updatedAt:Date.now(),updatedBy:(myProfile&&myProfile.name)||''});
-      showToast('Plassering lagret');
-    }
-    const b=document.getElementById('wsave-btn');
-    if(b)b.style.display='none';
-  }catch(e){showToast('Lagring feilet',true);}
 }
 
 function handleUserDash(snap){
@@ -2441,159 +2222,49 @@ function initUserDash(uid){
   userDashRef.on('value',handleUserDash);
 }
 
-/* ── Modal: velg / opprett / dupliser / rediger ── */
+/* ── Bytter, ikke redigering. Oppsett gjøres i dashbord.html ── */
 function openDashModal(){
-  DASH_DRAFT=null;DRAFT_ID=null;
+  if(!canSwitchDash())return;
   document.getElementById('dash-modal').classList.add('on');
   renderDashList();
 }
 function closeDashModal(){
   document.getElementById('dash-modal').classList.remove('on');
-  DASH_DRAFT=null;DRAFT_ID=null;
 }
 function renderDashList(){
   const wrap=document.getElementById('dash-list');
-  document.getElementById('dash-edit').style.display='none';
-  document.getElementById('dash-browse').style.display='';
   wrap.innerHTML='';
   dashList().forEach(function(d){
     const row=document.createElement('div');
     row.className='dash-row'+(d.id===CUR_DASH?' on':'');
     const info=document.createElement('div');
-    info.style.flex='1';info.style.cursor='pointer';info.style.minWidth='0';
+    info.style.flex='1';info.style.minWidth='0';
     const nm=document.createElement('div');
     nm.style.fontWeight='600';nm.style.fontSize='13px';nm.textContent=d.name;
     const kd=document.createElement('div');
     kd.style.fontSize='11px';kd.style.color='var(--text3)';
-    kd.textContent=d.kind+(d.id===CUR_DASH?' · aktiv':'');
+    kd.textContent=d.kind+(d.id===CUR_DASH?' · i bruk':'');
     info.appendChild(nm);info.appendChild(kd);
-    info.addEventListener('click',function(){selectDash(d.id);});
     row.appendChild(info);
-    const bDup=document.createElement('button');
-    bDup.className='dash-mini';bDup.textContent='Dupliser';
-    bDup.addEventListener('click',function(){duplicateDash(d.id);});
-    row.appendChild(bDup);
-    const canEdit=(d.id.slice(0,3)==='me:')||(d.id.slice(0,3)==='sh:'&&myProfile&&myProfile.role==='master');
-    if(canEdit){
-      const bEd=document.createElement('button');
-      bEd.className='dash-mini';bEd.textContent='Rediger';
-      bEd.addEventListener('click',function(){editDash(d.id);});
-      row.appendChild(bEd);
-      const bDel=document.createElement('button');
-      bDel.className='dash-mini danger';bDel.textContent='Slett';
-      bDel.addEventListener('click',function(){deleteDash(d.id,d.name);});
-      row.appendChild(bDel);
+    if(d.id!==CUR_DASH){
+      const b=document.createElement('button');
+      b.className='dash-mini';b.textContent='Bruk';
+      b.addEventListener('click',function(){selectDash(d.id);});
+      row.appendChild(b);
     }
     wrap.appendChild(row);
   });
 }
 async function selectDash(id){
+  if(!canSwitchDash())return;
   CUR_DASH=id;
   applyDashboard(id);
   renderDashList();
   const u=auth.currentUser;
   // I forhåndsvisning skal ingenting festes — da ville en titt bli et valg
   if(u&&!PREVIEW){try{await db.ref('users/'+u.uid).update({dashboardId:id});}catch(e){}}
+  showToast('Dashbord byttet');
 }
-function duplicateDash(id){
-  const src=dashById(id);
-  if(!src)return;
-  DASH_DRAFT={name:(src.name||'Standard')+' (kopi)',
-    widgets:JSON.parse(JSON.stringify(src.widgets||stdWidgets())),shared:false};
-  DRAFT_ID=null;
-  openDashEditor();
-}
-function newDash(){
-  DASH_DRAFT={name:'Nytt dashboard',widgets:stdWidgets(),shared:false};
-  DRAFT_ID=null;
-  openDashEditor();
-}
-function editDash(id){
-  const src=dashById(id);
-  if(!src)return;
-  DASH_DRAFT={name:src.name||'',
-    widgets:JSON.parse(JSON.stringify(src.widgets||stdWidgets())),shared:id.slice(0,3)==='sh:'};
-  DRAFT_ID=id;
-  openDashEditor();
-}
-function openDashEditor(){
-  document.getElementById('dash-browse').style.display='none';
-  document.getElementById('dash-edit').style.display='';
-  document.getElementById('dash-name').value=DASH_DRAFT.name;
-  const sh=document.getElementById('dash-shared-wrap');
-  sh.style.display=(myProfile&&myProfile.role==='master')?'':'none';
-  document.getElementById('dash-shared').checked=!!DASH_DRAFT.shared;
-  renderDashEditor();
-}
-function renderDashEditor(){
-  const wrap=document.getElementById('dash-secs');
-  wrap.innerHTML='';
-  normWidgets(DASH_DRAFT).forEach(function(item,idx){
-    const row=document.createElement('div');
-    row.className='dash-sec';
-    const cb=document.createElement('input');
-    cb.type='checkbox';cb.checked=item.on;
-    cb.addEventListener('change',function(){
-      DASH_DRAFT.widgets[item.key]={on:cb.checked,order:item.order,w:item.w};
-      renderDashEditor();
-    });
-    row.appendChild(cb);
-    const nm=document.createElement('span');
-    nm.style.flex='1';nm.style.fontSize='13px';nm.textContent=item.name;
-    if(!item.on){nm.style.color='var(--text3)';nm.style.textDecoration='line-through';}
-    row.appendChild(nm);
-    const sz=document.createElement('span');
-    sz.style.fontSize='11px';sz.style.color='var(--text3)';sz.style.fontFamily='var(--mono)';
-    sz.textContent=Math.round(item.w/GRID_COLS*100)+'%';
-    row.appendChild(sz);
-    wrap.appendChild(row);
-  });
-}
-async function saveDash(){
-  const name=document.getElementById('dash-name').value.trim();
-  if(!name){showToast('Gi dashboardet et navn',true);return;}
-  const shared=!!((myProfile&&myProfile.role==='master')&&document.getElementById('dash-shared').checked);
-  const u=auth.currentUser;
-  if(!u){showToast('Ikke innlogget',true);return;}
-  const payload={name:name,widgets:DASH_DRAFT.widgets,updatedAt:Date.now(),
-    updatedBy:(myProfile&&myProfile.name)||''};
-  try{
-    let newId;
-    if(DRAFT_ID&&((DRAFT_ID.slice(0,3)==='sh:')===shared)){
-      const raw=DRAFT_ID.slice(3);
-      const ref=shared?db.ref('settings/dashboards/'+raw):db.ref('userDashboards/'+u.uid+'/'+raw);
-      await ref.update(payload);
-      newId=DRAFT_ID;
-    }else{
-      payload.createdAt=Date.now();
-      payload.createdBy=(myProfile&&myProfile.name)||'';
-      const ref=shared?db.ref('settings/dashboards').push():db.ref('userDashboards/'+u.uid).push();
-      await ref.set(payload);
-      newId=(shared?'sh:':'me:')+ref.key;
-      if(DRAFT_ID){
-        const oldRaw=DRAFT_ID.slice(3);
-        if(DRAFT_ID.slice(0,3)==='sh:')await db.ref('settings/dashboards/'+oldRaw).remove();
-        else await db.ref('userDashboards/'+u.uid+'/'+oldRaw).remove();
-      }
-    }
-    showToast('Dashboard lagret');
-    await selectDash(newId);
-    renderDashList();
-  }catch(e){showToast('Lagring feilet',true);}
-}
-async function deleteDash(id,name){
-  if(!confirm('Slette dashboardet "'+name+'"?'))return;
-  const u=auth.currentUser;if(!u)return;
-  const raw=id.slice(3);
-  try{
-    if(id.slice(0,3)==='sh:')await db.ref('settings/dashboards/'+raw).remove();
-    else await db.ref('userDashboards/'+u.uid+'/'+raw).remove();
-    if(CUR_DASH===id)await selectDash('std');
-    showToast('Dashboard slettet');
-    renderDashList();
-  }catch(e){showToast('Sletting feilet',true);}
-}
-
 
 /* ═══════════════════════════════════════════════════════════
    SLETTESØKNADER
@@ -3008,26 +2679,9 @@ function chatKey(e){if(e.key==='Enter'){e.preventDefault();chatSend();}}
 .wgrid{display:grid;grid-template-columns:repeat(12,1fr);gap:.75rem;align-items:start}
 .wgt{grid-column:span 12;min-width:0}
 .wgt>.wgt-body>*{margin-bottom:0}
-.wgt-bar{display:none;align-items:center;gap:6px;padding:3px 6px;margin-bottom:3px;background:var(--bg3);border:1px dashed var(--border);border-radius:var(--r)}
-body.wedit .wgt-bar{display:flex}
-body.wedit .wgt{outline:1px dashed var(--border);outline-offset:3px;border-radius:var(--r)}
-body.wedit .wgt.off{opacity:.38}
-.wgt.dragging{opacity:.55}
 .wgt{position:relative}
-.wgt-res{display:none;position:absolute;top:0;right:-6px;width:12px;height:100%;cursor:ew-resize;touch-action:none;z-index:5}
-.wgt-res::after{content:"";position:absolute;top:50%;right:4px;width:4px;height:34px;margin-top:-17px;border-radius:2px;background:var(--border)}
-body.wedit .wgt-res{display:block}
-body.wedit .wgt-res:hover::after{background:var(--accent)}
-.wgt.resizing{outline:1px solid var(--accent)!important}
 /* Fri høyde: når data-h er satt, strekkes kortet og grafen til å fylle boksen.
    Uten data-h oppfører widgeten seg som før og følger innholdet. */
-.wgt-res-b{display:none;position:absolute;left:0;bottom:-6px;height:12px;width:100%;cursor:ns-resize;touch-action:none;z-index:5}
-.wgt-res-b::after{content:"";position:absolute;left:50%;bottom:4px;height:4px;width:34px;margin-left:-17px;border-radius:2px;background:var(--border)}
-.wgt-res-c{display:none;position:absolute;right:-6px;bottom:-6px;width:16px;height:16px;cursor:nwse-resize;touch-action:none;z-index:6}
-.wgt-res-c::after{content:"";position:absolute;right:4px;bottom:4px;width:9px;height:9px;border-right:2px solid var(--text3);border-bottom:2px solid var(--text3)}
-body.wedit .wgt-res-b,body.wedit .wgt-res-c{display:block}
-body.wedit .wgt-res-b:hover::after{background:var(--accent)}
-body.wedit .wgt-res-c:hover::after{border-color:var(--accent)}
 .wgt[data-h]{display:flex;flex-direction:column;overflow:hidden}
 .wgt[data-h]>.wgt-body{flex:1;min-height:0;display:flex;flex-direction:column;gap:.55rem}
 /* Bare innholdet skal vokse. Fanelinjer og filterrader beholder sin
@@ -3046,12 +2700,6 @@ body.wedit .wgt-res-c:hover::after{border-color:var(--accent)}
 .wgt[data-h] .tw{flex:1 1 auto;min-height:0;overflow:auto}
 .wgt[data-h] .hist,
 .wgt[data-h] #mach-list{flex:1 1 auto;min-height:0;overflow:auto}
-.wgt-grip{cursor:grab;font-size:14px;color:var(--text3);touch-action:none;user-select:none;padding:0 2px}
-.wgt-grip:active{cursor:grabbing}
-.wgt-name{flex:1;font-size:11px;color:var(--text2);font-family:var(--mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.wgt-size{font-size:10px;color:var(--text3);font-family:var(--mono);min-width:30px;text-align:center}
-.wgt-b{border:1px solid var(--border);background:var(--bg2);color:var(--text2);border-radius:4px;cursor:pointer;font-size:11px;line-height:1;padding:3px 6px;font-family:inherit}
-.wgt-b:hover{background:var(--bg)}
 @media(max-width:1200px){.wgt{grid-column:span 6!important}}
 @media(max-width:640px){.wgt{grid-column:span 12!important}}
 
@@ -3125,30 +2773,15 @@ body.wedit .wgt-res-c:hover::after{border-color:var(--accent)}
   </div>
 </div>
 
-<!-- Dashboard-modal -->
+<!-- Dashbord-bytter. Oppsett gjøres i dashbord.html -->
 <div class="mover" id="dash-modal">
   <div class="hmodal">
-    <h3>Dashboard</h3>
-    <div id="dash-browse">
-      <div class="hmodal-sub">Velg hvilket oppsett du vil bruke. Standard er det innebygde.</div>
-      <div id="dash-list"></div>
-      <div style="display:flex;gap:8px;margin-top:1rem">
-        <button class="dash-btn" style="flex:1;justify-content:center" id="dash-new-btn">+ Nytt dashboard</button>
-        <button class="dash-btn" style="flex:1;justify-content:center" id="dash-close-btn">Lukk</button>
-      </div>
-    </div>
-    <div id="dash-edit" style="display:none">
-      <div class="hmodal-sub">Huk av hvilke widgets malen skal inneholde. Plassering og bredde setter du med <b>✎ Tilpass</b> på selve dashboardet.</div>
-      <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">Navn</label>
-      <input class="dash-field" id="dash-name" type="text" style="margin-bottom:.8rem">
-      <div id="dash-secs"></div>
-      <label id="dash-shared-wrap" style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text2);margin-top:.7rem">
-        <input type="checkbox" id="dash-shared"> Delt mal — synlig for alle brukere
-      </label>
-      <div style="display:flex;gap:8px;margin-top:1rem">
-        <button class="dash-btn" style="flex:1;justify-content:center;background:var(--accent);color:#fff;border-color:var(--accent)" id="dash-save-btn">Lagre</button>
-        <button class="dash-btn" style="flex:1;justify-content:center" id="dash-back-btn">Avbryt</button>
-      </div>
+    <h3>Bytt dashbord</h3>
+    <div class="hmodal-sub">Velg hvilket oppsett du vil se. Valget huskes.</div>
+    <div id="dash-list"></div>
+    <div style="display:flex;gap:8px;margin-top:1rem">
+      <a class="dash-btn" href="dashbord.html" style="flex:1;justify-content:center;text-decoration:none">Sett opp dashbord →</a>
+      <button class="dash-btn" style="flex:1;justify-content:center" id="dash-close-btn">Lukk</button>
     </div>
   </div>
 </div>
@@ -3172,13 +2805,8 @@ document.getElementById('chat-fab').addEventListener('click',toggleChat);
 document.getElementById('chat-close').addEventListener('click',toggleChat);
 document.getElementById('chat-send').addEventListener('click',chatSend);
 document.getElementById('chat-input').addEventListener('keydown',chatKey);
-document.getElementById('dash-new-btn').addEventListener('click',newDash);
 document.getElementById('dash-close-btn').addEventListener('click',closeDashModal);
-document.getElementById('dash-save-btn').addEventListener('click',saveDash);
-document.getElementById('dash-back-btn').addEventListener('click',renderDashList);
 document.getElementById('dash-open-btn').addEventListener('click',openDashModal);
-document.getElementById('wedit-btn').addEventListener('click',toggleWEdit);
-document.getElementById('wsave-btn').addEventListener('click',saveLayout);
 document.getElementById('dr-send').addEventListener('click',submitDreq);
 document.getElementById('dr-cancel').addEventListener('click',closeDreqModal);
 ['dr-line','dr-from','dr-to'].forEach(function(id){

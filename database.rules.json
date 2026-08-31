@@ -8,7 +8,7 @@
       "$uid": {
         ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'master')",
         "dashboardId": {
-          ".write": "auth != null && ($uid === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'master')"
+          ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'master' || ($uid === auth.uid && root.child('users').child(auth.uid).child('role').val() !== 'linjeoperator'))"
         }
       }
     },
@@ -72,7 +72,7 @@
     "userDashboards": {
       "$uid": {
         ".read": "auth != null && $uid === auth.uid",
-        ".write": "auth != null && $uid === auth.uid"
+        ".write": "auth != null && $uid === auth.uid && root.child('users').child(auth.uid).child('role').val() !== 'linjeoperator'"
       }
     },
 

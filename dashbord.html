@@ -355,12 +355,25 @@ async function saveTpl(){
 async function deleteTpl(){
   const t=tplById(SEL);
   if(!t)return;
-  if(!confirm('Slette "'+(t.name||'')+'"? Brukere som har den tildelt faller tilbake til Standard.'))return;
+  const antall=Object.keys(USERS).filter(function(u){return (USERS[u]||{}).dashboardId===SEL;}).length;
+  if(!confirm('Slette "'+(t.name||'')+'"?'+
+     (antall?'\n\n'+antall+' bruker(e) har den tildelt og settes til Standard.':'')))return;
   const raw=SEL.slice(3);
   try{
+    // Sett alle som har malen tildelt tilbake til Standard, ellers ville
+    // dashboardId pekt på noe som ikke finnes lenger
+    const berort=[];
+    Object.keys(USERS).forEach(function(uid){
+      if((USERS[uid]||{}).dashboardId===SEL)berort.push(uid);
+    });
+    if(MYUID&&INUSE===SEL&&berort.indexOf(MYUID)<0)berort.push(MYUID);
+    for(let i=0;i<berort.length;i++){
+      await db.ref('users/'+berort[i]).update({dashboardId:'std'});
+    }
     if(SEL.slice(0,3)==='sh:')await db.ref('settings/dashboards/'+raw).remove();
     else await db.ref('userDashboards/'+MYUID+'/'+raw).remove();
-    selectTpl('std');
+    if(berort.length)showToast(berort.length+' bruker(e) satt til Standard');
+    selectTpl('std',true);
     showToast('Slettet');
   }catch(e){showToast('Sletting feilet',true);}
 }
@@ -605,6 +618,13 @@ auth.onAuthStateChanged(async function(user){
     }
     if(role==='master')document.getElementById('nav-logg').style.display='';
     if(role==='master'||role==='leder'||ME.shiftAccess===true)document.getElementById('nav-skift').style.display='';
+    // Operatører følger malen de er tildelt og har ikke tilgang hit
+    if(role==='linjeoperator'){
+      document.getElementById('gate').style.display='block';
+      document.getElementById('gate').querySelector('p').textContent=
+        'Linjeoperatører følger dashbordet de er tildelt. Ta kontakt med en leder for å endre det.';
+      return;
+    }
     document.getElementById('app').style.display='';
 
     const sharedRef=db.ref('settings/dashboards');

@@ -55,11 +55,21 @@ og `h` er høyde i piksler, eller 0 for innholdsstyrt. Med satt høyde strekkes 
 grafen; bare `.card`, `.cp` og `.prod-view` vokser — fanelinjer må beholde naturlig høyde,
 ellers stables knappene loddrett.
 
-Oppsett gjøres i **dashbord.html** på et lerret av plassholdere, siden det er upraktisk å dra
-på levende Chart.js-flater. index.html beholder ✎ Tilpass for raske justeringer.
+Oppsett gjøres **bare** i dashbord.html, på et lerret av plassholdere — det er upraktisk å
+dra på levende Chart.js-flater. index.html har ingen redigering igjen, bare en bytter
+(⚙ Dashbord) og en lenke videre. Det var tre steder å redigere det samme; nå er det ett.
+
 `users/{uid}.dashboardId` er "std" (innebygd standard, kan ikke slettes), "sh:<id>" (delt mal)
-eller "me:<id>" (egen mal). Master tildeler delte maler i dashbord.html og brukere.html;
-alle kan lage egne.
+eller "me:<id>" (egen mal). **Linjeoperatører kan ikke bytte mal** — de følger den de er
+tildelt. Det håndheves tre steder: bytteren skjules, dashbord.html avviser dem, og reglene
+tillater bare ikke-operatører å skrive eget `dashboardId` eller egne `userDashboards`.
+Ellers kunne en operatør skru av «Registrer hendelse» og miste evnen til å melde stopp.
+
+Slettes en mal, settes alle som har den tildelt tilbake til Standard i samme operasjon.
+Uten det ville `dashboardId` pekt på noe som ikke finnes.
+
+`index.html?dash=<id>` viser en mal midlertidig uten å lagre valget — brukes av
+«Forhåndsvis» i dashbord.html.
 
 ### Skiftkalender
 Maler settes opp i innstillinger.html og legges inn per linje og dato som bobler.
