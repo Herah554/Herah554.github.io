@@ -23,7 +23,7 @@ Siemens S7-1500 PLS → bridge.py (OPC-UA, fabrikk-PC) → Firebase RTDB → Git
 
 ### Databasestruktur
 - `events/` — nedetidshendelser `{line, machine, cause, duration(min), severity, comment, ts, wholeLine, source:"opc"|undefined, unhandled:bool, handledAt, handledBy}`
-- `settings/` — `{globalGoal, oeeGoal, defaultDayHours, resetTime:"HH:MM", lineGoals{}, oeeGoals{}, prodPlan{lk:{weekHours}}, machines{lk:[navn]}, causes{lk__mk:[årsak]}, generalCauses[], plannedStops[], products{lk:[{name,eskerPerDpack}]}, dashboards{dash_id:{name,sections{kpi|oversikt|nedetid|registrer|logg:{on,order}}}}}`
+- `settings/` — `{globalGoal, oeeGoal, defaultDayHours, resetTime:"HH:MM", lineGoals{}, oeeGoals{}, prodPlan{lk:{weekHours}}, machines{lk:[navn]}, causes{lk__mk:[årsak]}, generalCauses[], plannedStops[], products{lk:[{name,eskerPerDpack}]}, dashboards{id:{name,widgets{...}}} (se egen seksjon)}`
 - `users/{uid}` — `{name, email, role:"master"|"leder"|"linjeoperator", lines[], dashboardId, shiftAccess:bool, createdAt}`
 - `shiftReports/{YYYY-MM-DD}/{lk}` — `{line, date, skift, produkt, aoNr, hastighet, antallBestilt, antallProdusert, planlagteTimer, forsteFylling, sisteFylling, bemanning, grisematKg, reworkKg, ravaresvinn, svinn, kommentar, signatur, savedBy, savedAt}`
 - `production/{YYYY-MM-DD}/{lk}/count` — esketelling per dag
@@ -40,22 +40,26 @@ Siemens S7-1500 PLS → bridge.py (OPC-UA, fabrikk-PC) → Firebase RTDB → Git
 - `shiftPlan/{YYYY-MM-DD}/{lk}/{pushId}` — skiftbobler: `{tplId, name, start, end, bemanning, color, addedAt}`
 
 ### Widgets og dashboard-maler
-Registeret (`WIDGETS`, `GRID_COLS`, `MIN_H`, `stdWidgets`, `normWidgets`) ligger i
-`dashboard-widgets.js` fordi to sider bruker det. Layoutmodellen er `{key:{on,order,w,h}}`
-der `w` er kolonner 1–12 og `h` er piksler, eller 0 for innholdsstyrt høyde.
-Selve oppsettet gjøres i dashbord.html på et lerret av plassholdere — å dra på levende
-Chart.js-flater var upraktisk. index.html beholder ✎ Tilpass for raske justeringer.
-Dashboardet er 20 widgets i et 12-kolonners rutenett (`#wgrid`). Widgetene lager **ikke** ny
+Dashboardet er 21 widgets i et 12-kolonners rutenett (`#wgrid`). Widgetene lager **ikke** ny
 markup — `buildWidgets()` adopterer elementer som allerede finnes og flytter dem inn i
-rutenettet, så alle id-er, lyttere og Chart.js-instanser overlever. Registeret er `WIDGETS`;
-`els`-syntaksen er `#id` eller `#id^.klasse` (nærmeste forelder). Fanebarene `#main-tabs` og
-`#nd-tabs` skjules fordi hver fane er blitt egen widget, og `renderAll` tegner derfor både OEE
-og Produksjon i stedet for én av gangen. Dra bruker pointer events (ikke HTML5 drag-and-drop)
-så det virker med mus og finger på fabrikkens eldre Chrome. Lagres som
-`widgets:{key:{on,order,w}}` der `w` er antall kolonner (1–12).
-`users/{uid}.dashboardId` er `'std'` (innebygd standard,
-kan ikke slettes), `'sh:<id>'` (delt mal) eller `'me:<id>'` (egen mal). Master tildeler delte
-maler i brukere.html; alle kan duplisere til en egen variant via ⚙ Dashboard på dashboardet.
+rutenettet, så alle id-er, lyttere og Chart.js-instanser overlever. `els`-syntaksen er `#id`
+eller `#id^.klasse` (nærmeste forelder). Fanebarene `#main-tabs` og `#nd-tabs` skjules fordi
+hver fane er blitt egen widget, og `renderAll` tegner derfor både OEE og Produksjon i stedet
+for én av gangen. Dra bruker pointer events (ikke HTML5 drag-and-drop) så det virker med mus
+og finger på fabrikkens eldre Chrome.
+
+Registeret (`WIDGETS`, `GRID_COLS`, `MIN_H`, `stdWidgets`, `normWidgets`) ligger i
+**`dashboard-widgets.js`** fordi to sider bruker det — legges en widget til der, dukker den
+opp begge steder. Layoutmodellen er `widgets:{key:{on,order,w,h}}` der `w` er kolonner 1–12
+og `h` er høyde i piksler, eller 0 for innholdsstyrt. Med satt høyde strekkes kortet og
+grafen; bare `.card`, `.cp` og `.prod-view` vokser — fanelinjer må beholde naturlig høyde,
+ellers stables knappene loddrett.
+
+Oppsett gjøres i **dashbord.html** på et lerret av plassholdere, siden det er upraktisk å dra
+på levende Chart.js-flater. index.html beholder ✎ Tilpass for raske justeringer.
+`users/{uid}.dashboardId` er "std" (innebygd standard, kan ikke slettes), "sh:<id>" (delt mal)
+eller "me:<id>" (egen mal). Master tildeler delte maler i dashbord.html og brukere.html;
+alle kan lage egne.
 
 ### Skiftkalender
 Maler settes opp i innstillinger.html og legges inn per linje og dato som bobler.
