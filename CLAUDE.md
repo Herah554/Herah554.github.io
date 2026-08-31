@@ -40,6 +40,11 @@ Siemens S7-1500 PLS → bridge.py (OPC-UA, fabrikk-PC) → Firebase RTDB → Git
 - `shiftPlan/{YYYY-MM-DD}/{lk}/{pushId}` — skiftbobler: `{tplId, name, start, end, bemanning, color, addedAt}`
 
 ### Widgets og dashboard-maler
+Registeret (`WIDGETS`, `GRID_COLS`, `MIN_H`, `stdWidgets`, `normWidgets`) ligger i
+`dashboard-widgets.js` fordi to sider bruker det. Layoutmodellen er `{key:{on,order,w,h}}`
+der `w` er kolonner 1–12 og `h` er piksler, eller 0 for innholdsstyrt høyde.
+Selve oppsettet gjøres i dashbord.html på et lerret av plassholdere — å dra på levende
+Chart.js-flater var upraktisk. index.html beholder ✎ Tilpass for raske justeringer.
 Dashboardet er 20 widgets i et 12-kolonners rutenett (`#wgrid`). Widgetene lager **ikke** ny
 markup — `buildWidgets()` adopterer elementer som allerede finnes og flytter dem inn i
 rutenettet, så alle id-er, lyttere og Chart.js-instanser overlever. Registeret er `WIDGETS`;
@@ -91,6 +96,8 @@ repoen** — siden er offentlig. `botContext()` sender et kompakt sammendrag, al
 - `skiftrapport.html` — skiftrapport per linje/dato (ny/rediger + historikk), skriver til `shiftReports/`. Tilgang: master, leder, eller bruker med `shiftAccess:true`. Operatør ser kun sine egne linjer i historikken.
 - `logg.html` — «Logg & data» (**kun master**): rediger dagstall i `production/`, full hendelseslogg med retting/sletting, systemstatus fra `opc_status/`
 - `import.html` — CSV-import (master/leder): plandata til `plan/production` og `plan/shift`, samt fletting av produkter inn i `settings/products`
+- `dashbord.html` — dashbord-oppsett: bygg maler på et abstrakt lerret (uten levende grafer), og tildel delte maler til brukere. Alle kan lage egne; master ser delte + tildelingstabell
+- `dashboard-widgets.js` — **delt** widget-register brukt av både index.html og dashbord.html. Legges en widget til her, dukker den opp begge steder
 - `login.html` — innlogging
 
 Referert, men ikke i repoet:

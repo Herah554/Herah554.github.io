@@ -13,6 +13,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="dashboard-widgets.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -239,6 +240,7 @@ table,#eff-kpi-eff,#eff-kpi-nd,.klbl,.ksub{font-variant-numeric:tabular-nums;fon
 <nav>
   <div class="logo">Diplom-is<span> / Produksjon</span></div>
   <a href="index.html" class="nl on">Dashboard</a>
+  <a href="dashbord.html" class="nl" id="nav-dash">Dashbord-oppsett</a>
   <a href="rapporter.html" class="nl" id="nav-rap" style="display:none">Rapporter</a>
   <a href="skiftrapport.html" class="nl" id="nav-skift" style="display:none">Skiftrapport</a>
   <a href="import.html" class="nl" id="nav-import" style="display:none">Import</a>
@@ -2106,36 +2108,9 @@ Chart.defaults.animation=false;        // ingen re-animasjon ved oppdatering →
    Egne maler:  userDashboards/{uid}/{id}
    Valg:        users/{uid}.dashboardId = 'std' | 'sh:<id>' | 'me:<id>'
    ═══════════════════════════════════════════════════════════ */
-const GRID_COLS=12;
-const WSTEPS=[2,3,4,6,8,12];
-const MIN_H=90;   // laveste widget-høyde i piksler
-const WIDGETS=[
-  {key:'filter',       name:'Filtrer',                 w:12, els:['#fbar']},
-  {key:'linjestatus',  name:'Linjestatus',             w:12, els:['#line-status-card']},
-  {key:'kpi-nedetid',  name:'Nedetid i dag',           w:2,  els:['#k-today^.kpi']},
-  {key:'kpi-oee',      name:'OEE i dag',               w:2,  els:['#k-oee^.kpi']},
-  {key:'kpi-eff',      name:'Effektivitet i dag',      w:2,  els:['#k-eff^.kpi']},
-  {key:'kpi-oee-wtd',  name:'OEE denne uken',          w:2,  els:['#k-oee-wtd^.kpi']},
-  {key:'kpi-oee-mtd',  name:'OEE denne måneden',       w:2,  els:['#k-oee-mtd^.kpi']},
-  {key:'kpi-hendelser',name:'Hendelser denne uke',     w:2,  els:['#k-week^.kpi']},
-  {key:'oee-utvikling',name:'OEE-utvikling',           w:6,  els:['#oee-tabs','#oee-card']},
-  {key:'produksjon',   name:'Produksjon',              w:6,  els:['#prod-tabs','#pv-main']},
-  {key:'nd-daily',     name:'Nedetid per time i dag',  w:12, els:['#cp-daily']},
-  {key:'nd-weekly',    name:'Nedetid per dag i uken',  w:6,  els:['#cp-weekly']},
-  {key:'nd-causes',    name:'Årsaker og maskinfordeling',w:12,els:['#cp-causes']},
-  {key:'nd-maskiner',  name:'Maskinliste',             w:6,  els:['#cp-maskiner']},
-  {key:'nd-heatmap',   name:'Heatmap',                 w:12, els:['#cp-heatmap']},
-  {key:'plan',         name:'Plan mot faktisk',        w:6,  els:['#pva-body^.card']},
-  {key:'effektivitet', name:'Effektivitet over tid',   w:12, els:['#ch-eff-trend^.card']},
-  {key:'registrer',    name:'Registrer hendelse',      w:6,  els:['#f-line^.card']},
-  {key:'siste',        name:'Siste hendelser',         w:6,  els:['#hist^.card']},
-  {key:'slettesok',    name:'Slettesøknader',        w:12, els:['#dreq-card'], staff:true},
-  {key:'logg',         name:'Hendelseslogg',           w:12, els:['#tbl^.card']}
-];
 let SHARED_DASH={}, MY_DASH={}, CUR_DASH='std', DASH_DRAFT=null, DRAFT_ID=null;
 let userDashRef=null, WEDIT=false, BUILT=false;
 
-function stdWidgets(){const o={};WIDGETS.forEach((w,i)=>{o[w.key]={on:true,order:i,w:w.w};});return o;}
 function dashById(id){
   if(!id||id==='std')return{name:'Standard',widgets:stdWidgets(),builtin:true};
   if(id.slice(0,3)==='sh:')return SHARED_DASH[id.slice(3)]||null;
@@ -2147,18 +2122,6 @@ function dashList(){
   Object.keys(SHARED_DASH).forEach(k=>out.push({id:'sh:'+k,name:SHARED_DASH[k].name||'Uten navn',kind:'Delt mal'}));
   Object.keys(MY_DASH).forEach(k=>out.push({id:'me:'+k,name:MY_DASH[k].name||'Uten navn',kind:'Min'}));
   return out;
-}
-/* Tåler både nye maler og maler uten alle nøkler */
-function normWidgets(cfg){
-  const src=(cfg&&cfg.widgets)||{};
-  return WIDGETS.map((w,i)=>{
-    const c=src[w.key]||{};
-    return{key:w.key,name:w.name,
-      on:c.on!==false,
-      order:(typeof c.order==='number')?c.order:i,
-      w:(typeof c.w==='number'&&c.w>0&&c.w<=GRID_COLS)?c.w:w.w,
-      h:(typeof c.h==='number'&&c.h>=MIN_H)?c.h:0};
-  }).sort((a,b)=>a.order-b.order);
 }
 function resolveEl(spec){
   const cut=spec.indexOf('^');
