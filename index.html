@@ -298,6 +298,11 @@ table,#eff-kpi-eff,#eff-kpi-nd,.klbl,.ksub{font-variant-numeric:tabular-nums;fon
 </div>
 
 <main class="page">
+  <div id="preview-bar" style="display:none;align-items:center;gap:10px;background:#fffbeb;border:1px solid #fde68a;color:#92400e;border-radius:var(--r);padding:7px 12px;margin-bottom:.7rem;font-size:12px">
+    <b>Forhåndsvisning</b>
+    <span>Du ser en mal midlertidig. Dette endrer ikke dashbordet ditt.</span>
+    <a href="index.html" style="margin-left:auto;color:#92400e;font-weight:600">Tilbake til mitt →</a>
+  </div>
   <div class="dash-bar">
     <button class="dash-btn" id="dash-open-btn">⚙ Dashboard: <b id="dash-cur">Standard</b></button>
     <button class="dash-btn" id="wedit-btn">✎ Tilpass</button>
@@ -668,7 +673,11 @@ auth.onAuthStateChanged(async user=>{
       if(filterLine&&filterLine!=='Alle')updateProductSelector(filterLine);
     }
     // Dashboard-mal: last brukerens valg og lytt på hans egne maler
-    CUR_DASH=myProfile.dashboardId||'std';
+    CUR_DASH=PREVIEW||myProfile.dashboardId||'std';
+    if(PREVIEW){
+      const b=document.getElementById('preview-bar');
+      if(b)b.style.display='flex';
+    }
     initUserDash(user.uid);
     applyDashboard(CUR_DASH);
     renderDreq();
@@ -2110,6 +2119,11 @@ Chart.defaults.animation=false;        // ingen re-animasjon ved oppdatering →
    ═══════════════════════════════════════════════════════════ */
 let SHARED_DASH={}, MY_DASH={}, CUR_DASH='std', DASH_DRAFT=null, DRAFT_ID=null;
 let userDashRef=null, WEDIT=false, BUILT=false;
+// ?dash=<id> viser en mal midlertidig, uten å endre hva brukeren bruker
+const PREVIEW=(function(){
+  const m=location.search.match(/[?&]dash=([^&]+)/);
+  return m?decodeURIComponent(m[1]):null;
+})();
 
 function dashById(id){
   if(!id||id==='std')return{name:'Standard',widgets:stdWidgets(),builtin:true};
@@ -2478,7 +2492,8 @@ async function selectDash(id){
   applyDashboard(id);
   renderDashList();
   const u=auth.currentUser;
-  if(u){try{await db.ref('users/'+u.uid).update({dashboardId:id});}catch(e){}}
+  // I forhåndsvisning skal ingenting festes — da ville en titt bli et valg
+  if(u&&!PREVIEW){try{await db.ref('users/'+u.uid).update({dashboardId:id});}catch(e){}}
 }
 function duplicateDash(id){
   const src=dashById(id);

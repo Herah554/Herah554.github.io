@@ -47,6 +47,9 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:var(--
 .tpl:hover{background:var(--bg3)}
 .tpl.on{border-color:var(--accent);background:#fef2f2}
 .tpl-nm{flex:1;font-size:13px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tpl-inuse{font-size:9px;font-family:var(--mono);background:#f0fdf4;border:1px solid #bbf7d0;color:var(--green);border-radius:3px;padding:1px 6px;text-transform:uppercase;letter-spacing:.04em}
+.tpl-dirty{color:var(--amber);font-size:14px;line-height:1}
+.btn2:disabled{opacity:.6;cursor:default}
 .tpl-kind{font-size:10px;font-family:var(--mono);color:var(--text3)}
 
 /* Lerret */
@@ -130,7 +133,7 @@ td{padding:7px 8px;border-bottom:1px solid var(--bg3);font-size:13px}
         <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:.9rem">
           <div style="flex:1;min-width:180px">
             <div class="lbl">Navn</div>
-            <input type="text" id="d-name" placeholder="Navn på dashbordet">
+            <input type="text" id="d-name" placeholder="Navn på dashbordet" oninput="markDirty()">
           </div>
           <label id="d-shared-wrap" style="display:none;align-items:center;gap:7px;font-size:12px;color:var(--text2);padding-bottom:9px">
             <input type="checkbox" id="d-shared" style="width:auto"> Delt mal
@@ -181,7 +184,9 @@ const db=firebase.database(),auth=firebase.auth();
 
 let ME=null, MYUID=null;
 let SHARED={}, MINE={}, USERS={};
-let SEL='std';          // valgt mal-id
+let SEL='std';          // valgt mal-id i redigeringen
+let INUSE='std';        // malen brukeren faktisk møter på dashbordet
+let DIRTY=false;        // ulagrede endringer i lerretet
 let DRAFT=null;         // {name, shared, widgets}
 
 function showToast(m,e){const t=document.getElementById('toast');t.textContent=(e?'✕ ':'✓ ')+m;t.className='toast'+(e?' e':'');t.style.opacity='1';setTimeout(()=>t.style.opacity='0',2200);}
@@ -209,6 +214,16 @@ function renderTplList(){
     const nm=document.createElement('div');
     nm.className='tpl-nm';nm.textContent=t.name;
     row.appendChild(nm);
+    if(t.id===INUSE){
+      const b=document.createElement('span');
+      b.className='tpl-inuse';b.textContent='I bruk';
+      row.appendChild(b);
+    }
+    if(t.id===SEL&&DIRTY){
+      const b=document.createElement('span');
+      b.className='tpl-dirty';b.textContent='●';b.title='Ulagrede endringer';
+      row.appendChild(b);
+    }
     const kd=document.createElement('span');
     kd.className='tpl-kind';kd.textContent=t.kind;
     row.appendChild(kd);
@@ -220,6 +235,20 @@ function renderTplList(){
   if(!sel)return;
   const bar=document.createElement('div');
   bar.style.display='flex';bar.style.gap='5px';bar.style.marginTop='.6rem';bar.style.flexWrap='wrap';
+  if(SEL!=='std'||INUSE!=='std'){
+    const bruk=document.createElement('button');
+    bruk.className='btn2'+(SEL===INUSE?' on':'');
+    bruk.textContent=SEL===INUSE?'✓ I bruk':'Bruk fast';
+    bruk.title='Gjør denne til dashbordet du møter';
+    bruk.disabled=SEL===INUSE;
+    bruk.addEventListener('click',useTpl);
+    bar.appendChild(bruk);
+  }
+  const pre=document.createElement('button');
+  pre.className='btn2';pre.textContent='Forhåndsvis';
+  pre.title='Åpne dashbordet med denne malen, uten å endre hva du bruker';
+  pre.addEventListener('click',previewTpl);
+  bar.appendChild(pre);
   const dup=document.createElement('button');
   dup.className='btn2';dup.textContent='Dupliser';
   dup.addEventListener('click',duplicateTpl);
@@ -233,7 +262,11 @@ function renderTplList(){
   }
   wrap.appendChild(bar);
 }
-function selectTpl(id){
+function selectTpl(id,tvunget){
+  // Uten dette ville et klikk i lista stille kaste alt du nettopp har lagt ut
+  if(DIRTY&&!tvunget&&id!==SEL&&
+     !confirm('Du har endringer som ikke er lagret. Forlate dem?'))return;
+  DIRTY=false;
   SEL=id;
   const t=tplById(id)||{name:'Standard',widgets:stdWidgets()};
   DRAFT={name:t.name||'',shared:id.slice(0,3)==='sh:',
@@ -244,6 +277,25 @@ function selectTpl(id){
   // Standard er innebygd og skal ikke kunne overskrives
   document.getElementById('d-save').textContent=(id==='std')?'Lagre som ny':'Lagre';
   renderTplList();renderCanvas();
+}
+/* Setter malen som brukerens faste dashbord. Lagres på users/{uid},
+   så den følger deg mellom maskiner og overlever at du bytter frem og
+   tilbake mellom maler her inne. */
+async function useTpl(){
+  if(SEL==='std'&&INUSE==='std')return;
+  if(DIRTY&&!confirm('Du har ulagrede endringer. Ta i bruk den sist lagrede versjonen likevel?'))return;
+  try{
+    await db.ref('users/'+MYUID).update({dashboardId:SEL});
+    INUSE=SEL;
+    renderTplList();
+    showToast('Satt som ditt faste dashbord');
+  }catch(e){showToast('Kunne ikke lagre valget',true);}
+}
+/* Forhåndsvisning endrer ikke hva du bruker — index.html leser ?dash= og
+   viser malen for denne fanen alene. */
+function previewTpl(){
+  if(DIRTY)showToast('Viser sist lagrede versjon',true);
+  window.open('index.html?dash='+encodeURIComponent(SEL),'_blank');
 }
 function resetTpl(){selectTpl(SEL);showToast('Tilbakestilt');}
 function newTpl(){
@@ -295,6 +347,8 @@ async function saveTpl(){
       id=SEL;
     }
     SEL=id;
+    DIRTY=false;
+    renderTplList();
     showToast('Lagret');
   }catch(e){showToast('Lagring feilet',true);}
 }
@@ -313,7 +367,13 @@ async function deleteTpl(){
 
 /* ── Lerret ── */
 function draftList(){return normWidgets(DRAFT);}
+function markDirty(){
+  if(DIRTY)return;
+  DIRTY=true;
+  renderTplList();
+}
 function setDraft(list){
+  markDirty();
   const o={};
   list.forEach(function(it,i){o[it.key]={on:it.on,order:i,w:it.w,h:it.h};});
   DRAFT.widgets=o;
@@ -559,7 +619,13 @@ auth.onAuthStateChanged(async function(user){
       usersRef.off('value',handleUsers);
       usersRef.on('value',handleUsers);
     }
-    selectTpl(ME.dashboardId||'std');
+    INUSE=ME.dashboardId||'std';
+    // Følg med hvis valget endres et annet sted (f.eks. fra dashbordet)
+    db.ref('users/'+user.uid+'/dashboardId').on('value',function(sn){
+      INUSE=sn.val()||'std';
+      renderTplList();
+    });
+    selectTpl(INUSE,true);
   }catch(e){
     console.error(e);
     document.getElementById('gate').style.display='block';
