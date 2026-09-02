@@ -228,7 +228,7 @@ td:first-child{font-family:var(--mono);font-size:11px;color:var(--text3)}
 .he-addpart:hover{border-color:var(--accent);color:var(--accent)}
 .he-sum{font-size:10px;color:var(--text3);font-family:var(--mono)}
 .he-done{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:var(--r);padding:6px 10px;font-size:11px;color:var(--green);text-align:center;font-weight:500}
-.toast{position:fixed;bottom:18px;right:18px;background:var(--bg2);border:1px solid #bbf7d0;color:var(--green);font-size:12px;font-weight:600;padding:8px 14px;border-radius:var(--r);opacity:0;transition:opacity .3s;pointer-events:none;box-shadow:var(--shm)}
+.toast{position:fixed;bottom:18px;right:18px;background:var(--bg2);border:1px solid #bbf7d0;color:var(--green);font-size:12px;font-weight:600;padding:8px 14px;border-radius:var(--r);opacity:0;transition:opacity .3s;pointer-events:none;box-shadow:var(--shm);z-index:300}
 .toast.e{border-color:#fecaca;color:var(--red)}
 @media(max-width:1000px){.kpis{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:700px){.kpis{grid-template-columns:repeat(2,1fr)}.g2{grid-template-columns:1fr}.page{padding:1rem}nav{padding:0 1rem}.fg{grid-template-columns:1fr}}
@@ -2318,9 +2318,17 @@ function openDreqModal(){
   document.getElementById('dr-to').value=t;
   document.getElementById('dr-reason').value='';
   dreqPreview();
+  const err=document.getElementById('dr-error');
+  if(err){err.textContent='';err.style.display='none';}
   document.getElementById('dreq-modal').classList.add('on');
 }
 function closeDreqModal(){document.getElementById('dreq-modal').classList.remove('on');}
+/* Feil vises inne i skjemaet — en toast alene kan havne bak modalen */
+function dreqErr(m){
+  const e=document.getElementById('dr-error');
+  if(e){e.textContent=m;e.style.display='';}
+  showToast(m,true);
+}
 function dreqPreview(){
   const n=eventsInRange(
     document.getElementById('dr-line').value,
@@ -2336,11 +2344,11 @@ async function submitDreq(){
   const from=document.getElementById('dr-from').value;
   const to=document.getElementById('dr-to').value;
   const reason=document.getElementById('dr-reason').value.trim();
-  if(!from||!to){showToast('Velg tidsrom',true);return;}
-  if(new Date(to)<new Date(from)){showToast('Til-dato er før fra-dato',true);return;}
-  if(reason.length<10){showToast('Skriv en begrunnelse (minst 10 tegn)',true);return;}
+  if(!from||!to){dreqErr('Velg tidsrom',true);return;}
+  if(new Date(to)<new Date(from)){dreqErr('Til-dato er før fra-dato',true);return;}
+  if(reason.length<10){dreqErr('Skriv en begrunnelse (minst 10 tegn)',true);return;}
   const n=eventsInRange(line,from,to).length;
-  if(!n){showToast('Ingen hendelser i tidsrommet',true);return;}
+  if(!n){dreqErr('Ingen hendelser i tidsrommet',true);return;}
   try{
     await db.ref('deleteRequests').push({
       line:line,from:from,to:to,reason:reason,
@@ -2352,7 +2360,7 @@ async function submitDreq(){
     });
     closeDreqModal();
     showToast('Søknad sendt til godkjenning');
-  }catch(e){showToast('Kunne ikke sende søknad',true);}
+  }catch(e){dreqErr('Kunne ikke sende søknad',true);}
 }
 
 /* ── Behandling (master / leder) ── */
@@ -2763,9 +2771,10 @@ function chatKey(e){if(e.key==='Enter'){e.preventDefault();chatSend();}}
         <input class="dash-field" type="date" id="dr-to">
       </div>
     </div>
-    <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">Begrunnelse</label>
+    <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">Begrunnelse <span style="color:var(--text3)">(minst 10 tegn)</span></label>
     <textarea class="dash-field" id="dr-reason" rows="3" placeholder="F.eks. dobbeltregistrering etter strømbrudd 17.08"></textarea>
     <div id="dr-preview" style="font-size:12px;margin-top:.6rem"></div>
+    <div id="dr-error" style="display:none;font-size:12px;color:var(--red);margin-top:.4rem;font-weight:600"></div>
     <div style="display:flex;gap:8px;margin-top:1rem">
       <button class="dash-btn" style="flex:1;justify-content:center;background:var(--accent);color:#fff;border-color:var(--accent)" id="dr-send">Send søknad</button>
       <button class="dash-btn" style="flex:1;justify-content:center" id="dr-cancel">Avbryt</button>
