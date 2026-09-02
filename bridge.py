@@ -61,7 +61,9 @@ LINJER = [
         "navn":   "Glacier",
         "maskin": "Glacier-maskin",
         "teller": 'ns=3;s="Produksjon"."antall_esker"',
-        "aktiv":  'ns=3;s="Produksjon"."linje_aktiv"',
+        # Nedetidssignalet leses rett fra inngangstaggen (I0.1), ikke via DB3.
+        # Da trenger ikke OB1 endres — og TON-linjene der er uansett uten virkning.
+        "aktiv":  'ns=3;s="Glacier_nedetid"',
     },
     # {
     #     "navn":   "Løp 1",

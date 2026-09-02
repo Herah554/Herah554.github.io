@@ -136,7 +136,10 @@ END_IF;
 // Nedetid styres av is-sensoren (I0.1). Inaktiv sensor = linja står.
 "Produksjon".linje_aktiv := "Glacier is";
 ```
-Is-sensoren er tag `"Glacier is"` på `%I0.1` (Bool). Esker og nedetid er to uavhengige signaler.
+Is-sensoren er tag `"Glacier_nedetid"` på `%I0.1` (Bool). **bridge.py leser den direkte**
+(`ns=3;s="Glacier_nedetid"`), så OB1-endringen over er valgfri — `linje_aktiv` i DB3 brukes ikke
+lenger av broen. Esker og nedetid er to uavhengige signaler: linja kan stå (I0.1 inaktiv) mens
+esker fortsatt kommer ut på I0.0 en time senere, og nedetiden telles fra I0.1.
 
 **Ingen timer i PLS-en.** Den gamle koden skrev til `"TON_DB".IN/.PT` og leste `.Q`, men å tilordne
 felter på en `IEC_TIMER` starter ingen timer — `Q` ble aldri satt, så `linje_aktiv` var i praksis
