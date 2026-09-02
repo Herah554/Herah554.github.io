@@ -11,7 +11,7 @@ Siemens S7-1500 PLS → bridge.py (OPC-UA, fabrikk-PC) → Firebase RTDB → Git
 
 - **Frontend:** Ren HTML/CSS/JS — ingen rammeverk, ingen build-steg. Hostes på GitHub Pages (herah554.github.io).
 - **Backend:** Firebase Realtime Database + Firebase Auth (e-post/passord).
-- **PLS-bro:** `bridge.py` kjøres manuelt på fabrikk-PC (`C:\Users\Teknisk-Felles\Documents\bridge.py`, startes med `py bridge.py`). Leser OPC-UA hvert sekund.
+- **PLS-bro:** `bridge.py` (i repoet) kjøres manuelt på fabrikk-PC (`C:\Users\Teknisk-Felles\Documents\`, startes med `py bridge.py`). Leser OPC-UA hvert sekund. Linjene er en konfigtabell (`LINJER`); nullpunktet for dagstellingen lagres i Firebase så en omstart ikke nullstiller dagen (se Databasestruktur).
 
 ## Firebase
 
@@ -26,7 +26,7 @@ Siemens S7-1500 PLS → bridge.py (OPC-UA, fabrikk-PC) → Firebase RTDB → Git
 - `settings/` — `{globalGoal, oeeGoal, defaultDayHours, resetTime:"HH:MM", lineGoals{}, oeeGoals{}, prodPlan{lk:{weekHours}}, machines{lk:[navn]}, causes{lk__mk:[årsak]}, generalCauses[], plannedStops[], products{lk:[{name,eskerPerDpack}]}, dashboards{id:{name,widgets{...}}} (se egen seksjon)}`
 - `users/{uid}` — `{name, email, role:"master"|"leder"|"linjeoperator", lines[], dashboardId, shiftAccess:bool, createdAt}`
 - `shiftReports/{YYYY-MM-DD}/{lk}` — `{line, date, skift, produkt, aoNr, hastighet, antallBestilt, antallProdusert, planlagteTimer, forsteFylling, sisteFylling, bemanning, grisematKg, reworkKg, ravaresvinn, svinn, kommentar, signatur, savedBy, savedAt}`
-- `production/{YYYY-MM-DD}/{lk}/count` — esketelling per dag
+- `production/{YYYY-MM-DD}/{lk}/` — `{count, hourly{HH}, _base, _pls, _hbase{HH}}`. `count` = dagens esker. `_base` = PLS-tellerens verdi ved døgnstart, `_pls` = sist sette råverdi, `_hbase` = det samme per time. Skrives av bridge.py og gjør at broen finner nullpunktet igjen etter omstart; går `_pls` bakover er PLS-en nullstilt. Dashbordet leser bare `count` og `hourly`.
 - `productHourly/{date}/{lineKey}/{HH}` — esker per time (logges fra åpent dashboard hvert 3. min)
 - `active_product/{lk}` — `{product, setAt}`
 - `opc_status/` — `{connected, last_seen, url}`
@@ -114,8 +114,8 @@ repoen** — siden er offentlig. `botContext()` sender et kompakt sammendrag, al
 - `dashboard-widgets.js` — **delt** widget-register brukt av både index.html og dashbord.html. Legges en widget til her, dukker den opp begge steder
 - `login.html` — innlogging
 
-Referert, men ikke i repoet:
-- `bridge.py` — OPC-UA→Firebase. Kjører kun på fabrikk-PC (`C:\Users\Teknisk-Felles\Documents\bridge.py`); ingen kopi er sjekket inn her.
+- `bridge.py` — OPC-UA→Firebase-bro. Kjører på fabrikk-PC, men vedlikeholdes her. Trenger `bridge_auth.py` ved siden av seg og `py -m pip install opcua`.
+- `bridge_auth.py` — innlogging for broen (se sikkerhetsnotatet).
 
 ## Linjer
 Løp 1, Løp 2, Løp 3, Rollo, Koba, Glacier, Krokan. Kun **Glacier** er koblet til OPC-UA pt.
@@ -125,17 +125,29 @@ Løp 1, Løp 2, Løp 3, Rollo, Koba, Glacier, Krokan. Kun **Glacier** er koblet 
 Global DB `"Produksjon"` (DB3): `antall_esker` (Int), `linje_kjorer` (Bool, flankeminne), `linje_aktiv` (Bool, nedetidssignal). Alle med "Accessible from HMI/OPC UA".
 Sensor: I0.0, tag `"Glacier conuter"` (NPN, 24V=True ved eske).
 
-Main OB1 (SCL) — fungerende kode:
+Main OB1 (SCL):
 ```pascal
+// Tell esker på stigende flanke (I0.0 = dpack-teller)
 IF "Glacier conuter" AND NOT "Produksjon".linje_kjorer THEN
     "Produksjon".antall_esker := "Produksjon".antall_esker + 1;
 END_IF;
 "Produksjon".linje_kjorer := "Glacier conuter";
-"TON_DB".IN := "Glacier conuter";
-"TON_DB".PT := T#30S;
-"Produksjon".linje_aktiv := "TON_DB".Q OR "Glacier conuter";
+
+// Nedetid styres av is-sensoren (I0.1). Inaktiv sensor = linja står.
+"Produksjon".linje_aktiv := "Glacier is";
 ```
-`TON_DB` = Data block av type IEC_TIMER under Program blocks (IKKE System blocks). `"DB"()`-callsyntaks og CTU fungerer ikke i SCL i OB1 — bruk direkte tilordning. Variabelnavn kan ikke ha æ/ø/å.
+Is-sensoren er tag `"Glacier is"` på `%I0.1` (Bool). Esker og nedetid er to uavhengige signaler.
+
+**Ingen timer i PLS-en.** Den gamle koden skrev til `"TON_DB".IN/.PT` og leste `.Q`, men å tilordne
+felter på en `IEC_TIMER` starter ingen timer — `Q` ble aldri satt, så `linje_aktiv` var i praksis
+rå sensorverdi hele tiden. Debouncingen skjer i bridge.py: stopp kortere enn `MIN_DOWNTIME_MIN`
+(4 min) ignoreres. Er mellomrommene mellom is-produkter lengre enn det, må verdien opp.
+Vil man ha hold-tid i PLS-en likevel, er det TOF (av-forsinkelse) som er riktig instruksjon, kalt
+på instansen: `"TON_DB".TOF(IN := "Glacier is", PT := T#10S)` og deretter `"TON_DB".Q` — ikke testet.
+
+**Retain:** `antall_esker` bør ha Retain avkrysset så telleren overlever PLS-omstart. `linje_kjorer`
+trenger det ikke (bare flankeminne). I dag er det motsatt. Broen tåler nullstilling uansett.
+Variabelnavn kan ikke ha æ/ø/å.
 
 Node-IDer:
 - `ns=3;s="Produksjon"."antall_esker"`
@@ -149,7 +161,9 @@ Node-IDer:
 3. **Unngå inline `onclick` med dynamiske strenger som inneholder anførselstegn** — historisk kilde til syntaksfeil. Bruk `addEventListener` eller enkle ID-strenger uten spesialtegn.
 4. **Ved cache-problemer:** no-cache meta-tags finnes; test i inkognito. Bump versjonskommentar øverst i filen ved behov.
 5. `linje_kjorer` er True i kun én PLS-syklus — ubrukelig for polling. Bruk `linje_aktiv` (30s holdetid) for nedetidsdeteksjon.
-6. Nedetid registreres når linjen STARTER igjen, ikke når den stopper. Min. varighet: `MIN_DOWNTIME_MIN = 1`.
+6. Nedetid registreres når linjen STARTER igjen, ikke når den stopper. Min. varighet: `MIN_DOWNTIME_MIN = 4` (er debouncingen for sensoren — se PLS-seksjonen).
+7. **Dagstellingen må ha lagret nullpunkt.** Den gamle broen satte nullpunktet til PLS-verdien ved oppstart, så hver omstart skrev dagens telling til 0. Nullstilling av PLS oppdages ved at telleren går *bakover* (`_pls`), ikke ved sammenligning mot nullpunktet — det feiler så snart nullpunktet er negativt etter første nullstilling. Verifisert i simulering mot 8 scenarier.
+8. Linjenøkler må prosentkodes i REST-stier (`urllib.parse.quote`). Glacier er ASCII så det har aldri vært testet; Løp-linjene har ø.
 
 ## Arbeidsflyt og preferanser
 
@@ -173,11 +187,11 @@ Node-IDer:
    - **Rekkefølgen er kritisk:** oppsett → endre bridge.py → test at telling kommer inn →
      *deretter* publisere reglene. Publiseres reglene først, blokkeres oppsettets skriving
      til `users/`, som etterpå er forbeholdt master.
-   - bridge.py er ikke i repoet. David sender den inn når han er på fabrikk-PC-en, så
-     endringen (`?auth=API_KEY` → `?auth=fb.token()`) kan gjøres konkret.
+   - bridge.py er skrevet om (02.09.2026): bruker `bridge_auth.py` når den finnes, faller ellers
+     tilbake til API-nøkkel med varsel. Så rekkefølgen holder fortsatt: oppsett → start bro → regler.
    - Gjort allerede: `pwResets` er fjernet fra brukere.html til fordel for Firebase sin egen
      e-postflyt. Noden var tom, så ingen passord lå lagret.
-2. bridge.py som Windows-tjeneste (NSSM) med reconnect, buffering, logging.
+2. bridge.py som Windows-tjeneste (NSSM). Reconnect og fillogg (`bridge.log`, roterende) er på plass; buffering av skriv ved nettbrudd mangler fortsatt.
 3. Grunndata for 12xxx-produktserien mangler (har t.o.m. art.nr 11934).
-4. Flere linjer på OPC-UA.
+4. Flere linjer på OPC-UA — er nå en konfigoppføring i `LINJER` i bridge.py pluss egne DB-tagger i PLS-en (mønster: `lop1_antall_esker`, `lop1_linje_aktiv`).
 5. Ev. M3/Infor ION-integrasjon (fremtid).
