@@ -18,7 +18,7 @@ Siemens S7-1500 PLS → bridge.py (OPC-UA, fabrikk-PC) → Firebase RTDB → Git
 - Prosjekt: `messystem-f14dd`
 - Database: `https://messystem-f14dd-default-rtdb.firebaseio.com`
 - apiKey: `AIzaSyCL4x1KNwgeDxqTFeP32BndJgH4B5MworQ` (ligger i alle HTML-filer — normalt for Firebase)
-- **VIKTIG:** Reglene er pt. helt åpne (`.read/.write: true`). Planlagt fiks: egen Firebase Auth-bruker for bridge.py, deretter rollebaserte regler. Ikke stram reglene før bridge.py har ekte auth — da stopper natt-drift.
+- **Sikkerhet PÅ (publisert 02.09.2026):** `database.rules.json` er live. Alt krever innlogging, skriving er rollestyrt. Verifisert: uinnlogget `curl` mot basen gir HTTP 401. Broen skriver som `bridge@diplom-is.no` (uid 7SzoHTYmZrg8QCT5jOXTRUCa6Ax2, role=bridge) via `bridge_auth.py`. Endrer du reglene, test i Rules playground først — en for streng regel stopper natt-drift.
 - bridge.py logger inn via `bridge_auth.py` (ID-token) når den finnes, ellers `?auth=API_KEY` med varsel. Sistnevnte er IKKE gyldig auth og virker kun fordi reglene er åpne.
 
 ### Databasestruktur
@@ -178,23 +178,15 @@ Node-IDer:
 
 ## Pågående / neste oppgaver
 
-1. **Firebase-sikkerhet (VIKTIGST) — klar til utrulling, venter på fabrikk-PC.**
-   Basen er fortsatt **helt åpen**: verifisert 18.08.2026 gir `curl` mot `/opc_status.json`
-   og `/users.json?shallow=true` uten auth HTTP 200. Reglene er skrevet, men **ikke publisert**.
-   - `database.rules.json` — ferdig. Krever innlogging på alt, rollestyrt skriving. Operatører
-     kan opprette/oppdatere hendelser men ikke slette, så slettesøknadene ikke kan omgås.
-   - `bridge_auth.py` — ferdig. `py bridge_auth.py --oppsett` logger inn, henter UID selv,
-     oppretter `users/<UID>` med `role:"bridge"` og lagrer passordet i `bridge_pw.txt`
-     (som aldri skal i git). Uten argumenter kjører den selvtest.
-   - Auth-brukeren `bridge@diplom-is.no` er opprettet i Firebase Auth 19.08.2026.
-   - **Rekkefølgen er kritisk:** oppsett → endre bridge.py → test at telling kommer inn →
-     *deretter* publisere reglene. Publiseres reglene først, blokkeres oppsettets skriving
-     til `users/`, som etterpå er forbeholdt master.
-   - bridge.py er skrevet om (02.09.2026): bruker `bridge_auth.py` når den finnes, faller ellers
-     tilbake til API-nøkkel med varsel. Så rekkefølgen holder fortsatt: oppsett → start bro → regler.
-   - Gjort allerede: `pwResets` er fjernet fra brukere.html til fordel for Firebase sin egen
-     e-postflyt. Noden var tom, så ingen passord lå lagret.
-2. bridge.py som Windows-tjeneste (NSSM). Reconnect og fillogg (`bridge.log`, roterende) er på plass; buffering av skriv ved nettbrudd mangler fortsatt.
+1. ~~Firebase-sikkerhet~~ **FERDIG 02.09.2026.** Reglene er publisert (se Firebase-seksjonen).
+   Basen krever nå innlogging på alt; skriving er rollestyrt; operatører kan opprette/oppdatere
+   hendelser men ikke slette. `bridge_auth.py` kjørt med `--oppsett` på fabrikk-PC-en, bro-bruker
+   opprettet, broen logger inn som `bridge@diplom-is.no`. Verifisert: uinnlogget `curl` gir 401,
+   broen skriver telling. `bridge_pw.txt` ligger i `Documents\Bridge\` (ikke i git).
+   Neste steg innen sikkerhet: vurder å rotere API-nøkkelen i Google Cloud Console (den lå
+   offentlig i månedsvis), og evt. slette den offentlige `pwResets`-historikken hvis den finnes.
+2. bridge.py som Windows-tjeneste (NSSM), så den starter ved boot og overlever utlogging.
+   Reconnect og fillogg (`bridge.log`, roterende) er på plass; buffering av skriv ved nettbrudd mangler fortsatt.
 3. Grunndata for 12xxx-produktserien mangler (har t.o.m. art.nr 11934).
 4. Flere linjer på OPC-UA — er nå en konfigoppføring i `LINJER` i bridge.py pluss egne DB-tagger i PLS-en (mønster: `lop1_antall_esker`, `lop1_linje_aktiv`).
 5. Ev. M3/Infor ION-integrasjon (fremtid).
