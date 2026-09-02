@@ -19,7 +19,7 @@ Siemens S7-1500 PLS → bridge.py (OPC-UA, fabrikk-PC) → Firebase RTDB → Git
 - Database: `https://messystem-f14dd-default-rtdb.firebaseio.com`
 - apiKey: `AIzaSyCL4x1KNwgeDxqTFeP32BndJgH4B5MworQ` (ligger i alle HTML-filer — normalt for Firebase)
 - **Sikkerhet PÅ (publisert 02.09.2026):** `database.rules.json` er live. Alt krever innlogging, skriving er rollestyrt. Verifisert: uinnlogget `curl` mot basen gir HTTP 401. Broen skriver som `bridge@diplom-is.no` (uid 7SzoHTYmZrg8QCT5jOXTRUCa6Ax2, role=bridge) via `bridge_auth.py`. Endrer du reglene, test i Rules playground først — en for streng regel stopper natt-drift.
-- bridge.py logger inn via `bridge_auth.py` (ID-token) når den finnes, ellers `?auth=API_KEY` med varsel. Sistnevnte er IKKE gyldig auth og virker kun fordi reglene er åpne.
+- bridge.py logger inn via `bridge_auth.py` (ID-token). API-nøkkel-fallbacken finnes fortsatt i koden, men gir nå HTTP 401 mot de publiserte reglene — så broen MÅ ha `bridge_pw.txt` for å skrive.
 
 ### Databasestruktur
 - `events/` — nedetidshendelser `{line, machine, cause, duration(min), severity, comment, ts, wholeLine, source:"opc"|undefined, unhandled:bool, handledAt, handledBy}`
