@@ -19,7 +19,7 @@ Siemens S7-1500 PLS → bridge.py (OPC-UA, fabrikk-PC) → Firebase RTDB → Git
 - Database: `https://messystem-f14dd-default-rtdb.firebaseio.com`
 - apiKey: `AIzaSyCL4x1KNwgeDxqTFeP32BndJgH4B5MworQ` (ligger i alle HTML-filer — normalt for Firebase)
 - **VIKTIG:** Reglene er pt. helt åpne (`.read/.write: true`). Planlagt fiks: egen Firebase Auth-bruker for bridge.py, deretter rollebaserte regler. Ikke stram reglene før bridge.py har ekte auth — da stopper natt-drift.
-- bridge.py bruker `?auth=API_KEY` i REST-kall — dette er IKKE gyldig auth, fungerer kun fordi reglene er åpne.
+- bridge.py logger inn via `bridge_auth.py` (ID-token) når den finnes, ellers `?auth=API_KEY` med varsel. Sistnevnte er IKKE gyldig auth og virker kun fordi reglene er åpne.
 
 ### Databasestruktur
 - `events/` — nedetidshendelser `{line, machine, cause, duration(min), severity, comment, ts, wholeLine, source:"opc"|undefined, unhandled:bool, handledAt, handledBy}`
@@ -33,7 +33,7 @@ Siemens S7-1500 PLS → bridge.py (OPC-UA, fabrikk-PC) → Firebase RTDB → Git
 - `plan/production/{YYYY-MM-DD}/{lk}` — array av `{product, antall, timer, importedAt, importedBy}` (fra import.html; brukes av «Plan mot faktisk» i index.html)
 - `plan/shift/{YYYY-MM-DD}/{lk}` — `{skift, bemanning, product, importedAt, importedBy}`
 - `calibrationReviews/{lk}/{pushId}` — logg over kapasitetskalibrering: `{ts, by, byName, line, product, dateKey, hour, dpk, impliedRateDpk, impliedCap, currentCap, pct, decision:"accept"|"reject", newCap, comment}`
-- `pwResets/{uid}` — `{pw, at}` fra brukere.html. **⚠️ Passord i klartekst i en database med åpne regler — se sikkerhetsnotatet under.**
+- `pwResets/` — **fjernet.** Lagret passord i klartekst; erstattet av Firebase sin e-postflyt og stengt i reglene.
 - `settings/dashboards/{id}` — **delte** dashboard-maler (master): `{name, widgets{key:{on,order,w}}, createdAt, createdBy, updatedAt, updatedBy}`
 - `userDashboards/{uid}/{id}` — brukerens **egne** maler, samme form
 - `settings/shiftTemplates/{id}` — skiftmaler: `{name, start, end, bemanning, color}`
