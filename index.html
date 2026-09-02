@@ -684,8 +684,9 @@ auth.onAuthStateChanged(async user=>{
       if(b)b.style.display='flex';
     }
     initUserDash(user.uid);
-    applyDashboard(CUR_DASH);
-    renderDreq();
+    // Hver for seg: feiler dashbordoppsettet, skal ikke soknadsknappene forsvinne
+    try{applyDashboard(CUR_DASH);}catch(e){console.error("applyDashboard",e);}
+    try{renderDreq();}catch(e){console.error("renderDreq",e);}
   }catch(e){console.error(e);}
 });
 
