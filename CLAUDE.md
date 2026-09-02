@@ -185,8 +185,10 @@ Node-IDer:
    broen skriver telling. `bridge_pw.txt` ligger i `Documents\Bridge\` (ikke i git).
    Neste steg innen sikkerhet: vurder å rotere API-nøkkelen i Google Cloud Console (den lå
    offentlig i månedsvis), og evt. slette den offentlige `pwResets`-historikken hvis den finnes.
-2. bridge.py som Windows-tjeneste (NSSM), så den starter ved boot og overlever utlogging.
-   Reconnect og fillogg (`bridge.log`, roterende) er på plass; buffering av skriv ved nettbrudd mangler fortsatt.
+2. bridge.py som Windows-tjeneste (NSSM) — oppskrift i `NSSM-oppsett.md`. Kritisk detalj:
+   tjenesten MÅ kjøre som brukeren Teknisk-Felles (Log on-fanen), ellers finner den verken
+   Python (per-user-install) eller `bridge_pw.txt`. Reconnect og roterende `bridge.log` er på
+   plass; buffering av skriv ved nettbrudd mangler fortsatt.
 3. Grunndata for 12xxx-produktserien mangler (har t.o.m. art.nr 11934).
 4. Flere linjer på OPC-UA — er nå en konfigoppføring i `LINJER` i bridge.py pluss egne DB-tagger i PLS-en (mønster: `lop1_antall_esker`, `lop1_linje_aktiv`).
 5. Ev. M3/Infor ION-integrasjon (fremtid).
