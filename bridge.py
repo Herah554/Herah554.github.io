@@ -73,7 +73,10 @@ LINJER = [
     # },
 ]
 
-MIN_DOWNTIME_MIN = 4      # stopp kortere enn dette ignoreres (debounce for sensoren)
+MIN_DOWNTIME_MIN = 4      # stopp kortere enn dette ignoreres (rapporteres ikke)
+HOLD_SEC         = 90     # is-sensoren pulser per produkt. Linja regnes i drift så
+                          # lenge det kommer en puls innen HOLD_SEC. Må være lengre enn
+                          # lengste normale opphold mellom is-enheter, ellers falske stopp.
 POLL_SEC         = 1      # hvor ofte PLS-en leses
 STATUS_SEC       = 5      # hvor ofte last_seen skrives
 INNSTILLING_SEC  = 300    # hvor ofte resetTime hentes fra Firebase
@@ -200,6 +203,7 @@ class Linje:
         self.hbase    = {}       # PLS-verdi ved timestart, per HH
         self.hskrevet = {}       # sist skrevne timesverdi, per HH
         self.sist_pls = None     # sist sette råverdi fra PLS — går den bakover, er PLS-en nullstilt
+        self.sist_aktiv = None   # tidspunkt for siste puls fra is-sensoren (holdetid)
         self.aktiv_skrevet = None
 
     def sti(self, dato, rest=""):
@@ -259,12 +263,22 @@ class Linje:
         elif dato != self.dato:
             self.ny_dag(dato, count)
 
+        # Is-sensoren (I0.1) gir en puls per produkt, ikke et stabilt drift-signal.
+        # Vi holder linja "i drift" i HOLD_SEC etter siste puls, så mellomrom mellom
+        # is-enheter ikke blir falske stopp. Bare et ekte fravær av is teller.
+        if self.sist_aktiv is None:
+            self.sist_aktiv = now          # anta drift ved oppstart
+        if aktiv:
+            self.sist_aktiv = now
+        kjorer = (now - self.sist_aktiv) < HOLD_SEC
+
         # Nedetid: registreres når linja starter igjen
-        if self.running and not aktiv:
-            self.stop_start = now
+        if self.running and not kjorer:
+            # Stoppet startet ved siste puls, ikke når holdetiden løp ut
+            self.stop_start = self.sist_aktiv
             self.running = False
             log.info("[%s] STOPP detektert", self.navn)
-        elif not self.running and aktiv:
+        elif not self.running and kjorer:
             if self.stop_start:
                 dur = round((now - self.stop_start) / 60)
                 if dur >= MIN_DOWNTIME_MIN:
