@@ -80,6 +80,9 @@ HOLD_SEC         = 90     # is-sensoren pulser per produkt. Linja regnes i drift
 POLL_SEC         = 1      # hvor ofte PLS-en leses
 STATUS_SEC       = 5      # hvor ofte last_seen skrives
 INNSTILLING_SEC  = 300    # hvor ofte resetTime hentes fra Firebase
+RECONNECT_MIN    = 45     # koble ned rent og opp igjen så ofte. OPC-kanalen dør av seg
+                          # selv etter 1 time (biblioteket fornyer ikke tokenet mot S7-1500),
+                          # og da henger PLS-plassen til kabelen dras. Vi kobler rent før det.
 
 # ── INNLOGGING ────────────────────────────────────────────────────────────
 # Ekte innlogging via bridge_auth.py. Mangler den, faller vi tilbake til
@@ -346,6 +349,7 @@ linjer = [Linje(c) for c in LINJER]
 client = None
 errors = 0
 sist_status = 0.0
+tilkoblet_siden = 0.0
 
 log.info("=== Diplom-is OPC-UA Bridge ===")
 log.info("PLS: %s", OPC_URL)
@@ -368,8 +372,22 @@ while True:
             fb_set("opc_status/connected", True)
             fb_set("opc_status/url", OPC_URL)
             errors = 0
+            tilkoblet_siden = time.time()
 
         now  = time.time()
+
+        # Planlagt reconnect: lukk kanalen RENT før den dør av seg selv etter en
+        # time. En ren disconnect frigjor OPC-plassen pa PLS-en umiddelbart, sa
+        # neste tilkobling far ledig plass — i motsetning til nar kanalen rives
+        # ureint og plassen henger til kabelen dras.
+        if tilkoblet_siden and now - tilkoblet_siden > RECONNECT_MIN * 60:
+            log.info("Planlagt reconnect etter %d min (unngar token-timeout)", RECONNECT_MIN)
+            try: client.disconnect()
+            except Exception: pass
+            client = None
+            tilkoblet_siden = 0.0
+            continue
+
         dato = dagsnokkel()
 
         for l in linjer:

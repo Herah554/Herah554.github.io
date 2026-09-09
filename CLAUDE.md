@@ -169,6 +169,7 @@ Node-IDer:
 6. Nedetid registreres når linjen STARTER igjen, ikke når den stopper. Min. varighet: `MIN_DOWNTIME_MIN = 4` (er debouncingen for sensoren — se PLS-seksjonen).
 7. **Dagstellingen må ha lagret nullpunkt.** Den gamle broen satte nullpunktet til PLS-verdien ved oppstart, så hver omstart skrev dagens telling til 0. Nullstilling av PLS oppdages ved at telleren går *bakover* (`_pls`), ikke ved sammenligning mot nullpunktet — det feiler så snart nullpunktet er negativt etter første nullstilling. Verifisert i simulering mot 8 scenarier.
 8. Linjenøkler må prosentkodes i REST-stier (`urllib.parse.quote`). Glacier er ASCII så det har aldri vært testet; Løp-linjene har ø.
+9. **OPC-kanalen dør etter nøyaktig 1 time** — `opcua`-biblioteket fornyer ikke SecureChannel-tokenet mot S7-1500 (token-timeout med absurd dato i feilen). Da rives forbindelsen ureint og OPC-plassen på PLS-en henger til kabelen dras. Broen kobler derfor ned RENT hvert `RECONNECT_MIN` (45 min) før grensen. Varig fiks er å bytte til `asyncua` — ikke gjort.
 
 ## Arbeidsflyt og preferanser
 
