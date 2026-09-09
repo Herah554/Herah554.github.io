@@ -1,7 +1,7 @@
-# plsvakt.ps1 — vaktbikkje for nettverkslinken til PLS-en
+# plsvakt.ps1 - vaktbikkje for nettverkslinken til PLS-en
 # ==========================================================
 # Pinger PLS-en. Svarer den ikke tre ganger paa rad, restartes
-# nettverkskortet — det samme som aa disable/enable det for haand.
+# nettverkskortet - det samme som aa disable/enable det for haand.
 # Hvert brudd logges med tidspunkt i plsvakt.log, saa vi ser hvor
 # ofte det ryker. Det er diagnose i seg selv.
 #
@@ -28,7 +28,7 @@ function Logg($tekst) {
 # .NET Ping er raskere og mer forutsigbar enn Test-Connection i PowerShell 5.1
 $pinger = New-Object System.Net.NetworkInformation.Ping
 
-Logg "=== plsvakt startet — pinger $PLS hvert $PAUSE_SEK s, restarter '$KORT' etter $FEIL_FOR_RESTART feil ==="
+Logg "=== plsvakt startet - pinger $PLS hvert $PAUSE_SEK s, restarter '$KORT' etter $FEIL_FOR_RESTART feil ==="
 $feil = 0
 $antallRestarter = 0
 $sistOk = Get-Date
@@ -47,16 +47,16 @@ while ($true) {
     } else {
         $feil++
         $status = (Get-NetAdapter -Name $KORT -ErrorAction SilentlyContinue).Status
-        Logg "ping feilet ($feil/$FEIL_FOR_RESTART) — kortet er '$status'"
+        Logg "ping feilet ($feil/$FEIL_FOR_RESTART) - kortet er '$status'"
         if ($feil -ge $FEIL_FOR_RESTART) {
             $oppetid = [int]((Get-Date) - $sistOk).TotalSeconds
             $antallRestarter++
-            Logg "BRUDD nr. $antallRestarter — linken holdt $oppetid s. Restarter '$KORT' ..."
+            Logg "BRUDD nr. $antallRestarter - linken holdt $oppetid s. Restarter '$KORT' ..."
             try {
                 Restart-NetAdapter -Name $KORT -ErrorAction Stop
                 Logg "Kortet restartet, venter 10 s paa link"
             } catch {
-                Logg "FEIL ved restart: $($_.Exception.Message) — kjorer du som administrator?"
+                Logg "FEIL ved restart: $($_.Exception.Message) - kjorer du som administrator?"
             }
             Start-Sleep -Seconds 10
             $feil = 0
