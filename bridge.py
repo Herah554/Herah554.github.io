@@ -50,7 +50,7 @@ _fil.setFormatter(_fmt)
 log.addHandler(_fil)
 
 # ── KONFIGURASJON ─────────────────────────────────────────────────────────
-OPC_URL = "opc.tcp://192.168.0.1:4840"
+OPC_URL = "opc.tcp://192.168.10.1:4840"   # eget subnett — 192.168.0.1 kolliderte med ruteren (se CLAUDE.md)
 FB_URL  = "https://messystem-f14dd-default-rtdb.firebaseio.com"
 FB_KEY  = "AIzaSyCL4x1KNwgeDxqTFeP32BndJgH4B5MworQ"   # brukes bare hvis innlogging mangler
 
