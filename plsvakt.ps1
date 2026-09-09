@@ -32,6 +32,7 @@ Logg "=== plsvakt startet - pinger $PLS hvert $PAUSE_SEK s, restarter '$KORT' et
 $feil = 0
 $antallRestarter = 0
 $sistOk = Get-Date
+$nedeSiden = $null     # naar dette bruddet startet (settes ved foerste feil)
 
 while ($true) {
     $ok = $false
@@ -41,17 +42,28 @@ while ($true) {
     } catch { $ok = $false }
 
     if ($ok) {
-        if ($feil -gt 0) { Logg "PLS svarer igjen (etter $feil feil)" }
+        if ($nedeSiden -ne $null) {
+            $nede = [int]((Get-Date) - $nedeSiden).TotalSeconds
+            Logg "PLS svarer igjen - var nede i $nede s"
+            $nedeSiden = $null
+        }
         $feil = 0
         $sistOk = Get-Date
     } else {
         $feil++
+        if ($nedeSiden -eq $null) { $nedeSiden = Get-Date }
         $status = (Get-NetAdapter -Name $KORT -ErrorAction SilentlyContinue).Status
         Logg "ping feilet ($feil/$FEIL_FOR_RESTART) - kortet er '$status'"
         if ($feil -ge $FEIL_FOR_RESTART) {
-            $oppetid = [int]((Get-Date) - $sistOk).TotalSeconds
             $antallRestarter++
-            Logg "BRUDD nr. $antallRestarter - linken holdt $oppetid s. Restarter '$KORT' ..."
+            $nede = [int]((Get-Date) - $nedeSiden).TotalSeconds
+            if ($nede -le ($FEIL_FOR_RESTART * $PAUSE_SEK + 5)) {
+                # foerste restart i dette bruddet: hvor lenge holdt linken foer den falt?
+                $holdt = [int]($nedeSiden - $sistOk).TotalSeconds
+                Logg "BRUDD - linken holdt $holdt s foer den falt. Restarter '$KORT' (forsoek $antallRestarter) ..."
+            } else {
+                Logg "Fortsatt nede etter $nede s. Restarter '$KORT' igjen (forsoek $antallRestarter) ..."
+            }
             try {
                 Restart-NetAdapter -Name $KORT -ErrorAction Stop
                 Logg "Kortet restartet, venter 10 s paa link"
