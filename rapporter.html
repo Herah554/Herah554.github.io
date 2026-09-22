@@ -103,6 +103,8 @@ td:first-child{font-family:var(--mono);font-size:11px;color:var(--text3);white-s
 /* Sifre med fast bredde i tabeller */
 table{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
 </style>
+<link rel="stylesheet" href="theme.css"/>
+<script src="theme.js"></script>
 </head>
 <body>
 <nav>
@@ -209,7 +211,7 @@ localStorage.setItem('firebaseConfig',JSON.stringify(FB));
 const db=firebase.database(), auth=firebase.auth();
 
 let EVENTS=[], SETTINGS={defaultDayHours:8,oeeGoal:97,oeeGoals:{},prodPlan:{},products:{},schedule:{}};
-let PROD_ALL={}, ACTIVE_PROD={}, PROD_HOURLY={};
+let PROD_ALL={}, ACTIVE_PROD={}, PROD_HOURLY={}, SHIFT_PLAN={};
 let charts={};
 const LINES=['Løp 1','Løp 2','Løp 3','Rollo','Koba','Glacier','Krokan'];
 const MONTHS=['Januar','Februar','Mars','April','Mai','Juni','Juli','August','September','Oktober','November','Desember'];
@@ -260,20 +262,45 @@ function _tmin(t){if(!t)return 0;const p=String(t).split(':');return (parseInt(p
 function _dmin(day){if(!day||!day.on)return 0;const s=_tmin(day.start);const e=(day.end==='00:00'||day.end==='24:00')?1440:_tmin(day.end);return Math.max(0,e-s);}
 function _brkmin(sched){return (sched.breaks||[]).reduce((a,b)=>a+Math.max(0,_tmin(b.end)-_tmin(b.start)),0);}
 function dateKeyOf(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
+/* ── Planlagt tid kommer KUN fra skiftkalenderen (shiftPlan) ──
+   Samme logikk som index.html, så OEE i rapportene og på dashbordet er
+   identisk. Ingen bobler den dagen = ingen plan = OEE måles ikke.
+   Pausene (settings/schedule/{lk}/breaks) trekkes fortsatt fra. */
+function _subBreaks(iv,sched){
+  (sched.breaks||[]).forEach(b=>{
+    const bs=_tmin(b.start),be=_tmin(b.end);
+    if(be<=bs)return;
+    iv=iv.flatMap(([is,ie])=>{
+      if(be<=is||bs>=ie)return[[is,ie]];
+      const o=[];if(bs>is)o.push([is,bs]);if(be<ie)o.push([be,ie]);return o;
+    });
+  });
+  return iv;
+}
+function shiftWindowsFor(line,dateObj){
+  const day=SHIFT_PLAN[dateKeyOf(dateObj)];
+  if(!day)return null;
+  const raw=day[lk(line)];
+  if(!raw)return null;
+  const list=Object.keys(raw).map(k=>raw[k]).filter(Boolean);
+  if(!list.length)return null;
+  const iv=[];
+  list.forEach(b=>{const st=_tmin(b.start);let e=_tmin(b.end);if(e<=st)e=1440;if(e>st)iv.push([st,e]);});
+  if(!iv.length)return null;
+  iv.sort((x,y)=>x[0]-y[0]);
+  const out=[iv[0]];
+  for(let i=1;i<iv.length;i++){const last=out[out.length-1];if(iv[i][0]<=last[1])last[1]=Math.max(last[1],iv[i][1]);else out.push(iv[i]);}
+  return out;
+}
+function dayWindows(line,dateObj){return shiftWindowsFor(line,dateObj)||[];}
 function plannedMinForDate(line,dateObj){
-  const sched=getSched(line);
-  const day=sched[_WD[dateObj.getDay()]];
-  if(!day||!day.on)return 0;
-  const full=Math.max(0,_dmin(day)-_brkmin(sched));
+  const iv=_subBreaks(dayWindows(line,dateObj),getSched(line));
+  if(!iv.length)return 0;
+  const total=iv.reduce((t,x)=>t+(x[1]-x[0]),0);
   const now=new Date();
-  const sameDay=dateObj.toDateString()===now.toDateString();
-  if(!sameDay)return dateObj>now?0:full;
-  const wStart=_tmin(day.start);
-  const wEnd=(day.end==='00:00'||day.end==='24:00')?1440:_tmin(day.end);
+  if(dateObj.toDateString()!==now.toDateString())return dateObj>now?0:total;
   const nowMin=now.getHours()*60+now.getMinutes();
-  let elapsed=Math.max(0,Math.min(nowMin,wEnd)-wStart),eb=0;
-  (sched.breaks||[]).forEach(b=>{const lo=Math.max(_tmin(b.start),wStart),hi=Math.min(_tmin(b.end),Math.min(nowMin,wEnd));if(hi>lo)eb+=hi-lo;});
-  return Math.max(0,elapsed-eb);
+  return iv.reduce((t,x)=>t+Math.max(0,Math.min(nowMin,x[1])-x[0]),0);
 }
 function lineProduct(line){
   const k=lk(line);const prods=SETTINGS.products?.[k]||[];const active=ACTIVE_PROD[k];
@@ -307,14 +334,9 @@ function fmtNum(n){return (n||0).toLocaleString('no-NO');}
 
 // ── NEDETID-FORDELING (klippet mot planlagt produksjonstid) ──
 function prodIntervalsForDate(line,dateObj){
-  const sched=getSched(line);
-  const day=sched[_WD[dateObj.getDay()]];
-  if(!day||!day.on)return [];
+  const iv=_subBreaks(dayWindows(line,dateObj),getSched(line));
+  if(!iv.length)return [];
   const base=new Date(dateObj.getFullYear(),dateObj.getMonth(),dateObj.getDate()).getTime();
-  const s=_tmin(day.start), e=(day.end==='00:00'||day.end==='24:00')?1440:_tmin(day.end);
-  if(e<=s)return [];
-  let iv=[[s,e]];
-  (sched.breaks||[]).forEach(b=>{const bs=_tmin(b.start),be=_tmin(b.end);if(be<=bs)return;iv=iv.flatMap(([is,ie])=>{if(be<=is||bs>=ie)return[[is,ie]];const o=[];if(bs>is)o.push([is,bs]);if(be<ie)o.push([be,ie]);return o;});});
   return iv.map(([is,ie])=>[base+is*60000,base+ie*60000]);
 }
 function downtimeOnDate(line,dateObj){
@@ -424,6 +446,7 @@ db.ref('events').on('value',snap=>{
 // ── HASTIGHET PER PRODUKT ──
 let PRODUCT_HOURLY={};
 db.ref('productHourly').on('value',snap=>{ PRODUCT_HOURLY=snap.val()||{}; renderSpeedStats(); });
+db.ref('shiftPlan').on('value',snap=>{ SHIFT_PLAN=snap.val()||{}; scheduleRender(); });
 function _esc(s){return String(s==null?'':s).replace(/</g,'&lt;');}
 function buildSpeedStats(){
   const stats={};

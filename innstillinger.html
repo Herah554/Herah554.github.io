@@ -118,6 +118,8 @@ input:focus,select:focus{border-color:var(--accent)}
 .day-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
 @media(max-width:700px){.cal-cell{min-height:58px}.cal-bub{font-size:8.5px;padding:1px 5px}}
 </style>
+<link rel="stylesheet" href="theme.css"/>
+<script src="theme.js"></script>
 </head>
 <body>
 <nav>
@@ -210,7 +212,7 @@ input:focus,select:focus{border-color:var(--accent)}
     </div>
   </div>
 
-  <h2 class="master-only">Skiftkalender</h2>
+  <h2 class="master-only" id="skiftkalender">Skiftkalender</h2>
   <div class="card master-only">
     <div class="ct"><div class="ca" style="background:var(--blue)"></div>Skiftkalender</div>
     <div style="font-size:12px;color:var(--text2);margin-bottom:.8rem;line-height:1.55">
@@ -497,15 +499,14 @@ function renderLines(){
       </div>
 
       <div class="sep"></div>
-      <div class="lbl" style="margin-bottom:6px">⏱ Produksjonstid — når ${line} kjører (slutt 00:00 = midnatt/døgnskille)</div>
-      <div id="sched-${key}"></div>
-      <div class="row" style="margin-top:8px">
-        <button class="bteal" onclick="saveSchedule('${line}')">Lagre produksjonstid</button>
-        <span class="fb" id="sched-sum-${key}" style="margin-top:0"></span>
+      <div class="autohint" style="font-size:12px;color:var(--text2);line-height:1.5">
+        ⏱ <b>Planlagt produksjonstid styres av <a href="#skiftkalender" style="color:var(--blue)">Skiftkalenderen</a>.</b>
+        Dager uten skift regnes som ikke planlagt, og OEE måles ikke de dagene.
+        Pausene under trekkes fortsatt fra planlagt tid.
       </div>
 
       <div class="sep"></div>
-      <div class="lbl" style="margin-bottom:6px">⏸ Planlagt stopptid på ${line} (trekkes fra OEE-tid)</div>
+      <div class="lbl" style="margin-bottom:6px">⏸ Faste pauser på ${line} (trekkes fra planlagt tid i skiftkalenderen)</div>
       <div class="chips" id="brk-${key}"></div>
       <div class="row" style="max-width:480px;margin-top:4px">
         <input type="text" id="bl-${key}" placeholder="Navn (f.eks. Vask, Lunsj)" style="flex:2"/>
@@ -553,7 +554,6 @@ function renderLines(){
     }
 
     // Render schedule + planned stop time
-    renderSchedule(key);
     renderBreaks(line);
   });
 }
@@ -605,56 +605,9 @@ function schedWeekMin(sched){
   return tot;
 }
 
-function renderSchedule(key){
-  const c=document.getElementById('sched-'+key);if(!c)return;
-  const sched=getSchedule(key);
-  let html='<table class="sched"><tbody>';
-  DAYS.forEach(([dk,dn])=>{
-    const d=sched[dk];
-    html+='<tr class="'+(d.on?'':'off')+'" id="schedrow-'+key+'-'+dk+'">'
-      +'<td style="width:22px"><input type="checkbox" id="sd-on-'+key+'-'+dk+'" '+(d.on?'checked':'')+' onchange="onSchedToggle(\''+key+'\',\''+dk+'\')"/></td>'
-      +'<td class="day">'+dn+'</td>'
-      +'<td><input type="time" id="sd-s-'+key+'-'+dk+'" value="'+d.start+'" onchange="updateSchedSummary(\''+key+'\')"/></td>'
-      +'<td style="color:var(--text3)">–</td>'
-      +'<td><input type="time" id="sd-e-'+key+'-'+dk+'" value="'+d.end+'" onchange="updateSchedSummary(\''+key+'\')"/></td>'
-      +'</tr>';
-  });
-  html+='</tbody></table>';
-  c.innerHTML=html;
-  updateSchedSummary(key);
-}
-function onSchedToggle(key,dk){
-  const row=document.getElementById('schedrow-'+key+'-'+dk);
-  const on=document.getElementById('sd-on-'+key+'-'+dk).checked;
-  if(row)row.className=on?'':'off';
-  updateSchedSummary(key);
-}
-function readScheduleFromInputs(key){
-  const sched={breaks:getSchedule(key).breaks||[]};
-  DAYS.forEach(([dk])=>{
-    sched[dk]={
-      on:document.getElementById('sd-on-'+key+'-'+dk).checked,
-      start:document.getElementById('sd-s-'+key+'-'+dk).value||'00:00',
-      end:document.getElementById('sd-e-'+key+'-'+dk).value||'00:00'
-    };
-  });
-  return sched;
-}
-function updateSchedSummary(key){
-  const el=document.getElementById('sched-sum-'+key);if(!el)return;
-  const wkMin=schedWeekMin(readScheduleFromInputs(key));
-  el.textContent='Planlagt: '+(wkMin/60).toFixed(1)+' t/uke ('+wkMin+' min)';
-}
-function saveSchedule(line){
-  const key=lk(line);
-  const sched=readScheduleFromInputs(key);
-  const wkH=+(schedWeekMin(sched)/60).toFixed(2);
-  const updates={};
-  updates['settings/schedule/'+key]=sched;
-  updates['settings/prodPlan/'+key]={weekHours:wkH};
-  db.ref().update(updates).then(()=>showT('Produksjonstid lagret for '+line));
-}
-
+/* Ukesplanen («Produksjonstid» per linje) er fjernet 22.09.2026 —
+   skiftkalenderen er eneste kilde til planlagt tid. getSchedule() lever
+   videre bare for pausene (settings/schedule/{lk}/breaks). */
 function renderBreaks(line){
   const key=lk(line);
   const c=document.getElementById('brk-'+key);if(!c)return;

@@ -235,6 +235,8 @@ td:first-child{font-family:var(--mono);font-size:11px;color:var(--text3)}
 /* Sifre med fast bredde: tall skal ikke hoppe sidelengs når de oppdateres live */
 table,#eff-kpi-eff,#eff-kpi-nd,.klbl,.ksub{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
 </style>
+<link rel="stylesheet" href="theme.css"/>
+<script src="theme.js"></script>
 </head>
 <body>
 <nav>
@@ -1012,14 +1014,12 @@ function shiftWindowsFor(line,dateObj){
   }
   return out;
 }
+/* Skiftkalenderen er ENESTE kilde til planlagt tid (22.09.2026).
+   Ingen bobler den dagen = ingen plan = OEE måles ikke. Ukesplanen
+   («Produksjonstid» i Innstillinger) er tatt bort; getSched() brukes
+   nå bare for pausene, som fortsatt er en egenskap ved linja. */
 function dayWindows(line,dateObj){
-  const sh=shiftWindowsFor(line,dateObj);
-  if(sh)return sh;
-  const sched=getSched(line);
-  const day=sched[_WD[dateObj.getDay()]];
-  if(!day||!day.on)return [];
-  const s=_tmin(day.start), e=(day.end==='00:00'||day.end==='24:00')?1440:_tmin(day.end);
-  return e>s?[[s,e]]:[];
+  return shiftWindowsFor(line,dateObj)||[];
 }
 function prodIntervalsForDate(line,dateObj){
   const iv=_subBreaks(dayWindows(line,dateObj),getSched(line));
