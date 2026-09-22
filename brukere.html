@@ -83,7 +83,7 @@ input:focus,select:focus{border-color:var(--accent)}
   <a href="skiftrapport.html" class="nl">Skiftrapport</a>
   <a href="innstillinger.html" class="nl">Innstillinger</a>
   <a href="brukere.html" class="nl on">Brukere</a>
-  <a href="logg.html" class="nl">Logg &amp; data</a>
+  <a href="logg.html" class="nl" id="nav-logg" style="display:none">Logg &amp; data</a>
   <div class="ml">
     <div class="ubadge" id="ubadge">—</div>
     <button class="lout" onclick="auth.signOut().then(()=>location.href='login.html')">Logg ut</button>
@@ -108,7 +108,7 @@ input:focus,select:focus{border-color:var(--accent)}
       </div>
     </div>
     <div id="n-lsec" class="fr">
-      <label>Linjetilgang (velg hvilke linjer operatøren har tilgang til)</label>
+      <label id="n-lsec-lbl">Linjetilgang</label>
       <div class="lchecks" id="n-lchecks"></div>
     </div>
     <div class="fr"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="n-shift" style="width:auto;margin:0">Skiftrapport-tilgang (kan levere/se skiftrapporter)</label></div>
@@ -132,7 +132,7 @@ input:focus,select:focus{border-color:var(--accent)}
         <option value="master">Master</option>
       </select>
     </div>
-    <div id="e-lsec" class="fr"><label>Linjetilgang</label><div class="lchecks" id="e-lchecks"></div></div>
+    <div id="e-lsec" class="fr"><label id="e-lsec-lbl">Linjetilgang</label><div class="lchecks" id="e-lchecks"></div></div>
     <div class="fr"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="e-shift" style="width:auto;margin:0">Skiftrapport-tilgang</label></div>
     <div class="fr"><label>Dashboard</label><select id="e-dash"><option value="std">Standard</option></select></div>
     <span class="pw-toggle" onclick="sendPwReset()">🔑 Send passord-tilbakestilling på e-post</span>
@@ -159,11 +159,21 @@ const db=firebase.database();
 const auth=firebase.auth();
 
 let myUid=null, editUid=null;
+/* Hvem er jeg: master ser og styrer alle; leder ser bare operatørene på sine egne linjer
+   og kan bare opprette/redigere operatører der. Leder uten linjer = alle linjer (eldre brukere). */
+let MY_ROLE='master', MY_LINES=LINES.slice();
+function allowedLines(){return MY_ROLE==='master'?LINES:MY_LINES;}
+function onMyLines(u){
+  if(MY_ROLE==='master')return true;
+  if(u.uid===myUid)return true;
+  if(u.role!=='linjeoperator')return false;
+  return (u.lines||[]).some(l=>MY_LINES.includes(l));
+}
 
 // Build line checkboxes
 function buildChecks(cid,sel){
   const c=document.getElementById(cid);if(!c)return;c.innerHTML='';
-  LINES.forEach(l=>{
+  allowedLines().forEach(l=>{
     const id='lc-'+cid+'-'+l.replace(/\s/g,'-');
     const lbl=document.createElement('label');lbl.className='lc';lbl.htmlFor=id;
     const cb=document.createElement('input');cb.type='checkbox';cb.id=id;cb.value=l;cb.checked=(sel||[]).includes(l);
@@ -172,7 +182,14 @@ function buildChecks(cid,sel){
   });
 }
 function getChecked(cid){return LINES.filter(l=>{const el=document.getElementById('lc-'+cid+'-'+l.replace(/\s/g,'-'));return el&&el.checked;});}
-function toggleSec(rid,sid){const sec=document.getElementById(sid);if(sec)sec.style.display=document.getElementById(rid).value==='linjeoperator'?'block':'none';}
+/* Både operatør og leder knyttes til linjer — leder får ansvar for dem, operatør får tilgang. */
+function toggleSec(rid,sid){
+  const role=document.getElementById(rid).value;
+  const sec=document.getElementById(sid);
+  if(sec)sec.style.display=role==='master'?'none':'block';
+  const lbl=document.getElementById(sid+'-lbl');
+  if(lbl)lbl.textContent=role==='leder'?'Linjer lederen har ansvar for (styrer hva lederen ser i Innstillinger, Skiftrapport og Brukere)':'Linjetilgang (velg hvilke linjer operatøren har tilgang til)';
+}
 
 // Render all users from snapshot
 function renderUsers(snap){
@@ -186,7 +203,7 @@ function renderUsers(snap){
   snap.forEach(child=>{
     const u={uid:child.key,...child.val()};
     // Only show users with at least a name or email
-    if(u.name||u.email) users.push(u);
+    if((u.name||u.email)&&onMyLines(u)) users.push(u);
   });
   if(!users.length){grid.innerHTML='<div style="color:var(--text3);font-size:13px">Ingen brukere funnet.</div>';return;}
   const ord={master:0,leder:1,linjeoperator:2};
@@ -196,8 +213,10 @@ function renderUsers(snap){
     const color=COLORS[i%COLORS.length];
     const rl=u.role==='master'?'Master':u.role==='leder'?'Leder':'Linjeoperatør';
     const rc=u.role==='master'?'rb-m':u.role==='leder'?'rb-l':'rb-o';
-    const lhtml=(u.role==='linjeoperator'&&u.lines?.length)?'<div class="lchips">'+u.lines.map(l=>'<span class="lchip">'+l+'</span>').join('')+'</div>':'';
-    const body=u.role==='linjeoperator'?'Linjer:'+lhtml:u.role==='leder'?'Alle linjer — kun rapporter':'Full tilgang til hele systemet';
+    const lhtml=(u.lines?.length)?'<div class="lchips">'+u.lines.map(l=>'<span class="lchip">'+l+'</span>').join('')+'</div>':'';
+    const body=u.role==='linjeoperator'?'Linjer:'+lhtml
+      :u.role==='leder'?(u.lines?.length?'Leder for:'+lhtml:'Leder — alle linjer (ingen linjer valgt)')
+      :'Full tilgang til hele systemet';
     const isSelf=(u.uid===myUid);
     const card=document.createElement('div');card.className='ucard';
     card.innerHTML='<div class="uhdr"><div class="av" style="background:'+color+'">'+init+'</div>'
@@ -206,7 +225,9 @@ function renderUsers(snap){
       +'<div class="uact"><button class="ebtn" onclick="openEdit(\''+u.uid+'\')">Rediger</button>'
       +(isSelf
         ?'<span style="font-size:11px;color:var(--text3);padding:6px 4px">Deg selv</span>'
-        :'<button class="dbtn" onclick="delUser(\''+u.uid+'\',\''+encodeURIComponent(u.name||'')+'\')">Slett</button>')
+        :MY_ROLE==='master'
+          ?'<button class="dbtn" onclick="delUser(\''+u.uid+'\',\''+encodeURIComponent(u.name||'')+'\')">Slett</button>'
+          :'')
       +'</div>';
     grid.appendChild(card);
   });
@@ -216,12 +237,25 @@ function renderUsers(snap){
 auth.onAuthStateChanged(async user=>{
   if(!user){location.href='login.html';return;}
   const snap=await db.ref('users/'+user.uid).once('value');
-  if(!snap.exists()||snap.val().role!=='master'){
-    auth.signOut();location.href='login.html';return;
-  }
-  myUid=user.uid;
+  if(!snap.exists()){auth.signOut();location.href='login.html';return;}
   const me=snap.val();
-  document.getElementById('ubadge').textContent=me.name+' · Master';
+  if(me.role!=='master'&&me.role!=='leder'){location.href='index.html';return;}
+  myUid=user.uid;
+  MY_ROLE=me.role;
+  MY_LINES=(me.lines||[]).filter(l=>LINES.includes(l));
+  if(!MY_LINES.length)MY_LINES=LINES.slice();
+  document.getElementById('ubadge').textContent=me.name+' · '+(me.role==='master'?'Master':'Leder · '+MY_LINES.join(', '));
+  if(me.role==='master')document.getElementById('nav-logg').style.display='';
+  if(me.role==='leder'){
+    // Leder kan bare lage og redigere linjeoperatører på sine egne linjer
+    ['n-role','e-role'].forEach(id=>{
+      const sel=document.getElementById(id);
+      Array.from(sel.options).forEach(op=>{if(op.value!=='linjeoperator')op.remove();});
+      sel.value='linjeoperator';sel.disabled=true;
+    });
+    const h=document.querySelector('main h2');
+    if(h)h.textContent='Opprett ny operatør på '+MY_LINES.join(', ');
+  }
   buildChecks('n-lchecks',[]);
   toggleSec('n-role','n-lsec');
   // Start listener only once
@@ -282,8 +316,8 @@ async function createUser(){
   const name=document.getElementById('n-name').value.trim();
   const email=document.getElementById('n-email').value.trim();
   const pass=document.getElementById('n-pass').value;
-  const role=document.getElementById('n-role').value;
-  const lines=role==='linjeoperator'?getChecked('n-lchecks'):[];
+  const role=MY_ROLE==='leder'?'linjeoperator':document.getElementById('n-role').value;
+  const lines=role==='master'?[]:getChecked('n-lchecks');
   const shiftAccess=document.getElementById('n-shift').checked;
   const dashboardId=document.getElementById('n-dash').value||'std';
   document.getElementById('cerr').style.display='none';
@@ -291,6 +325,7 @@ async function createUser(){
   if(!name||!email||!pass){showMsg('cerr','Fyll inn alle feltene.');return;}
   if(pass.length<8){showMsg('cerr','Passordet må være minst 8 tegn.');return;}
   if(role==='linjeoperator'&&!lines.length){showMsg('cerr','Velg minst én linje for linjeoperatør.');return;}
+  if(role==='leder'&&!lines.length){showMsg('cerr','Velg minst én linje lederen skal ha ansvar for.');return;}
   try{
     const sec=firebase.initializeApp(FB,'tmp-'+Date.now());
     const cred=await sec.auth().createUserWithEmailAndPassword(email,pass);
@@ -336,12 +371,13 @@ function sendPwReset(){
 async function saveEdit(){
   if(!editUid)return;
   const name=document.getElementById('e-name').value.trim();
-  const role=document.getElementById('e-role').value;
-  const lines=role==='linjeoperator'?getChecked('e-lchecks'):[];
+  const role=MY_ROLE==='leder'?'linjeoperator':document.getElementById('e-role').value;
+  const lines=role==='master'?[]:getChecked('e-lchecks');
   const shiftAccess=document.getElementById('e-shift').checked;
   const dashboardId=document.getElementById('e-dash').value||'std';
 
   if(!name){showToast('Skriv inn navn',true);return;}
+  if(role!=='master'&&!lines.length){showToast('Velg minst én linje',true);return;}
   await db.ref('users/'+editUid).update({name,role,lines,shiftAccess,dashboardId});
 
   showToast('Lagret');closeEdit();

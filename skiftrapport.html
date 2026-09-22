@@ -226,11 +226,13 @@ auth.onAuthStateChanged(async user=>{
   const role=USER&&USER.role;
   const hasAccess = role==='master'||role==='leder'||(USER&&USER.shiftAccess===true);
   document.getElementById('ubadge').textContent=(USER?USER.name:'')+' · '+(role==='master'?'Master':role==='leder'?'Leder':'Operatør');
-  if(role==='master'||role==='leder'){document.getElementById('nav-dash').style.display='';document.getElementById('nav-rap').style.display='';document.getElementById('nav-set').style.display='';document.getElementById('nav-usr').style.display='';document.getElementById('nav-import').style.display='';}
-  if(role==='master'){document.getElementById('nav-logg').style.display='';}
+  if(role==='master'||role==='leder'){document.getElementById('nav-dash').style.display='';document.getElementById('nav-rap').style.display='';document.getElementById('nav-set').style.display='';document.getElementById('nav-usr').style.display='';}
+  if(role==='master'){document.getElementById('nav-logg').style.display='';document.getElementById('nav-import').style.display='';}
   if(!hasAccess){document.getElementById('gate').style.display='block';return;}
   document.getElementById('app').style.display='block';
-  EDIT_LINES=(role==='master'||role==='leder')?LINES.slice():((USER&&USER.lines)||[]);
+  // Master: alle linjer. Leder: sine linjer (uten linjer på profilen = alle). Operatør: sine.
+  EDIT_LINES=role==='master'?LINES.slice():((USER&&USER.lines)||[]).filter(l=>LINES.includes(l));
+  if(role==='leder'&&!EDIT_LINES.length)EDIT_LINES=LINES.slice();
   initForm();
   startListeners();
 });
@@ -549,7 +551,7 @@ function renderHistory(){
   const tb=document.getElementById('hist-tbody'); if(!tb)return;
   const fl=val('h-line'), from=val('h-from'), to=val('h-to');
   let rows=reportRows().filter(r=>{
-    if(EDIT_LINES.length&&!(USER&&(USER.role==='master'||USER.role==='leder'))&&!EDIT_LINES.includes(r.line))return false;
+    if(EDIT_LINES.length&&!(USER&&USER.role==='master')&&!EDIT_LINES.includes(r.line))return false;
     if(fl&&r.line!==fl)return false;
     if(from&&r.date<from)return false;
     if(to&&r.date>to)return false;
@@ -597,7 +599,7 @@ function exportShift(){
 function exportCSV(){
   const fl=val('h-line'), from=val('h-from'), to=val('h-to');
   let rows=reportRows().filter(r=>{
-    if(EDIT_LINES.length&&!(USER&&(USER.role==='master'||USER.role==='leder'))&&!EDIT_LINES.includes(r.line))return false;
+    if(EDIT_LINES.length&&!(USER&&USER.role==='master')&&!EDIT_LINES.includes(r.line))return false;
     if(fl&&r.line!==fl)return false;
     if(from&&r.date<from)return false;
     if(to&&r.date>to)return false;

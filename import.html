@@ -80,7 +80,7 @@ input:focus,select:focus{border-color:var(--accent)}
 
 <div id="gate" class="gate" style="display:none">
   <h1>Ingen tilgang</h1>
-  <p>Bare master og leder kan importere plandata.</p>
+  <p>Bare master kan importere plandata.</p>
   <a class="bp" href="index.html" style="text-decoration:none">Til dashbordet</a>
 </div>
 
@@ -163,7 +163,7 @@ auth.onAuthStateChanged(async user=>{
     ['nav-rap','nav-skift','nav-set','nav-usr'].forEach(id=>document.getElementById(id).style.display='');
   }
   if(role==='master')document.getElementById('nav-logg').style.display='';
-  if(role!=='master'&&role!=='leder'){document.getElementById('gate').style.display='block';return;}
+  if(role!=='master'){document.getElementById('gate').style.display='block';return;}
   document.getElementById('app').style.display='block';
   setTab('prod');
   renderOverview();

@@ -24,7 +24,7 @@ Siemens S7-1500 PLS → bridge.py (OPC-UA, fabrikk-PC) → Firebase RTDB → Git
 ### Databasestruktur
 - `events/` — nedetidshendelser `{line, machine, cause, duration(min), severity, comment, ts, wholeLine, source:"opc"|undefined, unhandled:bool, handledAt, handledBy}`
 - `settings/` — `{globalGoal, oeeGoal, defaultDayHours, resetTime:"HH:MM", lineGoals{}, oeeGoals{}, prodPlan{lk:{weekHours}}, machines{lk:[navn]}, causes{lk__mk:[årsak]}, generalCauses[], plannedStops[], products{lk:[{name,eskerPerDpack}]}, dashboards{id:{name,widgets{...}}} (se egen seksjon)}`
-- `users/{uid}` — `{name, email, role:"master"|"leder"|"linjeoperator", lines[], dashboardId, shiftAccess:bool, createdAt}`
+- `users/{uid}` — `{name, email, role:"master"|"leder"|"linjeoperator", lines[], dashboardId, shiftAccess:bool, createdAt}`. `lines` brukes av BÅDE operatør (tilgang) og leder (ansvar) — se Roller.
 - `shiftReports/{YYYY-MM-DD}/{lk}` — `{line, date, skift, produkt, aoNr, hastighet, antallBestilt, antallProdusert, planlagteTimer, forsteFylling, sisteFylling, bemanning, grisematKg, reworkKg, ravaresvinn, svinn, kommentar, signatur, savedBy, savedAt}`
 - `production/{YYYY-MM-DD}/{lk}/` — `{count, hourly{HH}, _base, _pls, _hbase{HH}}`. `count` = dagens esker. `_base` = PLS-tellerens verdi ved døgnstart, `_pls` = sist sette råverdi, `_hbase` = det samme per time. Skrives av bridge.py og gjør at broen finner nullpunktet igjen etter omstart; går `_pls` bakover er PLS-en nullstilt. Dashbordet leser bare `count` og `hourly`.
 - `productHourly/{date}/{lineKey}/{HH}` — esker per time (logges fra åpent dashboard hvert 3. min)
@@ -101,18 +101,31 @@ tallene stemmer alltid med skjermen. `botAsk()` er eneste inngang: sett `BOT.bac
 `BOT.endpoint` til en proxy-URL for å bytte til Claude API senere. **Nøkkelen skal aldri i denne
 repoen** — siden er offentlig. `botContext()` sender et kompakt sammendrag, aldri hele databasen.
 
+### Roller (22.09.2026)
+- **master** — alt. Eneste som ser Import og Logg & data, og eneste som kan opprette ledere/mastere og slette brukere.
+- **leder** — knyttes til linjer via `lines[]` (hukes av i brukere.html). Lederen ser bare sine linjer i
+  Innstillinger (linjekort, produkter, skiftkalender, skiftmaler), Skiftrapport (skjema og historikk) og
+  Brukere (bare operatører på egne linjer; kan opprette/redigere operatører der, ikke slette). Behandler
+  sletteforespørsler bare for egne linjer. Globale innstillinger, dashboard-maler, planlagte stopp og
+  generelle årsaker er master-only. **Leder uten linjer = alle linjer** (bakoverkompatibelt for eldre
+  ledere). Dashbordet og Rapporter er IKKE linjefiltrert for leder — bevisst, de er lesing.
+- **linjeoperator** — dashbord på egne linjer, registrerer hendelser, kan ikke slette (søker i stedet).
+- Reglene håndhever: leder kan bare skrive `users/{uid}` når rollen er/blir `linjeoperator`. At linjene
+  er lederens egne, håndheves bare i UI (arrays kan ikke sjekkes i RTDB-regler). Linjefiltrering i
+  `settings`/`shiftPlan` er også bare UI — leder har skrivetilgang til hele noden.
+
 ### Nøkkelfunksjon
 `lk(line)` = linjenavn med mellomrom/skråstrek → `_` (f.eks. "Løp 1" → "Løp_1"). Maskinnøkkel: `lk(line)+'__'+lk(machine)`.
 
 ## Filer i repoet
 
 - `index.html` — hoveddashboard (KPI, OEE/Produksjon-faner, nedetidsanalyse, registrering, hendelseslogg, ubehandlet-banner + behandlingsmodal, dashboard-maler via `applyDashboard()`)
-- `innstillinger.html` — mål, resetTime, planlagte stopp, årsaker, per linje: prodplan/maskiner/årsaker/produkter, dashboard-maler (kun master)
-- `brukere.html` — brukeradmin (kun master): opprett/rediger bruker, rolle, linjer, dashboard-mal, `shiftAccess`-avkryssing
+- `innstillinger.html` — mål, resetTime, planlagte stopp, årsaker (master); per linje: mål/maskiner/årsaker/pauser/produkter + skiftmaler og skiftkalender (master og leder, leder ser bare egne linjer)
+- `brukere.html` — brukeradmin (master + leder): opprett/rediger bruker, rolle, linjer, dashboard-mal, `shiftAccess`-avkryssing. Leder ser og lager bare operatører på egne linjer
 - `rapporter.html` — år/måned/uke-oversikter, sammenlign år, hastighet per produkt (master/leder)
-- `skiftrapport.html` — skiftrapport per linje/dato (ny/rediger + historikk), skriver til `shiftReports/`. Har sjekkliste-maler, timekontroll-rutenett og **svinn-registreringer** (`svinnRegistreringer[]`, flere per skift med kg/tekst/tidspunkt/hvem, pluss `svinnSumKg`). Tilgang: master, leder, eller bruker med `shiftAccess:true`. Operatør ser kun sine egne linjer i historikken.
+- `skiftrapport.html` — skiftrapport per linje/dato (ny/rediger + historikk), skriver til `shiftReports/`. Har sjekkliste-maler, timekontroll-rutenett og **svinn-registreringer** (`svinnRegistreringer[]`, flere per skift med kg/tekst/tidspunkt/hvem, pluss `svinnSumKg`). Tilgang: master, leder, eller bruker med `shiftAccess:true`. Operatør og leder ser kun sine egne linjer i skjema og historikk.
 - `logg.html` — «Logg & data» (**kun master**): rediger dagstall i `production/`, full hendelseslogg med retting/sletting, systemstatus fra `opc_status/`
-- `import.html` — CSV-import (master/leder): plandata til `plan/production` og `plan/shift`, samt fletting av produkter inn i `settings/products`
+- `import.html` — CSV-import (kun master): plandata til `plan/production` og `plan/shift`, samt fletting av produkter inn i `settings/products`
 - `dashbord.html` — dashbord-oppsett: bygg maler på et abstrakt lerret (uten levende grafer), og tildel delte maler til brukere. Alle kan lage egne; master ser delte + tildelingstabell
 - `dashboard-widgets.js` — **delt** widget-register brukt av både index.html og dashbord.html. Legges en widget til her, dukker den opp begge steder
 - `login.html` — innlogging

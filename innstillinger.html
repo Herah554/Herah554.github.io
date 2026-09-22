@@ -193,8 +193,8 @@ input:focus,select:focus{border-color:var(--accent)}
     <button class="bp" onclick="saveTimekontroll()">Lagre timekontroll-innstillinger</button>
   </div>
 
-  <h2 class="master-only">Skiftmaler</h2>
-  <div class="card master-only">
+  <h2>Skiftmaler</h2>
+  <div class="card">
     <div class="ct"><div class="ca" style="background:var(--amber)"></div>Skiftmaler</div>
     <div style="font-size:12px;color:var(--text2);margin-bottom:.7rem;line-height:1.55">
       Lag malene én gang, og legg dem inn i kalenderen under. En mal som krysser midnatt
@@ -212,13 +212,12 @@ input:focus,select:focus{border-color:var(--accent)}
     </div>
   </div>
 
-  <h2 class="master-only" id="skiftkalender">Skiftkalender</h2>
-  <div class="card master-only">
+  <h2 id="skiftkalender">Skiftkalender</h2>
+  <div class="card">
     <div class="ct"><div class="ca" style="background:var(--blue)"></div>Skiftkalender</div>
     <div style="font-size:12px;color:var(--text2);margin-bottom:.8rem;line-height:1.55">
-      Bobler her <b>overstyrer ukesplanen</b> for den linjen den datoen, og blir grunnlaget for
-      planlagt tid i OEE. Dager uten bobler bruker ukesplanen som før. Linjas pauser trekkes fra
-      i begge tilfeller.
+      Boblene her er <b>grunnlaget for planlagt tid</b> i OEE. Dager uten bobler regnes som
+      ikke planlagt, og OEE måles ikke de dagene. Linjas faste pauser (under Linjer) trekkes fra.
     </div>
     <div class="row" style="gap:8px;align-items:center;margin-bottom:.8rem;flex-wrap:wrap">
       <select id="cal-line" onchange="renderCal()" style="width:150px"></select>
@@ -312,7 +311,7 @@ input:focus,select:focus{border-color:var(--accent)}
       <button class="bgrn" onclick="addProductFull()">+ Legg til</button>
     </div>
     <div class="sep"></div>
-    <div class="row">
+    <div class="row master-only">
       <button class="bg" onclick="importGlacier()">⬇ Importer Glacier-grunndata (17 produkter)</button>
     </div>
     <div class="fb" style="margin-top:8px">Stk/dpack fylles automatisk fra produktnavnet (kan overstyres). Esk/dpack settes til 1 ved import — kontroller mot PLS-tellingen.</div>
@@ -334,6 +333,9 @@ localStorage.setItem('firebaseConfig',JSON.stringify(FB));
 const db=firebase.database(),auth=firebase.auth();
 let S={globalGoal:30,oeeGoal:97,defaultDayHours:8,resetTime:'00:00',lineGoals:{},oeeGoals:{},prodPlan:{},machines:{},causes:{},generalCauses:[],plannedStops:[],products:{},schedule:{}};
 let ROLE='master';
+/* Linjene denne brukeren får se. Master: alle. Leder: linjene fra brukerprofilen —
+   uten linjer på profilen (eldre ledere) vises alt, så ingen mister noe ved oppgradering. */
+let MY_LINES=[];
 
 function lk(l){return(l||'').replace(/[\s\/]/g,'_');}
 function mk(l,m){return lk(l)+'__'+lk(m);}
@@ -344,12 +346,18 @@ auth.onAuthStateChanged(async user=>{
   const role=snap.exists()?snap.val().role:null;
   if(role!=='master'&&role!=='leder'){location.href='index.html';return;}
   ROLE=role;
-  document.getElementById('ubadge').textContent=snap.val().name+' · '+(role==='master'?'Master':'Leder');
-  if(role==='master')document.getElementById('nav-logg').style.display='';
+  MY_LINES=LINES.slice();
   if(role==='leder'){
+    const mine=(snap.val().lines||[]).filter(l=>LINES.includes(l));
+    if(mine.length)MY_LINES=mine;
     document.querySelectorAll('.master-only').forEach(e=>e.style.display='none');
+    // Lederen skal se alt om sine linjer med én gang — ingen avhuking først
+    lineFilter=new Set(MY_LINES);
   }
-  renderLineFilter();renderLines();
+  prodFilter=new Set(MY_LINES);
+  document.getElementById('ubadge').textContent=snap.val().name+' · '+(role==='master'?'Master':'Leder · '+MY_LINES.join(', '));
+  if(role==='master')document.getElementById('nav-logg').style.display='';
+  renderLineFilter();renderLines();renderProductFilter();renderProducts();renderCal();
 });
 
 db.ref('settings').on('value',snap=>{
@@ -453,7 +461,7 @@ function renderLines(){
     container.innerHTML='<div class="fb" style="margin-top:0">Huk av en linje over for å se og endre innstillingene.</div>';
     return;
   }
-  LINES.forEach(line=>{
+  MY_LINES.forEach(line=>{
     if(!lineFilter.has(line))return;
     const key=lk(line);
     const lg=S.lineGoals?.[key];
@@ -463,7 +471,7 @@ function renderLines(){
     const div=document.createElement('div');
     div.className='card';
 
-    const oeeCell=ROLE==='master'?`
+    const oeeCell=(ROLE==='master'||ROLE==='leder')?`
         <div>
           <div class="lbl">OEE-mål (%)</div>
           <div class="row">
@@ -473,7 +481,7 @@ function renderLines(){
           </div>
           <div class="${og?'ok':'fb'}">${og?'Eget: '+og+'%':'Globalt: '+(S.oeeGoal||97)+'%'}</div>
         </div>`:'';
-    const machineBlock=ROLE==='master'?`
+    const machineBlock=(ROLE==='master'||ROLE==='leder')?`
       <div class="sep"></div>
       <div class="lbl" style="margin-bottom:6px">🛠 Maskiner på ${line}</div>
       <div id="ml-${key}"></div>
@@ -564,7 +572,7 @@ let lineFilter=new Set();
 function renderLineFilter(){
   const c=document.getElementById('line-lfilter');if(!c)return;
   c.innerHTML='';
-  LINES.forEach(line=>{
+  MY_LINES.forEach(line=>{
     const on=lineFilter.has(line);
     const b=document.createElement('button');
     b.className='lchk'+(on?' on':'');
@@ -727,7 +735,7 @@ function removeProduct(line,idx){
 }
 
 // ── PRODUCT DATABASE (OEE grunndata) ──
-let prodFilter=new Set(LINES);
+let prodFilter=new Set();
 
 function esc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
 
@@ -744,15 +752,18 @@ function parseStkPerDpack(name){
 
 function fillAddLineSelect(){
   const sel=document.getElementById('pa-line');
-  if(!sel||sel.options.length)return;
-  LINES.forEach(l=>{const o=document.createElement('option');o.value=l;o.textContent=l;sel.appendChild(o);});
+  if(!sel)return;
+  const keep=sel.value;
+  sel.innerHTML='';
+  MY_LINES.forEach(l=>{const o=document.createElement('option');o.value=l;o.textContent=l;sel.appendChild(o);});
+  if(keep&&MY_LINES.includes(keep))sel.value=keep;
 }
 
 function renderProductFilter(){
   fillAddLineSelect();
   const c=document.getElementById('prod-lfilter');if(!c)return;
   c.innerHTML='';
-  LINES.forEach(line=>{
+  MY_LINES.forEach(line=>{
     const on=prodFilter.has(line);
     const cnt=(S.products?.[lk(line)]||[]).length;
     const b=document.createElement('button');
@@ -767,7 +778,7 @@ function renderProducts(){
   const tb=document.getElementById('prod-tbody');if(!tb)return;
   tb.innerHTML='';
   let count=0;
-  LINES.forEach(line=>{
+  MY_LINES.forEach(line=>{
     if(!prodFilter.has(line))return;
     const key=lk(line);
     (S.products?.[key]||[]).forEach((p,i)=>{
@@ -790,7 +801,7 @@ function renderProducts(){
   });
   if(!count)tb.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:1.2rem">Ingen produkter for valgte linjer.</td></tr>';
   const lbl=document.getElementById('prod-count');
-  if(lbl)lbl.textContent=count+' produkt'+(count===1?'':'er')+' vist ('+prodFilter.size+' av '+LINES.length+' linjer valgt)';
+  if(lbl)lbl.textContent=count+' produkt'+(count===1?'':'er')+' vist ('+prodFilter.size+' av '+MY_LINES.length+' linjer valgt)';
 }
 
 function saveProductRow(key,i){
@@ -904,7 +915,6 @@ function showT(msg,isE=false){
    Bare et vindu på tre måneder lastes der, så kalenderen her holder
    seg til én måned om gangen.
    ═══════════════════════════════════════════════════════════ */
-const CAL_LINES=['Løp 1','Løp 2','Løp 3','Rollo','Koba','Glacier','Krokan'];
 const MND=['januar','februar','mars','april','mai','juni','juli','august','september','oktober','november','desember'];
 let TPLS={}, PLAN={}, calYear=new Date().getFullYear(), calMonth=new Date().getMonth(), dayKey=null;
 let planRef=null;
@@ -1098,10 +1108,13 @@ function calToday(){const n=new Date();calYear=n.getFullYear();calMonth=n.getMon
 
 function initCalLines(){
   const sel=document.getElementById('cal-line');
-  if(!sel||sel.options.length)return;
-  CAL_LINES.forEach(l=>{
+  if(!sel)return;
+  const keep=sel.value;
+  sel.innerHTML='';
+  MY_LINES.forEach(l=>{
     const o=document.createElement('option');o.value=l;o.textContent=l;sel.appendChild(o);
   });
+  if(keep&&MY_LINES.includes(keep))sel.value=keep;
 }
 function bubblesFor(dateKey,line){
   const d=PLAN[dateKey];
@@ -1114,7 +1127,7 @@ function renderCal(){
   initCalLines();
   const grid=document.getElementById('cal-grid');
   if(!grid)return;
-  const line=document.getElementById('cal-line').value||CAL_LINES[0];
+  const line=document.getElementById('cal-line').value||MY_LINES[0];
   document.getElementById('cal-label').textContent=MND[calMonth]+' '+calYear;
   grid.innerHTML='';
   const first=new Date(calYear,calMonth,1);

@@ -6,7 +6,7 @@
     "users": {
       ".read": "auth != null",
       "$uid": {
-        ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'master')",
+        ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'master' || (root.child('users').child(auth.uid).child('role').val() === 'leder' && newData.child('role').val() === 'linjeoperator' && (!data.exists() || data.child('role').val() === 'linjeoperator')))",
         "dashboardId": {
           ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'master' || ($uid === auth.uid && root.child('users').child(auth.uid).child('role').val() !== 'linjeoperator'))"
         }

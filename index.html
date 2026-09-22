@@ -638,9 +638,11 @@ auth.onAuthStateChanged(async user=>{
       document.getElementById('nav-rap').style.display='';
       document.getElementById('nav-set').style.display='';
       document.getElementById('nav-usr').style.display='';
-      document.getElementById('nav-import').style.display='';
     }
-    if(role==='master')document.getElementById('nav-logg').style.display='';
+    if(role==='master'){
+      document.getElementById('nav-import').style.display='';
+      document.getElementById('nav-logg').style.display='';
+    }
     if(role==='master'||role==='leder'||myProfile.shiftAccess===true)document.getElementById('nav-skift').style.display='';
     // Linjeoperatør: show banner, hide filter, lock to their lines
     if(role==='linjeoperator'){
@@ -2282,6 +2284,13 @@ let DREQ={};
 function isStaff(){
   return !!(myProfile&&(myProfile.role==='master'||myProfile.role==='leder'));
 }
+/* Leder behandler bare søknader på sine egne linjer. Leder uten linjer = alle. */
+function canDecide(r){
+  if(!isStaff())return false;
+  if(myProfile.role==='master')return true;
+  const mine=myProfile.lines||[];
+  return !mine.length||mine.includes(r.line);
+}
 function handleDreq(snap){
   DREQ=snap.val()||{};
   renderDreq();
@@ -2410,7 +2419,7 @@ function renderDreq(){
       d.textContent=(r.status==='approved'?'Godkjent av ':'Avslått av ')+(r.decidedByName||'—')+
         (r.decidedAt?' · '+fmtT(r.decidedAt):'')+(r.decisionNote?' · '+r.decisionNote:'');
       row.appendChild(d);
-    }else if(staff){
+    }else if(canDecide(r)){
       const btns=document.createElement('div');
       btns.style.display='flex';btns.style.gap='6px';btns.style.marginTop='7px';
       const ok=document.createElement('button');
@@ -2427,7 +2436,7 @@ function renderDreq(){
   });
 }
 async function decideDreq(r,decision){
-  if(!isStaff()){showToast('Bare master eller leder kan behandle',true);return;}
+  if(!canDecide(r)){showToast('Bare master eller leder for '+r.line+' kan behandle',true);return;}
   const hits=eventsInRange(r.line,r.from,r.to);
   if(decision==='approved'){
     if(!confirm('Slette '+hits.length+' hendelser på '+r.line+' i perioden '+r.from+' til '+r.to+'?\n\nDette kan ikke angres.'))return;
