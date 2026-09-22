@@ -1,0 +1,80 @@
+/* theme.css — mørkt tema for hele MES-systemet
+   ================================================
+   Lastes av alle sider etter deres eget <style>. Lys modus er det som
+   allerede ligger i hver sides :root; her overstyres bare tokenene når
+   <html data-theme="dark"> er satt (theme.js styrer det).
+
+   Sidene bruker CSS-variabler nesten overalt, så det meste følger med av
+   seg selv. Det som IKKE er variabler er de faste pastellfargene på
+   status-merker (rødt/grønt/gult/blått bakgrunnsfelt). De viktigste av dem
+   er overstyrt under; resten er bevisst latt være lyse — de er små og
+   leselige på mørk bakgrunn. */
+
+html[data-theme="dark"] {
+  --bg: #0f1419;
+  --bg2: #171d25;
+  --bg3: #1f2732;
+  --border: #2a3441;
+  --text: #e6e9ef;
+  --text2: #b3bcc9;
+  --text3: #7d8898;
+  --sh: 0 1px 4px rgba(0,0,0,.4);
+  --shm: 0 4px 20px rgba(0,0,0,.55);
+  color-scheme: dark;
+}
+
+/* Elementer som har hvit bakgrunn hardkodet i sidene */
+html[data-theme="dark"] .effp-btn,
+html[data-theme="dark"] .btn-da,
+html[data-theme="dark"] .date-preset,
+html[data-theme="dark"] .fb,
+html[data-theme="dark"] .qchip,
+html[data-theme="dark"] .tab,
+html[data-theme="dark"] .pal-b,
+html[data-theme="dark"] .dash-mini,
+html[data-theme="dark"] .dash-btn,
+html[data-theme="dark"] .wgt-b,
+html[data-theme="dark"] .cal-cp,
+html[data-theme="dark"] .chip,
+html[data-theme="dark"] input,
+html[data-theme="dark"] select,
+html[data-theme="dark"] textarea {
+  background: var(--bg3);
+  color: var(--text);
+  border-color: var(--border);
+}
+html[data-theme="dark"] input::placeholder,
+html[data-theme="dark"] textarea::placeholder { color: var(--text3); }
+
+/* Status-merker: mørke, dempede varianter av de lyse pastellene */
+html[data-theme="dark"] .rb-m, html[data-theme="dark"] .msg-e, html[data-theme="dark"] .toast.e,
+html[data-theme="dark"] .dreq-st.rejected, html[data-theme="dark"] .cal-red, html[data-theme="dark"] .tpl.on {
+  background: rgba(220,38,38,.14); border-color: rgba(220,38,38,.45); color: #fca5a5;
+}
+html[data-theme="dark"] .rb-o, html[data-theme="dark"] .msg-ok, html[data-theme="dark"] .toast,
+html[data-theme="dark"] .dreq-st.approved, html[data-theme="dark"] .tpl-inuse, html[data-theme="dark"] .ok,
+html[data-theme="dark"] .hcell.done {
+  background: rgba(22,163,74,.14); border-color: rgba(22,163,74,.45); color: #86efac;
+}
+html[data-theme="dark"] .rb-l, html[data-theme="dark"] .hcell.sugg {
+  background: rgba(37,99,235,.14); border-color: rgba(37,99,235,.45); color: #93c5fd;
+}
+html[data-theme="dark"] .dreq-badge, html[data-theme="dark"] .dreq-st.pending, html[data-theme="dark"] .dreq-row.pending,
+html[data-theme="dark"] .cal-soft, html[data-theme="dark"] .hcell.late, html[data-theme="dark"] .unhandled-banner {
+  background: rgba(217,119,6,.14); border-color: rgba(217,119,6,.45); color: #fcd34d;
+}
+html[data-theme="dark"] .tpl.on { color: var(--text); }
+html[data-theme="dark"] .cal-red .cal-num, html[data-theme="dark"] .cal-holname { color: #fca5a5; }
+html[data-theme="dark"] .cal-soft .cal-num, html[data-theme="dark"] .cal-soft .cal-holname { color: #fcd34d; }
+
+/* Kalenderen og skiftrutenettet */
+html[data-theme="dark"] .cal-cell { background: var(--bg2); }
+html[data-theme="dark"] .cal-cell.cal-out { background: transparent; }
+html[data-theme="dark"] .hcell.empty { background: var(--bg3); color: var(--text3); }
+
+/* Temabryteren i navigasjonen */
+.theme-btn {
+  font-size: 12px; background: none; border: 1px solid var(--border); border-radius: var(--r);
+  padding: 4px 9px; cursor: pointer; color: var(--text3); font-family: inherit; line-height: 1;
+}
+.theme-btn:hover { color: var(--text); border-color: var(--text3); }

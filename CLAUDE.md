@@ -73,10 +73,13 @@ Uten det ville `dashboardId` pekt på noe som ikke finnes.
 
 ### Skiftkalender
 Maler settes opp i innstillinger.html og legges inn per linje og dato som bobler.
-**Bobler overstyrer ukesplanen** (`settings/schedule`) for den linjen den datoen — det er hele
-poenget: helligdager og ekstraskift kan ikke uttrykkes i en evig ukesplan, så OEE ble regnet mot
-plantid som ikke stemte. Integrasjonen er ett punkt: `dayWindows(line,dateObj)` gir bobler hvis
-de finnes, ellers ukesplanen. `prodIntervalsForDate`, `plannedMinForDate` og `plannedMinFullDay`
+**Skiftkalenderen er ENESTE kilde til planlagt tid (22.09.2026).** Ukesplanen («Produksjonstid»
+per linje) er fjernet fra Innstillinger; `settings/schedule/{lk}` lever bare videre for `breaks`
+(pauser), som fortsatt trekkes fra. Ingen bobler den dagen = ingen plan = OEE måles ikke.
+Integrasjonen er ett punkt: `dayWindows(line,dateObj)` = `shiftWindowsFor()||[]`. Samme kode i
+index.html OG rapporter.html (rapporter hadde tidligere sin egen ukesplan-kopi uten shiftPlan —
+OEE var derfor ulik på dashbord og i rapporter). rapporter laster hele `shiftPlan`, index et
+3-måneders vindu. skiftrapport.html henter «planlagte timer» fra boblene. `prodIntervalsForDate`, `plannedMinForDate` og `plannedMinFullDay`
 bygger alle på den, så nedetid og OEE kan ikke komme i utakt. Pauser er en egenskap ved linja og
 trekkes fra i begge tilfeller (`_subBreaks`). Bobler over midnatt klippes ved døgnskillet —
 natt-timene må legges inn på neste dag også. index.html laster bare et tre måneders vindu av
@@ -107,12 +110,13 @@ repoen** — siden er offentlig. `botContext()` sender et kompakt sammendrag, al
 - `innstillinger.html` — mål, resetTime, planlagte stopp, årsaker, per linje: prodplan/maskiner/årsaker/produkter, dashboard-maler (kun master)
 - `brukere.html` — brukeradmin (kun master): opprett/rediger bruker, rolle, linjer, dashboard-mal, `shiftAccess`-avkryssing
 - `rapporter.html` — år/måned/uke-oversikter, sammenlign år, hastighet per produkt (master/leder)
-- `skiftrapport.html` — skiftrapport per linje/dato (ny/rediger + historikk), skriver til `shiftReports/`. Tilgang: master, leder, eller bruker med `shiftAccess:true`. Operatør ser kun sine egne linjer i historikken.
+- `skiftrapport.html` — skiftrapport per linje/dato (ny/rediger + historikk), skriver til `shiftReports/`. Har sjekkliste-maler, timekontroll-rutenett og **svinn-registreringer** (`svinnRegistreringer[]`, flere per skift med kg/tekst/tidspunkt/hvem, pluss `svinnSumKg`). Tilgang: master, leder, eller bruker med `shiftAccess:true`. Operatør ser kun sine egne linjer i historikken.
 - `logg.html` — «Logg & data» (**kun master**): rediger dagstall i `production/`, full hendelseslogg med retting/sletting, systemstatus fra `opc_status/`
 - `import.html` — CSV-import (master/leder): plandata til `plan/production` og `plan/shift`, samt fletting av produkter inn i `settings/products`
 - `dashbord.html` — dashbord-oppsett: bygg maler på et abstrakt lerret (uten levende grafer), og tildel delte maler til brukere. Alle kan lage egne; master ser delte + tildelingstabell
 - `dashboard-widgets.js` — **delt** widget-register brukt av både index.html og dashbord.html. Legges en widget til her, dukker den opp begge steder
 - `login.html` — innlogging
+- `theme.css` / `theme.js` — lys/mørk modus. Lastes av alle sider etter deres `<style>`; `theme.js` setter `data-theme` på `<html>` før tegning og legger en bryter i `nav .ml`. Valget ligger i localStorage (`diplomis.theme`) — per nettleser, ikke per bruker. Bare tokenene og de vanligste status-merkene er overstyrt; enkelte faste pastellfarger forblir lyse.
 
 - `bridge.py` — OPC-UA→Firebase-bro. Kjører på fabrikk-PC, men vedlikeholdes her. Trenger `bridge_auth.py` ved siden av seg og `py -m pip install opcua`.
 - `bridge_auth.py` — innlogging for broen (se sikkerhetsnotatet).
@@ -174,6 +178,7 @@ Node-IDer:
 11. **ROTÅRSAKEN til alle bruddene (09.09.2026): PC-kortet sto på 100 Mbps HALF duplex.** PLS-porten kjører full → duplex mismatch → kollisjoner → progressivt pakketap (ping 4/4 → 2/4 → 0/4) til forbindelsen kollapset, uavhengig av IP/klokke/token. Symptom: disable/enable av kortet «fikset» det midlertidig. Fiks: `Set-NetAdapterAdvancedProperty -Name Ethernet -DisplayName "Speed & Duplex" -DisplayValue "Auto Negotiation"` + skru av Energy-Efficient Ethernet, Green Ethernet og Power Saving Mode (alle var Enabled). Krever admin-PowerShell. Verifiser med `Get-NetAdapter | Select FullDuplex` = True. **Ved ny linje/PC: sjekk dette FØRST**, før noe annet — det ser ut som alt mulig annet.
     **Oppdatering 09.09 kveld:** half duplex var reelt og er fikset (FullDuplex=True), men linken faller FORTSATT — sammenhengende brudd på ~2,5 min der fire restarter av PC-kortet ikke hjelper, før den kommer opp av seg selv. Det mønsteret peker IKKE på støy (støy gir korte drop som forhandler opp på sekunder) men på at PLS-siden/kabelen ikke gir link: mest sannsynlig marginal terminering på den egenkrympede 25 m Cat6-kabelen, alternativt PLS-port/CPU-restart. Avgjøres av (1) diagnosebufferet i TIA rundt bruddtidspunktet og (2) test med fabrikklaget kort patchekabel. `plsvakt.log` gir reell nedetid per brudd.
     **Sluttstatus 09.09 kl 22:** Med Monitor på flagget PLS-en «Inconsistency in transmission medium / duplex» på Port_1 — portene var aldri enige. Siste nedlasting (autoneg av på P1) ble AVBRUTT ~21:54:53, og linken har vært helt nede siden; PLS-en står trolig i STOP. PC-kort: Auto. PLS P1: TP 100 full + autoneg PÅ + Monitor PÅ (om nedlastingen ikke tok). Bro og vaktbikkje kjører og prøver evig. **Morgen:** lamper → strøm av/på PLS → holder linken? → ellers bytt kabel/prøv P2 → når stabil: ÉN nedlasting med autoneg AV + PC låst 100 full + Retain på antall_esker.
+13. **Et rent `timekontroll`-klikk lager en shiftReports-oppføring uten `date`/`line`.** `reportRows()` i skiftrapport tok den med, `sort()` i `renderHistory()` kastet, og lytteren døde FØR `refreshChecklist()` — rutenettet ble ikke tegnet på nytt før linjebytte. Fiks: filtrer på `r.date&&r.line`, try/catch rundt historikken, og oppdater lokal `REPORTS` optimistisk i `toggleHourCell`.
 12. **PowerShell-skript (.ps1) i repoet må være ren ASCII** (eller UTF-8 *med* BOM). PowerShell 5.1 leser BOM-løse filer som Windows-1252; en lang tankestrek (—) blir da bl.a. `”`, som PowerShell godtar som strengavslutter → «Unexpected token }» langt nede i fila. `plsvakt.ps1` er vaktbikkja som restarter nettverkskortet ved ping-tap og logger hvert brudd i `plsvakt.log`; kjøres som admin med `-ExecutionPolicy Bypass`.
 
 ## Arbeidsflyt og preferanser
