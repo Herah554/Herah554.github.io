@@ -11,35 +11,36 @@ const GRID_COLS=12;
 const WSTEPS=[2,3,4,6,8,12];
 const MIN_H=90;   // laveste widget-høyde i piksler
 const WIDGETS=[
-  {key:'filter',       name:'Filtrer',                 w:12, els:['#fbar']},
-  {key:'linjestatus',  name:'Linjestatus',             w:12, els:['#line-status-card']},
-  {key:'kpi-nedetid',  name:'Nedetid i dag',           w:2,  els:['#k-today^.kpi']},
-  {key:'kpi-oee',      name:'OEE i dag',               w:2,  els:['#k-oee^.kpi']},
-  {key:'kpi-eff',      name:'Effektivitet i dag',      w:2,  els:['#k-eff^.kpi']},
-  {key:'kpi-oee-wtd',  name:'OEE denne uken',          w:2,  els:['#k-oee-wtd^.kpi']},
-  {key:'kpi-oee-mtd',  name:'OEE denne måneden',       w:2,  els:['#k-oee-mtd^.kpi']},
-  {key:'kpi-hendelser',name:'Hendelser denne uke',     w:2,  els:['#k-week^.kpi']},
-  {key:'oee-utvikling',name:'OEE-utvikling',           w:6,  els:['#oee-tabs','#oee-card']},
-  {key:'produksjon',   name:'Produksjon',              w:6,  els:['#prod-tabs','#pv-main']},
-  {key:'nd-daily',     name:'Nedetid per time i dag',  w:12, els:['#cp-daily']},
-  {key:'nd-weekly',    name:'Nedetid per dag i uken',  w:6,  els:['#cp-weekly']},
-  {key:'nd-causes',    name:'Årsaker og maskinfordeling',w:12,els:['#cp-causes']},
-  {key:'nd-maskiner',  name:'Maskinliste',             w:6,  els:['#cp-maskiner']},
-  {key:'nd-heatmap',   name:'Heatmap',                 w:12, els:['#cp-heatmap']},
-  {key:'plan',         name:'Plan mot faktisk',        w:6,  els:['#pva-body^.card']},
-  {key:'effektivitet', name:'Effektivitet over tid',   w:12, els:['#ch-eff-trend^.card']},
-  {key:'registrer',    name:'Registrer hendelse',      w:6,  els:['#f-line^.card']},
-  {key:'siste',        name:'Siste hendelser',         w:6,  els:['#hist^.card']},
-  {key:'slettesok',    name:'Slettesøknader',        w:12, els:['#dreq-card'], staff:true},
-  {key:'logg',         name:'Hendelseslogg',           w:12, els:['#tbl^.card']}
+  {key:'filter',       name:'Filtrer',                 group:'Status', w:12, els:['#fbar']},
+  {key:'linjestatus',  name:'Linjestatus',             group:'Status', w:12, els:['#line-status-card']},
+  {key:'kpi-nedetid',  name:'Nedetid i dag',           group:'Nøkkeltall', w:2,  els:['#k-today^.kpi']},
+  {key:'kpi-oee',      name:'OEE i dag',               group:'Nøkkeltall', w:2,  els:['#k-oee^.kpi']},
+  {key:'kpi-eff',      name:'Effektivitet i dag',      group:'Nøkkeltall', w:2,  els:['#k-eff^.kpi']},
+  {key:'kpi-oee-wtd',  name:'OEE denne uken',          group:'Nøkkeltall', w:2,  els:['#k-oee-wtd^.kpi']},
+  {key:'kpi-oee-mtd',  name:'OEE denne måneden',       group:'Nøkkeltall', w:2,  els:['#k-oee-mtd^.kpi']},
+  {key:'kpi-hendelser',name:'Hendelser denne uke',     group:'Nøkkeltall', w:2,  els:['#k-week^.kpi']},
+  {key:'oee-utvikling',name:'OEE-utvikling',           group:'Grafer', w:6,  els:['#oee-tabs','#oee-card']},
+  {key:'produksjon',   name:'Produksjon',              group:'Grafer', w:6,  els:['#prod-tabs','#pv-main']},
+  {key:'nd-daily',     name:'Nedetid per time i dag',  group:'Nedetid', w:12, els:['#cp-daily']},
+  {key:'nd-weekly',    name:'Nedetid per dag i uken',  group:'Nedetid', w:6,  els:['#cp-weekly']},
+  {key:'nd-causes',    name:'Årsaker og maskinfordeling',group:'Nedetid', w:12,els:['#cp-causes']},
+  {key:'nd-maskiner',  name:'Maskinliste',             group:'Nedetid', w:6,  els:['#cp-maskiner']},
+  {key:'nd-heatmap',   name:'Heatmap',                 group:'Nedetid', w:12, els:['#cp-heatmap']},
+  {key:'plan',         name:'Plan mot faktisk',        group:'Grafer', w:6,  els:['#pva-body^.card']},
+  {key:'effektivitet', name:'Effektivitet over tid',   group:'Grafer', w:12, els:['#ch-eff-trend^.card']},
+  {key:'registrer',    name:'Registrer hendelse',      group:'Hendelser', w:6,  els:['#f-line^.card']},
+  {key:'siste',        name:'Siste hendelser',         group:'Hendelser', w:6,  els:['#hist^.card']},
+  {key:'slettesok',    name:'Slettesøknader',        group:'Hendelser', w:12, els:['#dreq-card'], staff:true},
+  {key:'logg',         name:'Hendelseslogg',           group:'Hendelser', w:12, els:['#tbl^.card']}
 ];
+const WIDGET_GROUPS=['Status','Nøkkeltall','Grafer','Nedetid','Hendelser'];
 function stdWidgets(){const o={};WIDGETS.forEach((w,i)=>{o[w.key]={on:true,order:i,w:w.w};});return o;}
 /* Tåler både nye maler og maler uten alle nøkler */
 function normWidgets(cfg){
   const src=(cfg&&cfg.widgets)||{};
   return WIDGETS.map((w,i)=>{
     const c=src[w.key]||{};
-    return{key:w.key,name:w.name,
+    return{key:w.key,name:w.name,group:w.group||'Annet',
       on:c.on!==false,
       order:(typeof c.order==='number')?c.order:i,
       w:(typeof c.w==='number'&&c.w>0&&c.w<=GRID_COLS)?c.w:w.w,

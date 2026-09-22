@@ -51,6 +51,9 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:var(--
 .tpl-dirty{color:var(--amber);font-size:14px;line-height:1}
 .btn2:disabled{opacity:.6;cursor:default}
 .tpl-kind{font-size:10px;font-family:var(--mono);color:var(--text3)}
+.tpl-h,.pal-h{width:100%;font-size:10px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin:.6rem 0 .3rem}
+.tpl-h:first-child{margin-top:0}
+.tile-grp{font-size:9px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.05em;color:var(--text3);background:var(--bg3);border-radius:3px;padding:1px 5px;display:inline-block;margin-bottom:2px}
 
 /* Lerret */
 .canvas{background:var(--bg3);border:1px solid var(--border);border-radius:var(--rl);padding:10px;min-height:340px}
@@ -90,6 +93,8 @@ td{padding:7px 8px;border-bottom:1px solid var(--bg3);font-size:13px}
 .toast{position:fixed;bottom:18px;right:18px;background:var(--bg2);border:1px solid #bbf7d0;color:var(--green);font-size:12px;font-weight:600;padding:8px 14px;border-radius:var(--r);opacity:0;transition:opacity .3s;pointer-events:none;box-shadow:var(--shm);z-index:300}
 .toast.e{border-color:#fecaca;color:var(--red)}
 </style>
+<link rel="stylesheet" href="theme.css"/>
+<script src="theme.js"></script>
 </head>
 <body>
 <nav>
@@ -121,8 +126,8 @@ td{padding:7px 8px;border-bottom:1px solid var(--bg3);font-size:13px}
         <div id="tpl-list"></div>
         <button class="btn" style="width:100%;margin-top:.5rem" onclick="newTpl()">+ Nytt dashbord</button>
         <div style="font-size:11px;color:var(--text3);line-height:1.5;margin-top:.7rem">
-          <b>Standard</b> er innebygd og kan ikke endres — dupliser den for å lage din egen.
-          Delte maler er synlige for alle, egne maler bare for deg.
+          <b>Standard</b> kan ikke endres — dupliser den. <b>Delte</b> ser alle, <b>Mine</b> ser bare du.
+          «Bruk fast» gjør en mal til den du møter på dashbordet.
         </div>
       </div>
     </div>
@@ -150,8 +155,7 @@ td{padding:7px 8px;border-bottom:1px solid var(--bg3);font-size:13px}
         </div>
 
         <div style="font-size:11px;color:var(--text3);margin-top:.6rem;line-height:1.5">
-          Dra i ⠿ for å flytte. Dra høyre kant for bredde, nedre kant for høyde, hjørnet for begge.
-          ✕ tar widgeten ut. Høyde «auto» lar innholdet bestemme, som er greit for de fleste.
+          ⠿ flytt · høyre kant = bredde · nedre kant = høyde · hjørne = begge · ✕ tar ut. Høyde «auto» = innholdet bestemmer.
         </div>
 
         <div class="ct" style="margin-top:1.1rem"><div class="ca" style="background:var(--teal)"></div>Legg til widget</div>
@@ -208,7 +212,13 @@ function tplList(){
 function renderTplList(){
   const wrap=document.getElementById('tpl-list');
   wrap.innerHTML='';
-  tplList().forEach(function(t){
+  const ORD={'Innebygd':0,'Delt':1,'Min':2}, LBL={'Innebygd':'Innebygd','Delt':'Delte maler','Min':'Mine maler'};
+  let lastKind=null;
+  tplList().sort(function(x,y){return (ORD[x.kind]||9)-(ORD[y.kind]||9);}).forEach(function(t){
+    if(t.kind!==lastKind){
+      const h=document.createElement('div');h.className='tpl-h';h.textContent=LBL[t.kind]||t.kind;
+      wrap.appendChild(h);lastKind=t.kind;
+    }
     const row=document.createElement('div');
     row.className='tpl'+(t.id===SEL?' on':'');
     const nm=document.createElement('div');
@@ -404,6 +414,9 @@ function renderCanvas(){
     t.setAttribute('data-key',item.key);
     t.style.gridColumn='span '+item.w;
     if(item.h)t.style.height=item.h+'px';
+    const g=document.createElement('div');
+    g.className='tile-grp';g.textContent=item.group||'';
+    t.appendChild(g);
     const nm=document.createElement('div');
     nm.className='tile-nm';nm.textContent=item.name;
     t.appendChild(nm);
@@ -440,11 +453,19 @@ function renderPalette(){
     wrap.innerHTML='<span style="font-size:12px;color:var(--text3)">Alle widgets er i bruk.</span>';
     return;
   }
-  av.forEach(function(item){
-    const b=document.createElement('button');
-    b.className='pal-b';b.textContent='+ '+item.name;
-    b.addEventListener('click',function(){toggleKey(item.key,true);});
-    wrap.appendChild(b);
+  const groups=(typeof WIDGET_GROUPS!=='undefined')?WIDGET_GROUPS.slice():[];
+  av.forEach(function(x){if(groups.indexOf(x.group)<0)groups.push(x.group);});
+  groups.forEach(function(g){
+    const inG=av.filter(function(x){return x.group===g;});
+    if(!inG.length)return;
+    const h=document.createElement('div');h.className='pal-h';h.textContent=g;
+    wrap.appendChild(h);
+    inG.forEach(function(item){
+      const b=document.createElement('button');
+      b.className='pal-b';b.textContent='+ '+item.name;
+      b.addEventListener('click',function(){toggleKey(item.key,true);});
+      wrap.appendChild(b);
+    });
   });
 }
 function toggleKey(key,on){
