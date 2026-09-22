@@ -76,6 +76,8 @@ input.auto{background:#f0f9ff;border-color:#bae6fd}
 /* Sifre med fast bredde i tabeller */
 table{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
 </style>
+<link rel="stylesheet" href="theme.css"/>
+<script src="theme.js"></script>
 </head>
 <body>
 <nav>
@@ -144,6 +146,13 @@ table{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
       <div class="fitem"><label class="lbl">Råvaresvinn</label><input id="r-ravaresvinn"></div>
       <div class="fitem"><label class="lbl">Svinn</label><input id="r-svinn"></div>
     </div>
+    <div class="lbl" style="margin:.9rem 0 4px">Svinn-registreringer (per gang)</div>
+    <div id="svinn-list"></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:flex-end;margin-top:6px">
+      <div class="fitem" style="flex:0 0 110px;margin:0"><label class="lbl">Kg</label><input type="number" id="sv-kg" min="0" step="0.1"></div>
+      <div class="fitem" style="flex:1;min-width:170px;margin:0"><label class="lbl">Hva / årsak</label><input id="sv-txt" placeholder="f.eks. oppstart, feil pakking" onkeydown="if(event.key==='Enter'){event.preventDefault();addSvinn();}"></div>
+      <button type="button" class="bg" onclick="addSvinn()" style="padding:8px 12px;font-size:12px">+ Legg til</button>
+    </div>
 
     <div class="sep"></div>
     <div class="grid2">
@@ -199,7 +208,7 @@ if(!firebase.apps.length)firebase.initializeApp(FB);
 localStorage.setItem('firebaseConfig',JSON.stringify(FB));
 const db=firebase.database(),auth=firebase.auth();
 
-let SETTINGS={products:{},schedule:{},resetTime:'00:00'}, PROD_ALL={}, ACTIVE_PROD={}, REPORTS={}, USER=null, EDIT_LINES=[];
+let SETTINGS={products:{},schedule:{},resetTime:'00:00'}, PROD_ALL={}, ACTIVE_PROD={}, REPORTS={}, USER=null, EDIT_LINES=[], SHIFT_PLAN={};
 let curShift='dag', reportsLoadedOnce=false, PROD_HOURLY_SR_DATA={};
 const lk=l=>(l||'').replace(/[\s\/]/g,'_');
 const pad=n=>String(n).padStart(2,'0');
@@ -237,8 +246,11 @@ function startListeners(){
     const m={};if(s.exists())s.forEach(ls=>{m[ls.key]=(ls.val()&&ls.val().product)||null;});
     ACTIVE_PROD=m;prefill();
   });
+  db.ref('shiftPlan').on('value',s=>{SHIFT_PLAN=s.val()||{};prefill();});
   db.ref('shiftReports').on('value',s=>{
-    REPORTS=s.val()||{}; renderHistory();
+    REPORTS=s.val()||{};
+    // Historikken skal aldri kunne stoppe oppdateringen av sjekklista
+    try{renderHistory();}catch(e){console.error('renderHistory',e);}
     if(!reportsLoadedOnce){reportsLoadedOnce=true;loadReport();}else{refreshChecklist();}
   });
 }
@@ -341,8 +353,13 @@ function toggleHourCell(itemId,hour){
   if(!line||!date){showToast('Velg linje og dato',true);return;}
   const cur=((((REPORTS[date]||{})[lk(line)]||{}).timekontroll||{})[shift]||{})[itemId]||{};
   const ref=db.ref('shiftReports/'+date+'/'+lk(line)+'/timekontroll/'+shift+'/'+itemId+'/'+hour);
-  if(cur[hour]&&cur[hour].at){ref.remove();}
-  else{ref.set({at:Date.now(),late:isHourLate(date,shift,hour),by:USER?USER.name:''});}
+  // Oppdater lokal kopi først, så cellen skifter umiddelbart
+  const R=REPORTS; R[date]=R[date]||{}; R[date][lk(line)]=R[date][lk(line)]||{};
+  const tk=R[date][lk(line)].timekontroll=R[date][lk(line)].timekontroll||{};
+  tk[shift]=tk[shift]||{}; tk[shift][itemId]=tk[shift][itemId]||{};
+  if(cur[hour]&&cur[hour].at){delete tk[shift][itemId][hour];ref.remove();}
+  else{const v={at:Date.now(),late:isHourLate(date,shift,hour),by:USER?USER.name:''};tk[shift][itemId][hour]=v;ref.set(v);}
+  refreshChecklist();
 }
 function applyChecklistValues(sj){
   tmplFor(val('f-line')).forEach(it=>{
@@ -406,14 +423,42 @@ async function saveTemplate(){
 
 // planlagte timer for valgt dag fra skiftplan (best-effort)
 function plannedHours(lineKey,dateStr){
+  // Skiftkalenderen er eneste kilde: summer boblene for linjen den dagen
   try{
-    const sc=(SETTINGS.schedule||{})[lineKey]; if(!sc)return '';
-    const dk=['sun','mon','tue','wed','thu','fri','sat'][new Date(dateStr+'T12:00:00').getDay()];
-    const d=sc[dk]; if(!d||!d.on)return '';
+    const raw=((SHIFT_PLAN||{})[dateStr]||{})[lineKey]; if(!raw)return '';
     const tm=t=>{const p=String(t||'0:0').split(':');return (parseInt(p[0])||0)*60+(parseInt(p[1])||0);};
-    let st=tm(d.start),en=tm(d.end); if(en===0)en=1440; if(en<=st)en+=1440;
-    return ((en-st)/60).toFixed(1);
+    let min=0;
+    Object.keys(raw).forEach(k=>{const b=raw[k];if(!b)return;const st=tm(b.start);let en=tm(b.end);if(en<=st)en=1440;min+=Math.max(0,en-st);});
+    return min?(min/60).toFixed(1):'';
   }catch(e){return '';}
+}
+
+// ── SVINN-REGISTRERINGER (flere per skift, hver med tidspunkt) ──
+let SVINN=[];
+function renderSvinn(){
+  const w=document.getElementById('svinn-list'); if(!w)return;
+  if(!SVINN.length){w.innerHTML='<div class="autohint" style="font-size:12px">Ingen registreringer enda.</div>';return;}
+  const tot=SVINN.reduce((t,x)=>t+(parseFloat(x.kg)||0),0);
+  w.innerHTML=SVINN.map((x,i)=>
+    '<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--r);margin-bottom:4px;font-size:12.5px">'
+    +'<b style="min-width:34px;color:var(--text3);font-family:var(--mono)">nr '+(i+1)+'</b>'
+    +'<span style="min-width:60px"><b>'+(parseFloat(x.kg)||0).toLocaleString('no-NO')+'</b> kg</span>'
+    +'<span style="flex:1">'+esc(x.tekst||'')+'</span>'
+    +'<span style="color:var(--text3);font-size:11px">'+(x.ts?new Date(x.ts).toLocaleTimeString('no-NO',{hour:'2-digit',minute:'2-digit'}):'')+(x.by?' · '+esc(x.by):'')+'</span>'
+    +'<button type="button" onclick="delSvinn('+i+')" title="Fjern" style="border:none;background:none;color:var(--text3);cursor:pointer;font-size:13px">✕</button>'
+    +'</div>').join('')
+    +'<div style="font-size:11px;color:var(--text3);margin-top:4px">Sum: <b>'+tot.toLocaleString('no-NO')+'</b> kg i '+SVINN.length+' registrering'+(SVINN.length===1?'':'er')+'. Husk å lagre rapporten.</div>';
+}
+function addSvinn(){
+  const kg=parseFloat(val('sv-kg')), tekst=val('sv-txt').trim();
+  if(isNaN(kg)||kg<=0){showToast('Skriv inn kg',true);return;}
+  SVINN.push({nr:SVINN.length+1,kg:kg,tekst:tekst,ts:Date.now(),by:USER?USER.name:''});
+  setVal('sv-kg','');setVal('sv-txt','');
+  renderSvinn();
+  document.getElementById('sv-kg').focus();
+}
+function delSvinn(i){
+  SVINN.splice(i,1); SVINN.forEach((x,j)=>x.nr=j+1); renderSvinn();
 }
 
 // fyll inn auto-felter (kun hvis tomme / ny rapport)
@@ -442,6 +487,8 @@ function loadReport(){
   // nullstill felt
   ['r-produkt','r-ao','r-hast','r-bestilt','r-prod','r-timer','r-forste','r-siste','r-bemanning','r-grisemat','r-rework','r-ravaresvinn','r-svinn','r-kommentar'].forEach(id=>setVal(id,''));
   document.getElementById('saved-tag').textContent='';
+  SVINN=(r&&Array.isArray(r.svinnRegistreringer))?r.svinnRegistreringer.map(x=>Object.assign({},x)):[];
+  renderSvinn();
   if(r){
     setShift(['dag','kveld','natt'].includes(r.skift)?r.skift:activeShiftNow());
     setVal('r-produkt',r.produkt);setVal('r-ao',r.aoNr);setVal('r-hast',r.hastighet);
@@ -474,6 +521,7 @@ async function saveReport(){
     antallBestilt:val('r-bestilt'), antallProdusert:val('r-prod'), planlagteTimer:val('r-timer'),
     forsteFylling:val('r-forste'), sisteFylling:val('r-siste'), bemanning:val('r-bemanning'),
     grisematKg:val('r-grisemat'), reworkKg:val('r-rework'), ravaresvinn:val('r-ravaresvinn'), svinn:val('r-svinn'),
+    svinnRegistreringer:SVINN, svinnSumKg:+SVINN.reduce((t,x)=>t+(parseFloat(x.kg)||0),0).toFixed(2),
     kommentar:val('r-kommentar'), signatur:val('r-signatur'), sjekkliste,
     timekontroll:prevTk,
     savedBy:USER?USER.name:'', savedAt:Date.now()
@@ -490,7 +538,9 @@ function reportRows(){
   const rows=[];
   Object.keys(REPORTS).forEach(date=>{
     Object.keys(REPORTS[date]).forEach(key=>{
-      const r=REPORTS[date][key]; if(r)rows.push(r);
+      const r=REPORTS[date][key];
+      // Bare ekte rapporter — et rent timekontroll-klikk lager en oppføring uten date/line
+      if(r&&r.date&&r.line)rows.push(r);
     });
   });
   return rows;
