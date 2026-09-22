@@ -430,7 +430,7 @@ function plannedHours(lineKey,dateStr){
     const raw=((SHIFT_PLAN||{})[dateStr]||{})[lineKey]; if(!raw)return '';
     const tm=t=>{const p=String(t||'0:0').split(':');return (parseInt(p[0])||0)*60+(parseInt(p[1])||0);};
     let min=0;
-    Object.keys(raw).forEach(k=>{const b=raw[k];if(!b)return;const st=tm(b.start);let en=tm(b.end);if(en<=st)en=1440;min+=Math.max(0,en-st);});
+    Object.keys(raw).forEach(k=>{const b=raw[k];if(!b)return;const st=tm(b.start);let en=tm(b.end);if(en<=st)en+=1440;min+=Math.max(0,en-st);});
     return min?(min/60).toFixed(1):'';
   }catch(e){return '';}
 }

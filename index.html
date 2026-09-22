@@ -235,6 +235,22 @@ td:first-child{font-family:var(--mono);font-size:11px;color:var(--text3)}
 /* Sifre med fast bredde: tall skal ikke hoppe sidelengs når de oppdateres live */
 table,#eff-kpi-eff,#eff-kpi-nd,.klbl,.ksub{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
 </style>
+<style>
+/* Plan mot faktisk */
+.pva-nav{display:flex;align-items:center;gap:8px;margin-bottom:.8rem;font-size:13px;flex-wrap:wrap}
+.pva-b{padding:3px 10px;font-size:12px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);border-radius:var(--r);cursor:pointer}
+.pva-b:hover{color:var(--text)}
+.pva-meta{margin-left:auto;font-size:11px;color:var(--text3)}
+.pva-row{margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+.pva-row:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0}
+.pva-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:6px 14px;margin-top:7px;font-size:11px}
+.pva-grid .k{color:var(--text3);margin-bottom:1px}
+.pva-grid .v{font-weight:600;font-variant-numeric:tabular-nums;color:var(--text)}
+.pva-sub{font-weight:400;color:var(--text3)}
+.pva-ok{color:var(--green);font-weight:700}
+.pva-bad{color:var(--red);font-weight:700}
+.pva-prod{font-size:11px;color:var(--text3);margin-top:6px;line-height:1.5}
+</style>
 <link rel="stylesheet" href="theme.css"/>
 <script src="theme.js"></script>
 </head>
@@ -418,7 +434,7 @@ table,#eff-kpi-eff,#eff-kpi-nd,.klbl,.ksub{font-variant-numeric:tabular-nums;fon
   </section>
 
   <section class="dsec" data-sec="plan">
-  <h2>Plan mot faktisk — i dag</h2>
+  <h2>Plan mot faktisk</h2>
   <div class="card"><div id="pva-body"><div class="autohint" style="color:var(--text3);font-size:12px">Ingen plan importert for i dag.</div></div></div>
   </section>
 
@@ -907,12 +923,11 @@ function dateKeyOf(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.g
 function plannedMinForDate(line,dateObj){
   const iv=_subBreaks(dayWindows(line,dateObj),getSched(line));
   if(!iv.length)return 0;
-  const total=iv.reduce((t,x)=>t+(x[1]-x[0]),0);
-  const now=new Date();
-  if(dateObj.toDateString()!==now.toDateString())return dateObj>now?0:total;
-  // I dag: bare den delen av arbeidsvinduet som faktisk har passert
-  const nowMin=now.getHours()*60+now.getMinutes();
-  return iv.reduce((t,x)=>t+Math.max(0,Math.min(nowMin,x[1])-x[0]),0);
+  // Klippes mot nå i absolutt tid: vinduer kan gå forbi midnatt, og et nattskift
+  // lagt på i går skal telle fram til det faktisk er ferdig i dag.
+  const base=new Date(dateObj.getFullYear(),dateObj.getMonth(),dateObj.getDate()).getTime();
+  const now=Date.now();
+  return iv.reduce((t,x)=>t+Math.max(0,Math.min(now,base+x[1]*60000)-(base+x[0]*60000))/60000,0);
 }
 
 // Full planlagt produksjonstid for hele dagen (uavhengig av klokkeslett nå)
@@ -981,17 +996,22 @@ function daysThisMonth(){const n=new Date();const dim=new Date(n.getFullYear(),n
    slik at OEE, nedetid og plantid alltid regner likt. */
 function _subBreaks(iv,sched){
   (sched.breaks||[]).forEach(b=>{
-    const bs=_tmin(b.start),be=_tmin(b.end);
-    if(be<=bs)return;
-    iv=iv.flatMap(([is,ie])=>{
-      if(be<=is||bs>=ie)return[[is,ie]];
-      const o=[];if(bs>is)o.push([is,bs]);if(be<ie)o.push([be,ie]);return o;
+    const bs0=_tmin(b.start),be0=_tmin(b.end);
+    if(be0<=bs0)return;
+    // Pausen gjelder også neste døgn — vinduer kan gå forbi midnatt (>1440 min)
+    [[bs0,be0],[bs0+1440,be0+1440]].forEach(([bs,be])=>{
+      iv=iv.flatMap(([is,ie])=>{
+        if(be<=is||bs>=ie)return[[is,ie]];
+        const o=[];if(bs>is)o.push([is,bs]);if(be<ie)o.push([be,ie]);return o;
+      });
     });
   });
   return iv;
 }
 /* Bobler fra skiftkalenderen, slått sammen ved overlapp.
-   En boble som krysser midnatt klippes ved døgnskillet. */
+   En boble som krysser midnatt (22:00–06:00) teller i sin helhet på dagen
+   den starter — vinduet går da forbi 1440 min. Ikke legg natt-timene inn
+   på neste dag også, da telles de dobbelt. */
 function shiftWindowsFor(line,dateObj){
   const day=SHIFT_PLAN[dateKeyOf(dateObj)];
   if(!day)return null;
@@ -1003,7 +1023,7 @@ function shiftWindowsFor(line,dateObj){
   list.forEach(b=>{
     const s=_tmin(b.start);
     let e=_tmin(b.end);
-    if(e<=s)e=1440;
+    if(e<=s)e+=1440;            // over midnatt: hele skiftet på dagen det starter
     if(e>s)iv.push([s,e]);
   });
   if(!iv.length)return null;
@@ -1784,28 +1804,131 @@ function getUnhandled(){
 }
 
 // ── PLAN MOT FAKTISK (render) ──
+/* ── PLAN MOT FAKTISK ──────────────────────────────────────────
+   Én produksjonsdag om gangen (følger resetTime, som tellingen). PVA_OFF er
+   dager fra i dag; negativt = bakover i loggen. Tempo, «ferdig ca.» og
+   «målet nådd kl.» regnes fra production/{dag}/{linje}/hourly, som broen
+   skriver. Målet er summen av plan-radene for linjen den dagen. */
+let PVA_OFF=0;
+function pvaMove(n){PVA_OFF+=n;renderPlanVsActual();}
+function pvaToday(){PVA_OFF=0;renderPlanVsActual();}
+function pvaDateKey(){
+  const p=todayKey().split('-');
+  const d=new Date(+p[0],+p[1]-1,+p[2],12,0,0);
+  d.setDate(d.getDate()+PVA_OFF);
+  return dateKeyOf(d);
+}
+function _resetHour(){return parseInt(String((SETTINGS&&SETTINGS.resetTime)||'00:00').split(':')[0])||0;}
+function _fmtN(n){return Math.round(n).toLocaleString('no-NO');}
+function _fmtDur(min){min=Math.round(min);if(min<60)return min+' min';const h=Math.floor(min/60),m=min%60;return h+' t'+(m?' '+m+' min':'');}
+function _clock(min){min=((Math.round(min)%1440)+1440)%1440;return pad(Math.floor(min/60))+':'+pad(min%60);}
+function _escT(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;');}
+/* Timene i produksjonsdagen fra resetTime og 24 timer fram: [HH, min fra kalenderdøgnets start] */
+function _dayHours(){const rh=_resetHour();const a=[];for(let i=0;i<24;i++)a.push([pad((rh+i)%24),(rh+i)*60]);return a;}
+/* Når passerte den kumulative tellingen målet? Lineært innenfor timen. Minutter fra døgnstart, eller null. */
+function _reachedAt(hrs,mal){
+  let cum=0;
+  for(const [hh,m0] of _dayHours()){
+    const v=parseFloat(hrs[hh])||0;
+    if(v<=0)continue;
+    if(cum+v>=mal)return m0+((mal-cum)/v)*60;
+    cum+=v;
+  }
+  return null;
+}
+/* Tempo nå: inneværende time om minst 20 min er gått, ellers forrige hele time, ellers dagens snitt */
+function _paceNow(hrs){
+  const now=new Date(),H=now.getHours(),mins=now.getMinutes();
+  const cur=parseFloat(hrs[pad(H)])||0;
+  if(mins>=20&&cur>0)return {rate:cur/(mins/60),label:'siste '+mins+' min'};
+  const prev=parseFloat(hrs[pad((H+23)%24)])||0;
+  if(prev>0)return {rate:prev,label:'forrige time'};
+  const avg=_avgPace(hrs);
+  return avg>0?{rate:avg,label:'snitt i dag'}:null;
+}
+function _avgPace(hrs){const v=Object.keys(hrs).map(k=>parseFloat(hrs[k])||0).filter(x=>x>0);return v.length?v.reduce((a,b)=>a+b,0)/v.length:0;}
 function renderPlanVsActual(){
   const wrap=document.getElementById('pva-body'); if(!wrap)return;
-  const dk=dateKeyOf(new Date()), dayPlan=(PLAN_DATA[dk])||{};
+  const dk=pvaDateKey(), tk=todayKey(), isToday=dk===tk, isPast=dk<tk;
+  const dayPlan=PLAN_DATA[dk]||{};
+  const p=dk.split('-');const dateObj=new Date(+p[0],+p[1]-1,+p[2],12,0,0);
+  const base=new Date(+p[0],+p[1]-1,+p[2]).getTime();
+  const DAGER=['Søndag','Mandag','Tirsdag','Onsdag','Torsdag','Fredag','Lørdag'];
   const sel=filterLine, lines=(sel&&sel!=='Alle')?[sel]:LINES_ALL;
+  let imp=null;
   const rows=lines.map(line=>{
     const key=lk(line);
     const raw=dayPlan[key]; if(!raw)return null;
-    const arr=Array.isArray(raw)?raw:[raw];
+    const arr=(Array.isArray(raw)?raw:Object.values(raw)).filter(Boolean);
     const mal=arr.reduce((s,r)=>s+(parseFloat(r.antall)||0),0);
     if(mal<=0)return null;
+    arr.forEach(r=>{if(r.importedAt&&(!imp||r.importedAt>imp.at))imp={at:r.importedAt,by:r.importedBy||''};});
+    const planTimer=arr.reduce((s,r)=>s+(parseFloat(r.timer)||0),0);
     const faktisk=(PROD_ALL[dk]||{})[key]||0;
+    const hrs=(PROD_HOURLY[dk]||{})[key]||{};
     const pct=Math.round(faktisk/mal*100);
-    const prods=arr.map(r=>r.product).filter(Boolean).join(', ');
     const col=pct>=100?'var(--green)':pct>=66?'var(--teal)':pct>=33?'var(--amber)':'var(--red)';
-    return '<div style="margin-bottom:12px">'
-      +'<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><b>'+line+'</b>'
-      +'<span style="color:var(--text2)">'+faktisk.toLocaleString('no-NO')+' / '+mal.toLocaleString('no-NO')+' dpack · <b style="color:'+col+'">'+pct+'%</b></span></div>'
+    const st=[];
+    if(faktisk>=mal){
+      const reached=_reachedAt(hrs,mal);
+      st.push(['Målet nådd',reached!=null?'kl. '+_clock(reached):'✓']);
+      st.push(['Over mål','+'+_fmtN(faktisk-mal)+' <span class="pva-sub">(+'+(pct-100)+' %)</span>','var(--green)']);
+      if(reached!=null){
+        const end=isToday?Date.now():null;
+        if(end)st.push(['Siden målet',_fmtDur((end-(base+reached*60000))/60000)]);
+      }
+      if(!isToday){const avg=_avgPace(hrs);if(avg>0)st.push(['Snitt-tempo',_fmtN(avg)+'/t']);}
+    }else if(isToday){
+      const rest=mal-faktisk;
+      const pace=_paceNow(hrs);
+      st.push(['Gjenstår',_fmtN(rest)]);
+      if(pace&&pace.rate>0){
+        const minLeft=rest/pace.rate*60;
+        const done=new Date(Date.now()+minLeft*60000);
+        st.push(['Tempo nå',_fmtN(pace.rate)+'/t <span class="pva-sub">('+pace.label+')</span>']);
+        st.push(['Ferdig i dette tempoet','om '+_fmtDur(minLeft)+' <span class="pva-sub">· kl. '+pad(done.getHours())+':'+pad(done.getMinutes())+'</span>']);
+      }else st.push(['Tempo nå','ingen telling ennå']);
+      const full=plannedMinFullDay(line,dateObj), gone=plannedMinForDate(line,dateObj), left=full-gone;
+      if(full>0&&left>1){
+        const need=rest/(left/60);
+        const iv=dayWindows(line,dateObj);const endMin=iv.length?iv[iv.length-1][1]:null;
+        let judge='';
+        if(pace&&pace.rate>0)judge=pace.rate>=need?' <span class="pva-ok">foran plan</span>':' <span class="pva-bad">bak plan</span>';
+        st.push(['Trengs for å nå målet',_fmtN(need)+'/t <span class="pva-sub">innen '+(endMin!=null?'kl. '+_clock(endMin):'skiftslutt')+' ('+_fmtDur(left)+' igjen)</span>'+judge]);
+      }else if(full>0){
+        st.push(['Planlagt tid','brukt opp — mangler '+_fmtN(rest),'var(--red)']);
+      }else{
+        st.push(['Skiftkalender','ingen skift lagt inn i dag','var(--amber)']);
+      }
+    }else if(isPast){
+      st.push(['Ikke nådd','manglet '+_fmtN(mal-faktisk)+' <span class="pva-sub">(−'+(100-pct)+' %)</span>','var(--red)']);
+      const avg=_avgPace(hrs);if(avg>0)st.push(['Snitt-tempo',_fmtN(avg)+'/t']);
+    }else{
+      st.push(['Status','ikke startet']);
+    }
+    if(planTimer>0)st.push(['I planen',planTimer.toLocaleString('no-NO')+' t <span class="pva-sub">→ '+_fmtN(mal/planTimer)+'/t</span>']);
+    const prods=arr.map(r=>{
+      const n=(r.artNr?'('+r.artNr+') ':'')+(r.product||'');
+      if(!n.trim())return '';
+      const a=parseFloat(r.antall)||0, t=parseFloat(r.timer);
+      return _escT(n)+' <span class="pva-sub">'+_fmtN(a)+(t>0?' · '+t.toLocaleString('no-NO')+' t':'')+'</span>';
+    }).filter(Boolean).join('<br>');
+    return '<div class="pva-row">'
+      +'<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;gap:8px;flex-wrap:wrap"><b>'+line+'</b>'
+      +'<span style="color:var(--text2)">'+_fmtN(faktisk)+' / '+_fmtN(mal)+' dpack · <b style="color:'+col+'">'+pct+' %</b></span></div>'
       +'<div style="background:var(--bg3);border-radius:6px;height:10px;overflow:hidden"><div style="height:100%;width:'+Math.min(pct,100)+'%;background:'+col+';transition:width .4s"></div></div>'
-      +(prods?'<div style="font-size:10px;color:var(--text3);margin-top:2px">'+prods.replace(/</g,'&lt;')+'</div>':'')
+      +'<div class="pva-grid">'+st.map(x=>'<div><div class="k">'+x[0]+'</div><div class="v"'+(x[2]?' style="color:'+x[2]+'"':'')+'>'+x[1]+'</div></div>').join('')+'</div>'
+      +(prods?'<div class="pva-prod">'+prods+'</div>':'')
       +'</div>';
   }).filter(Boolean);
-  wrap.innerHTML=rows.length?rows.join(''):'<div class="autohint" style="color:var(--text3);font-size:12px">Ingen plan importert for i dag'+(sel&&sel!=='Alle'?' for '+sel:'')+'.</div>';
+  const nav='<div class="pva-nav">'
+    +'<button class="pva-b" onclick="pvaMove(-1)" title="Forrige dag">◀</button>'
+    +'<b>'+DAGER[dateObj.getDay()]+' '+p[2]+'.'+p[1]+'.'+p[0]+(isToday?' · i dag':'')+'</b>'
+    +'<button class="pva-b" onclick="pvaMove(1)" title="Neste dag">▶</button>'
+    +(PVA_OFF!==0?'<button class="pva-b" onclick="pvaToday()">I dag</button>':'')
+    +(imp?'<span class="pva-meta">plan importert '+fmtT(imp.at)+(imp.by?' av '+_escT(imp.by):'')+'</span>':'')
+    +'</div>';
+  wrap.innerHTML=nav+(rows.length?rows.join(''):'<div class="autohint" style="color:var(--text3);font-size:12px">Ingen plan importert for denne dagen'+(sel&&sel!=='Alle'?' for '+sel:'')+'. Planen legges inn under Import.</div>');
 }
 
 // ── EFFEKTIVITET & NEDETID — TREND (periodefilter, standard måned) ──

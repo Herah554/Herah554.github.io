@@ -198,8 +198,9 @@ input:focus,select:focus{border-color:var(--accent)}
     <div class="ct"><div class="ca" style="background:var(--amber)"></div>Skiftmaler</div>
     <div style="font-size:12px;color:var(--text2);margin-bottom:.7rem;line-height:1.55">
       Lag malene én gang, og legg dem inn i kalenderen under. En mal som krysser midnatt
-      (f.eks. 22:00–06:00) klippes ved døgnskillet, så legg inn natt-timene på neste dag også
-      hvis de skal telle der.
+      (f.eks. 22:00–06:00) teller i sin helhet på dagen den starter — ikke legg natt-timene
+      inn på neste dag også. Sett «Nullstill teller» under Globale innstillinger til skiftstart
+      (f.eks. 06:00), så følger tellingen samme døgn som planen.
     </div>
     <div id="tpl-list" class="chips" style="margin-bottom:.7rem"></div>
     <div class="row" style="flex-wrap:wrap;gap:8px;align-items:flex-end">
@@ -921,7 +922,7 @@ let planRef=null;
 
 function dk(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function hhmm(t){return(t||'').slice(0,5);}
-function durMin(s,e){const a=tmin(s);let b=tmin(e);if(b<=a)b=1440;return Math.max(0,b-a);}
+function durMin(s,e){const a=tmin(s);let b=tmin(e);if(b<=a)b+=1440;return Math.max(0,b-a);}
 function tmin(t){if(!t)return 0;const p=String(t).split(':');return(parseInt(p[0],10)||0)*60+(parseInt(p[1],10)||0);}
 function fmtH(m){const h=Math.floor(m/60),r=m%60;return r?h+'t '+r+'m':h+'t';}
 

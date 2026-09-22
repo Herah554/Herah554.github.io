@@ -120,7 +120,7 @@ input:focus,select:focus{border-color:var(--accent)}
   <h2>Importert nå</h2>
   <div class="card">
     <div class="actions" style="margin-top:0;margin-bottom:.4rem">
-      <button class="bg" onclick="clearImport()">🗑 Tøm denne plantypen</button>
+      <button class="bg" onclick="clearImport()">🗑 Tøm hele loggen for denne plantypen</button>
     </div>
     <div id="overview"><div class="autohint">Ingenting importert ennå.</div></div>
   </div>
@@ -143,12 +143,12 @@ function showToast(m,e){const t=document.getElementById('toast');t.textContent=m
 
 // felt vi trenger per plantype
 const FIELDS={
-  prod:[['date','Dato',true],['line','Linje/Maskin',true],['product','Produkt',false],['antall','Antall (mål)',true],['timer','Produksjonstid',false]],
+  prod:[['date','Dato',true],['line','Linje/Maskin',true],['artnr','Art.nr',false],['product','Produkt',false],['antall','Antall (mål)',true],['timer','Produksjonstid',false]],
   shift:[['date','Dato',true],['line','Linje/Maskin',true],['shift','Skift',false],['bemanning','Bemanning',false],['product','Produkt',false]],
   product:[['artnr','Art.nr',false],['name','Produkt',true],['line','Linje/Maskin',true],['teknKapasitet','Teknisk kapasitet',true],['stkPerDpack','STK per dpack',true]]
 };
 const NOTES={
-  prod:'Importer den kortsiktige produksjonsplanen (mål/antall per linje og dag). Eksporter tabellen fra Power BI til Excel/CSV og last den opp her. Ny opplasting erstatter forrige plan.',
+  prod:'Importer den kortsiktige produksjonsplanen. Merk tabellen «Kortsiktig produksjonsplan» i Power BI, lim den rett inn i Excel og last opp — dato-kolonnene og linje-gruppene leses som de er. En vanlig liste (Dato, Linje, Art.nr, Produkt, Produksjonstid, Antall) går også. Bare datoene i fila erstattes; eldre dager beholdes som logg, så dashbordet kan bla bakover.',
   shift:'Importer skiftplanen (hvilke skift som kjøres per linje og dag). Eksporter fra Power BI / skiftplanen til Excel/CSV og last den opp her.',
   product:'Importer grunndata per produkt (teknisk kapasitet + stk per dpack per linje). Verdiene flettes inn i produktoppsettet: eksisterende produkter oppdateres, nye legges til. Esker-per-dpack og aktivt produkt røres ikke.'
 };
@@ -219,7 +219,63 @@ function csvToRows(text){
     out.push(cur);return out;
   });
 }
+/* ── Power BI-matrisen ──────────────────────────────────────────
+   «Kortsiktig produksjonsplan» limt inn i Excel ser slik ut:
+     Dato    | 22.09.2026      |          | 23.09.2026 ...
+     Ukedag  | Tuesday         |          | Wednesday
+     Maskin  | Produksjonstid  | Antall   | Produksjonstid | Antall
+     GLACIER |                 |          |
+     (11674) ROYAL MINI ... | 0,0 | 1 448 | 24,0 | 6 480
+   Linjenavnet står som egen rad, produktene under. Hver dato eier to
+   kolonner (tid, antall); kolonner uten egen dato arver fra venstre.
+   Gjenkjennes på en rad med minst to datoer. Returnerer lange rader. */
+function matrixToLong(arr){
+  const dateRow=arr.findIndex(r=>r.filter(c=>normDate(c)).length>=2);
+  if(dateRow<0)return null;
+  const dates=arr[dateRow].map(c=>normDate(c));
+  const colDate=[];let cur='';
+  dates.forEach((d,i)=>{if(d)cur=d;colDate[i]=i>0?cur:'';});
+  let colType=[];
+  for(let r=dateRow+1;r<Math.min(arr.length,dateRow+4);r++){
+    const row=arr[r].map(c=>String(c||''));
+    if(row.some(c=>/tid|antall/i.test(c))){row.forEach((c,i)=>{colType[i]=/tid/i.test(c)?'timer':/antall/i.test(c)?'antall':'';});break;}
+  }
+  if(!colType.length){dates.forEach((d,i)=>{if(!i)return;colType[i]=d?'timer':(colDate[i]?'antall':'');});}
+  const out=[];let line='';
+  for(let r=dateRow+1;r<arr.length;r++){
+    const row=arr[r];
+    const label=String(row[0]||'').replace(/^[^A-Za-z0-9ÆØÅæøå(]+/,'').trim();
+    if(!label||/^(dato|ukedag|maskin)$/i.test(label))continue;
+    const asLine=normLine(label);
+    const m=label.match(/^\(?\s*(\d{3,})\s*\)\s*(.+)$/);
+    if(!m&&(LINES.includes(asLine)||!row.some((c,i)=>i>0&&colDate[i]&&String(c).trim()!==''))){line=asLine;continue;}
+    const artnr=m?m[1]:'', product=m?m[2].trim():label;
+    const byDate={};
+    row.forEach((c,i)=>{
+      if(!i||!colDate[i]||String(c).trim()==='')return;
+      const d=colDate[i];byDate[d]=byDate[d]||{};
+      byDate[d][colType[i]||'antall']=numOnly(c);
+    });
+    Object.keys(byDate).forEach(d=>{
+      const v=byDate[d];
+      if(v.antall===''||v.antall==null)return;
+      out.push({'Dato':d,'Linje':line,'Art.nr':artnr,'Produkt':product,'Produksjonstid':v.timer!=null?v.timer:'','Antall':v.antall});
+    });
+  }
+  return out.length?out:null;
+}
 function parseRows(arr){
+  if(TAB==='prod'){
+    const wide=matrixToLong(arr);
+    if(wide){
+      HEADERS=['Dato','Linje','Art.nr','Produkt','Produksjonstid','Antall'];
+      ROWS=wide;
+      showToast('Leste Power BI-tabellen: '+wide.length+' rader');
+      autoMap();renderMapper();
+      document.getElementById('mapper').style.display='block';
+      return;
+    }
+  }
   // finn header-rad: første rad med >=2 ikke-tomme celler
   let hi=arr.findIndex(r=>r.filter(c=>String(c).trim()).length>=2);
   if(hi<0){showToast('Fant ingen data i fila',true);return;}
@@ -236,7 +292,7 @@ function parseRows(arr){
 // gjett kolonner ut fra navn
 function autoMap(){
   MAP={};
-  const guess={date:/dato|date/i,line:/maskin|linje|line/i,product:/art|produkt|vare|product/i,
+  const guess={date:/dato|date/i,line:/maskin|linje|line/i,product:/produkt|vare|product|navn/i,
     antall:/antall|mål|mal|stk|d.?pk|quantity/i,timer:/tid|timer|hours|produksjonstid/i,
     shift:/skift|shift/i,bemanning:/beman|antall pers|personer/i,
     name:/produkt|navn|name/i,teknKapasitet:/teknisk|kapasitet|capacity/i,
@@ -274,7 +330,7 @@ function renderPreview(){
 function normLine(v){
   if(!v)return '';
   const s=String(v).toUpperCase().replace(/\s+/g,'');
-  const m={GLACIER:'Glacier',LØP1:'Løp 1',LOP1:'Løp 1',LØP2:'Løp 2',LOP2:'Løp 2',LØP3:'Løp 3',LOP3:'Løp 3',ROLLO:'Rollo',KOBA:'Koba',KROKAN:'Krokan'};
+  const m={GLACIER:'Glacier',LØP1:'Løp 1',LOP1:'Løp 1',LØP2:'Løp 2',LOP2:'Løp 2',LØP3:'Løp 3',LOP3:'Løp 3',ROLLO:'Rollo',KOBA:'Koba',KROKAN:'Krokan',SOFTIS:'Soft is'};
   return m[s]||String(v).trim();
 }
 function normDate(v){
@@ -283,7 +339,10 @@ function normDate(v){
   const s=String(v).trim();
   let m=s.match(/^(\d{4})-(\d{2})-(\d{2})/); if(m)return m[1]+'-'+m[2]+'-'+m[3];
   m=s.match(/^(\d{1,2})[.\/](\d{1,2})[.\/](\d{2,4})/);
-  if(m){let y=m[3];if(y.length===2)y='20'+y;return y+'-'+pad(m[2])+'-'+pad(m[1]);}
+  if(m){let y=m[3],d=+m[1],mo=+m[2];if(y.length===2)y='20'+y;
+    if(mo>12&&d<=12){const t=d;d=mo;mo=t;}   // amerikansk m/d/y fra Excel
+    if(mo<1||mo>12||d<1||d>31)return '';
+    return y+'-'+pad(mo)+'-'+pad(d);}
   const d=new Date(s); if(!isNaN(d))return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
   return '';
 }
@@ -325,14 +384,16 @@ async function saveImport(){
   }
 
   const node=TAB==='prod'?'plan/production':'plan/shift';
-  const out={}; let n=0, skipped=0;
+  const out={}; let n=0, skipped=0; const unknown={};
   ROWS.forEach(r=>{
     const date=normDate(r[MAP.date]); const line=normLine(r[MAP.line]);
     if(!date||!line){skipped++;return;}
+    if(!LINES.includes(line)){unknown[line]=(unknown[line]||0)+1;skipped++;return;}
     const key=lk(line);
     const rec={importedAt:Date.now(),importedBy:USER?USER.name:''};
     if(TAB==='prod'){
       rec.product=MAP.product?r[MAP.product]:'';
+      rec.artNr=MAP.artnr?String(r[MAP.artnr]||'').trim():'';
       rec.antall=MAP.antall?numOnly(r[MAP.antall]):'';
       rec.timer=MAP.timer?numOnly(r[MAP.timer]):'';
       out[date]=out[date]||{}; (out[date][key]=out[date][key]||[]).push(rec); n++;
@@ -344,9 +405,16 @@ async function saveImport(){
     }
   });
   if(!n){showToast('Ingen gyldige rader (sjekk dato/linje)',true);return;}
-  if(!confirm('Lagre '+n+' rader til '+(TAB==='prod'?'produksjonsplan':'skiftplan')+'?'+(skipped?'\n('+skipped+' rader hoppet over pga. manglende dato/linje)':'')+'\n\nDette erstatter forrige import av denne typen.'))return;
+  const dates=Object.keys(out).sort();
+  const dd=d=>d.split('-').reverse().join('.');
+  const unk=Object.keys(unknown).map(k=>k+' ('+unknown[k]+')').join(', ');
+  if(!confirm('Lagre '+n+' rader for '+dates.length+' dag'+(dates.length===1?'':'er')+' ('+dd(dates[0])+' – '+dd(dates[dates.length-1])+')?'
+    +(unk?'\n\nIkke en linje i systemet, hoppes over: '+unk:'')
+    +(skipped-Object.values(unknown).reduce((a,b)=>a+b,0)?'\n('+(skipped-Object.values(unknown).reduce((a,b)=>a+b,0))+' rader mangler dato/linje)':'')
+    +'\n\nDisse datoene erstattes helt. Andre dager beholdes som logg.'))return;
   try{
-    await db.ref(node).set(out);
+    // Flett per dato: fila eier datoene den inneholder, resten av loggen står urørt
+    await db.ref(node).update(out);
     showToast('Importerte '+n+' rader');
     document.getElementById('save-info').textContent=n+' lagret'+(skipped?' · '+skipped+' hoppet over':'');
     renderOverview();
@@ -355,7 +423,7 @@ async function saveImport(){
 async function clearImport(){
   if(TAB==='product'){showToast('Produkter ryddes i Innstillinger, ikke her',true);return;}
   const node=TAB==='prod'?'plan/production':'plan/shift';
-  if(!confirm('Tømme all importert '+(TAB==='prod'?'produksjonsplan':'skiftplan')+'?'))return;
+  if(!confirm('Tømme HELE loggen med importert '+(TAB==='prod'?'produksjonsplan':'skiftplan')+' — alle dager?'))return;
   try{await db.ref(node).remove();showToast('Tømt');renderOverview();}catch(e){showToast('Feilet',true);}
 }
 
@@ -377,16 +445,17 @@ function renderOverview(){
   const node=TAB==='prod'?'plan/production':'plan/shift';
   db.ref(node).once('value').then(s=>{
     const v=s.val()||{}; const el=document.getElementById('overview');
-    const dates=Object.keys(v).sort();
-    if(!dates.length){el.innerHTML='<div class="autohint">Ingenting importert ennå.</div>';return;}
-    el.innerHTML=dates.map(d=>{
+    const all=Object.keys(v).sort().reverse();
+    if(!all.length){el.innerHTML='<div class="autohint">Ingenting importert ennå.</div>';return;}
+    const dates=all.slice(0,30);
+    el.innerHTML=(all.length>30?'<div class="autohint">Viser de 30 nyeste av '+all.length+' dager.</div>':'')+dates.map(d=>{
       const lines=Object.keys(v[d]);
       const rows=lines.map(k=>{
         const rk=v[d][k]; const lineName=LINES.find(L=>lk(L)===k)||k.replace(/_/g,' ');
         let detail;
         if(TAB==='prod'){
           const arr=Array.isArray(rk)?rk:[rk];
-          detail=arr.map(r=>(r.product?esc(r.product)+' ':'')+'(mål '+esc(r.antall||'—')+(r.timer?', '+esc(r.timer)+'t':'')+')').join(', ');
+          detail=arr.map(r=>(r.artNr?'('+esc(r.artNr)+') ':'')+(r.product?esc(r.product)+' ':'')+'(mål '+esc(r.antall||'—')+(r.timer!==''&&r.timer!=null?', '+esc(r.timer)+'t':'')+')').join(', ');
         }else{
           detail=(rk.skift?'Skift '+esc(rk.skift):'')+(rk.bemanning?' · bemanning '+esc(rk.bemanning):'')+(rk.product?' · '+esc(rk.product):'');
         }

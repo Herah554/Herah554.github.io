@@ -268,11 +268,14 @@ function dateKeyOf(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.g
    Pausene (settings/schedule/{lk}/breaks) trekkes fortsatt fra. */
 function _subBreaks(iv,sched){
   (sched.breaks||[]).forEach(b=>{
-    const bs=_tmin(b.start),be=_tmin(b.end);
-    if(be<=bs)return;
-    iv=iv.flatMap(([is,ie])=>{
-      if(be<=is||bs>=ie)return[[is,ie]];
-      const o=[];if(bs>is)o.push([is,bs]);if(be<ie)o.push([be,ie]);return o;
+    const bs0=_tmin(b.start),be0=_tmin(b.end);
+    if(be0<=bs0)return;
+    // Pausen gjelder også neste døgn — vinduer kan gå forbi midnatt (>1440 min)
+    [[bs0,be0],[bs0+1440,be0+1440]].forEach(([bs,be])=>{
+      iv=iv.flatMap(([is,ie])=>{
+        if(be<=is||bs>=ie)return[[is,ie]];
+        const o=[];if(bs>is)o.push([is,bs]);if(be<ie)o.push([be,ie]);return o;
+      });
     });
   });
   return iv;
@@ -285,7 +288,7 @@ function shiftWindowsFor(line,dateObj){
   const list=Object.keys(raw).map(k=>raw[k]).filter(Boolean);
   if(!list.length)return null;
   const iv=[];
-  list.forEach(b=>{const st=_tmin(b.start);let e=_tmin(b.end);if(e<=st)e=1440;if(e>st)iv.push([st,e]);});
+  list.forEach(b=>{const st=_tmin(b.start);let e=_tmin(b.end);if(e<=st)e+=1440;if(e>st)iv.push([st,e]);});
   if(!iv.length)return null;
   iv.sort((x,y)=>x[0]-y[0]);
   const out=[iv[0]];
@@ -296,11 +299,11 @@ function dayWindows(line,dateObj){return shiftWindowsFor(line,dateObj)||[];}
 function plannedMinForDate(line,dateObj){
   const iv=_subBreaks(dayWindows(line,dateObj),getSched(line));
   if(!iv.length)return 0;
-  const total=iv.reduce((t,x)=>t+(x[1]-x[0]),0);
-  const now=new Date();
-  if(dateObj.toDateString()!==now.toDateString())return dateObj>now?0:total;
-  const nowMin=now.getHours()*60+now.getMinutes();
-  return iv.reduce((t,x)=>t+Math.max(0,Math.min(nowMin,x[1])-x[0]),0);
+  // Klippes mot nå i absolutt tid: vinduer kan gå forbi midnatt, og et nattskift
+  // lagt på i går skal telle fram til det faktisk er ferdig i dag.
+  const base=new Date(dateObj.getFullYear(),dateObj.getMonth(),dateObj.getDate()).getTime();
+  const now=Date.now();
+  return iv.reduce((t,x)=>t+Math.max(0,Math.min(now,base+x[1]*60000)-(base+x[0]*60000))/60000,0);
 }
 function lineProduct(line){
   const k=lk(line);const prods=SETTINGS.products?.[k]||[];const active=ACTIVE_PROD[k];

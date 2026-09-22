@@ -30,7 +30,7 @@ Siemens S7-1500 PLS → bridge.py (OPC-UA, fabrikk-PC) → Firebase RTDB → Git
 - `productHourly/{date}/{lineKey}/{HH}` — esker per time (logges fra åpent dashboard hvert 3. min)
 - `active_product/{lk}` — `{product, setAt}`
 - `opc_status/` — `{connected, last_seen, url}`
-- `plan/production/{YYYY-MM-DD}/{lk}` — array av `{product, antall, timer, importedAt, importedBy}` (fra import.html; brukes av «Plan mot faktisk» i index.html)
+- `plan/production/{YYYY-MM-DD}/{lk}` — array av `{product, artNr, antall, timer, importedAt, importedBy}` (fra import.html). Er en **logg**: import fletter per dato (`update`), bare datoene i fila erstattes. «Plan mot faktisk» i index.html blar dag for dag (`PVA_OFF`), regner tempo/«ferdig ca.»/«målet nådd kl.» fra `production/{dag}/{lk}/hourly` i produksjonsdag-rekkefølge fra `resetTime` (`_dayHours`, `_reachedAt`, `_paceNow`). Antall antas å være samme enhet som tellingen (dpack).
 - `plan/shift/{YYYY-MM-DD}/{lk}` — `{skift, bemanning, product, importedAt, importedBy}`
 - `calibrationReviews/{lk}/{pushId}` — logg over kapasitetskalibrering: `{ts, by, byName, line, product, dateKey, hour, dpk, impliedRateDpk, impliedCap, currentCap, pct, decision:"accept"|"reject", newCap, comment}`
 - `pwResets/` — **fjernet.** Lagret passord i klartekst; erstattet av Firebase sin e-postflyt og stengt i reglene.
@@ -81,8 +81,13 @@ index.html OG rapporter.html (rapporter hadde tidligere sin egen ukesplan-kopi u
 OEE var derfor ulik på dashbord og i rapporter). rapporter laster hele `shiftPlan`, index et
 3-måneders vindu. skiftrapport.html henter «planlagte timer» fra boblene. `prodIntervalsForDate`, `plannedMinForDate` og `plannedMinFullDay`
 bygger alle på den, så nedetid og OEE kan ikke komme i utakt. Pauser er en egenskap ved linja og
-trekkes fra i begge tilfeller (`_subBreaks`). Bobler over midnatt klippes ved døgnskillet —
-natt-timene må legges inn på neste dag også. index.html laster bare et tre måneders vindu av
+trekkes fra i begge tilfeller (`_subBreaks`, som også trekker pausen +1440 min for vinduer som går forbi
+midnatt). **Bobler over midnatt teller i sin helhet på dagen de starter (22.09.2026)**: 22:00–06:00 gir
+vinduet [1320,1800] — minutter forbi 1440 er neste kalenderdag. `plannedMinForDate` klipper mot nå i
+absolutt tid, så et nattskift fra i går teller til det er ferdig. Ikke legg natt-timene inn på neste dag
+også, da dobbelttelles de. Tellingen bør følge samme døgn: sett `resetTime` til skiftstart (06:00).
+Samme +1440-regel i rapporter.html, skiftrapport.html (`plannedHours`) og innstillinger (`durMin`).
+index.html laster bare et tre måneders vindu av
 `shiftPlan` (`orderByKey/startAt/endAt`), ellers ville noden vokse uten grense i minnet.
 
 Kalenderen viser ISO-ukenummer og norske helligdager. `easterSunday()` (anonym gregoriansk
@@ -125,7 +130,7 @@ repoen** — siden er offentlig. `botContext()` sender et kompakt sammendrag, al
 - `rapporter.html` — år/måned/uke-oversikter, sammenlign år, hastighet per produkt (master/leder)
 - `skiftrapport.html` — skiftrapport per linje/dato (ny/rediger + historikk), skriver til `shiftReports/`. Har sjekkliste-maler, timekontroll-rutenett og **svinn-registreringer** (`svinnRegistreringer[]`, flere per skift med kg/tekst/tidspunkt/hvem, pluss `svinnSumKg`). Tilgang: master, leder, eller bruker med `shiftAccess:true`. Operatør og leder ser kun sine egne linjer i skjema og historikk.
 - `logg.html` — «Logg & data» (**kun master**): rediger dagstall i `production/`, full hendelseslogg med retting/sletting, systemstatus fra `opc_status/`
-- `import.html` — CSV-import (kun master): plandata til `plan/production` og `plan/shift`, samt fletting av produkter inn i `settings/products`
+- `import.html` — CSV/Excel-import (kun master). Produksjonsplan-fanen leser Power BI-matrisen «Kortsiktig produksjonsplan» direkte (`matrixToLong`: datorad + linje-grupperader + «(artnr) produkt»-rader, to kolonner per dato) i tillegg til vanlig lang liste. Ukjente linjer (f.eks. Soft is) hoppes over og rapporteres: plandata til `plan/production` og `plan/shift`, samt fletting av produkter inn i `settings/products`
 - `dashbord.html` — dashbord-oppsett: bygg maler på et abstrakt lerret (uten levende grafer), og tildel delte maler til brukere. Alle kan lage egne; master ser delte + tildelingstabell
 - `dashboard-widgets.js` — **delt** widget-register brukt av både index.html og dashbord.html. Legges en widget til her, dukker den opp begge steder
 - `login.html` — innlogging
