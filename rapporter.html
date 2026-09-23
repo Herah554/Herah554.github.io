@@ -312,11 +312,46 @@ function lineProduct(line){
   return p||null;
 }
 function eskerFor(line,dateKey){const d=PROD_ALL[dateKey];return d?(d[lk(line)]||0):0;}
+/* Produksjonsdagen et tidspunkt hører til (resetTime-regelen, samme som broen bruker) */
+function prodDayKeyFor(d){
+  const rt=String((SETTINGS&&SETTINGS.resetTime)||'00:00').split(':');
+  const reset=new Date(d);reset.setHours(parseInt(rt[0])||0,parseInt(rt[1])||0,0,0);
+  return dateKeyOf(d<reset?new Date(d.getTime()-86400000):d);
+}
+/* Telte dpack INNENFOR de planlagte vinduene den dagen, fra timebøttene.
+   Dagstellingen (count) følger resetTime, planen følger skiftkalenderen — de to
+   døgnene er ikke like når et nattskift krysser midnatt. Da havnet nattens
+   telling på «i dag» mens plantiden lå på i går, og OEE ble 100 % før dagskiftet
+   hadde begynt. Her slås hver time opp under produksjonsdagen den ligger i, så
+   resultatet er riktig uansett resetTime. Inneværende time skaleres etter hvor mye
+   av den som er gått. Uten timedata for linja brukes dagstellingen som før. */
+function producedInPlan(line,dateObj){
+  const key=lk(line);
+  const iv=prodIntervalsForDate(line,dateObj);
+  if(!iv.length)return 0;
+  const now=Date.now();
+  let sum=0,any=false;
+  iv.forEach(([a,b])=>{
+    b=Math.min(b,now);if(b<=a)return;
+    for(let t=Math.floor(a/3600000)*3600000;t<b;t+=3600000){
+      const h=new Date(t);
+      const hrs=(PROD_HOURLY[prodDayKeyFor(h)]||{})[key];
+      if(!hrs)continue;
+      any=true;
+      const v=parseFloat(hrs[pad(h.getHours())])||0;
+      if(!v)continue;
+      const lo=Math.max(a,t),hi=Math.min(b,t+3600000);
+      const span=Math.min(t+3600000,now)-t;   // bøtta dekker bare fram til nå
+      if(span>0)sum+=v*((hi-lo)/span);
+    }
+  });
+  return any?sum:eskerFor(line,dateKeyOf(dateObj));
+}
 function oeeOutput(line,dateObjs){
   const p=lineProduct(line);if(!p)return null;
   const maxDpackPerHour=p.teknKapasitet/p.stkPerDpack;
   let totDpack=0,totMax=0;
-  dateObjs.forEach(d=>{const pm=plannedMinForDate(line,d);if(pm<=0)return;totDpack+=eskerFor(line,dateKeyOf(d));totMax+=maxDpackPerHour*(pm/60);});
+  dateObjs.forEach(d=>{const pm=plannedMinForDate(line,d);if(pm<=0)return;totDpack+=producedInPlan(line,d);totMax+=maxDpackPerHour*(pm/60);});
   if(totMax<=0)return null;
   return Math.max(0,Math.min(100,totDpack/totMax*100));
 }
@@ -363,7 +398,7 @@ function effForDay(line,day){
   const p=lineProduct(line); if(!p||!(p.teknKapasitet>0)||!(p.stkPerDpack>0))return null;
   const maxRate=p.teknKapasitet/p.stkPerDpack, pm=plannedMinForDate(line,day); if(pm<=0)return null;
   const up=pm-downtimeForDates(line,[day]); if(up<=0)return null;
-  return Math.max(0,Math.min(100,eskerFor(line,dateKeyOf(day))/(maxRate*(up/60))*100));
+  return Math.max(0,Math.min(100,producedInPlan(line,day)/(maxRate*(up/60))*100));
 }
 function effHour(line,dayKey,hh){
   const p=lineProduct(line); if(!p||!(p.teknKapasitet>0)||!(p.stkPerDpack>0))return null;

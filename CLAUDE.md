@@ -204,7 +204,7 @@ Node-IDer:
 - David foretrekker **komplette, fungerende filer** — ved patching: verifiser anker-strenger først, sjekk brace/paren-balanse etterpå.
 - Endringer pushes til GitHub Pages (denne repoen) — test alltid i inkognito.
 - OPC-hendelser får `unhandled: true` → gult banner → behandlingsmodal (velg maskin → årsaker aktiveres → kommentar → lagre). Linjeoperatør har ingen "Hopp over"-knapp.
-- OEE = (PlanMin − Nedetid) / PlanMin × 100. "Alle linjer" = gjennomsnitt. PlanMin per linje fra `prodPlan[lk].weekHours/5`, ellers `defaultDayHours`.
+- OEE på dashbordet er output-basert: dpack produsert **innenfor de planlagte vinduene** / (maks dpack per time × planlagt tid). Maks = `teknKapasitet/stkPerDpack` for aktivt produkt. `producedInPlan()` (index + rapporter) henter timebøttene fra `production/{produksjonsdag}/{lk}/hourly` og slår hver time opp under produksjonsdagen den tilhører (`prodDayKeyFor`, resetTime-regelen). Dagstellingen `count` brukes IKKE til OEE — den følger resetTime, ikke skiftkalenderen, og et nattskift over midnatt ga da 100 % OEE ved dagskiftets start (23.09.2026). Over 105 % av kapasitet vises som varsel i KPI-underteksten. "Alle linjer" = gjennomsnitt.
 - Dagsgrense styres av `settings/resetTime` (HH:MM) — før resetTime tilhører telling gårsdagen.
 
 ## Pågående / neste oppgaver

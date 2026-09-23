@@ -944,6 +944,41 @@ function lineProduct(line){
   return p||null;
 }
 function eskerFor(line,dateKey){const d=PROD_ALL[dateKey];return d?(d[lk(line)]||0):0;}
+/* Produksjonsdagen et tidspunkt hører til (resetTime-regelen, samme som broen bruker) */
+function prodDayKeyFor(d){
+  const rt=String((SETTINGS&&SETTINGS.resetTime)||'00:00').split(':');
+  const reset=new Date(d);reset.setHours(parseInt(rt[0])||0,parseInt(rt[1])||0,0,0);
+  return dateKeyOf(d<reset?new Date(d.getTime()-86400000):d);
+}
+/* Telte dpack INNENFOR de planlagte vinduene den dagen, fra timebøttene.
+   Dagstellingen (count) følger resetTime, planen følger skiftkalenderen — de to
+   døgnene er ikke like når et nattskift krysser midnatt. Da havnet nattens
+   telling på «i dag» mens plantiden lå på i går, og OEE ble 100 % før dagskiftet
+   hadde begynt. Her slås hver time opp under produksjonsdagen den ligger i, så
+   resultatet er riktig uansett resetTime. Inneværende time skaleres etter hvor mye
+   av den som er gått. Uten timedata for linja brukes dagstellingen som før. */
+function producedInPlan(line,dateObj){
+  const key=lk(line);
+  const iv=prodIntervalsForDate(line,dateObj);
+  if(!iv.length)return 0;
+  const now=Date.now();
+  let sum=0,any=false;
+  iv.forEach(([a,b])=>{
+    b=Math.min(b,now);if(b<=a)return;
+    for(let t=Math.floor(a/3600000)*3600000;t<b;t+=3600000){
+      const h=new Date(t);
+      const hrs=(PROD_HOURLY[prodDayKeyFor(h)]||{})[key];
+      if(!hrs)continue;
+      any=true;
+      const v=parseFloat(hrs[pad(h.getHours())])||0;
+      if(!v)continue;
+      const lo=Math.max(a,t),hi=Math.min(b,t+3600000);
+      const span=Math.min(t+3600000,now)-t;   // bøtta dekker bare fram til nå
+      if(span>0)sum+=v*((hi-lo)/span);
+    }
+  });
+  return any?sum:eskerFor(line,dateKeyOf(dateObj));
+}
 
 // Aggregert OEE: telte dpack / (maks dpk/t × planlagt tid). Maks dpk/t = teknisk kapasitet ÷ stk per dpack.
 function oeeOutput(line,dateObjs){
@@ -954,7 +989,7 @@ function oeeOutput(line,dateObjs){
   dateObjs.forEach(d=>{
     const pm=plannedMinForDate(line,d);
     if(pm<=0)return;
-    totDpack+=eskerFor(line,dateKeyOf(d));
+    totDpack+=producedInPlan(line,d);
     totMax+=maxDpackPerHour*(pm/60);
   });
   if(totMax<=0)return null;
@@ -970,14 +1005,15 @@ function oeeBreakdown(line,dateObjs){
   if(!p)return null;
   const maxH=p.teknKapasitet/p.stkPerDpack;
   let plannedMin=0,produced=0;
-  dateObjs.forEach(d=>{const pm=plannedMinForDate(line,d);if(pm<=0)return;plannedMin+=pm;produced+=eskerFor(line,dateKeyOf(d));});
+  dateObjs.forEach(d=>{const pm=plannedMinForDate(line,d);if(pm<=0)return;plannedMin+=pm;produced+=producedInPlan(line,d);});
   if(plannedMin<=0)return null;
   const downMin=downtimeForDates(line,dateObjs);
   const uptimeMin=Math.max(0,plannedMin-downMin);
   const avail=Math.max(0,Math.min(100,uptimeMin/plannedMin*100));
   const perf=uptimeMin>0?Math.max(0,produced/(maxH*(uptimeMin/60))*100):0;
-  const oee=Math.max(0,Math.min(100,produced/(maxH*(plannedMin/60))*100));
-  return {oee,avail,perf,downMin,plannedMin};
+  const raw=produced/(maxH*(plannedMin/60))*100;
+  const oee=Math.max(0,Math.min(100,raw));
+  return {oee,avail,perf,downMin,plannedMin,raw};
 }
 function oeeBreakdownAvg(lines,dateObjs){
   const items=lines.map(l=>oeeBreakdown(l,dateObjs)).filter(x=>x);
@@ -1131,7 +1167,8 @@ function _doRenderAll(){
   const setK=(id,v,g)=>{const el=document.getElementById(id);el.textContent=v!==null?v.toFixed(1)+'%':'—';if(v!==null)el.style.color=v>=g?'var(--green)':v>=90?'var(--amber)':'var(--red)';};
   setK('k-oee',oeeDay,oeeGoal);setK('k-oee-wtd',oeeWTD,oeeGoal);setK('k-oee-mtd',oeeMTD,oeeGoal);
   const bd=line?oeeBreakdown(line,tdy):oeeBreakdownAvg(LINES_ALL,tdy);
-  document.getElementById('k-oee-sub').textContent=bd?('Tilgj. '+bd.avail.toFixed(0)+'% · Ytelse '+bd.perf.toFixed(0)+'%'):('Mål: '+oeeGoal+'%');
+  // Over 105 % betyr at teknisk kapasitet på produktet er satt for lavt — si det, ikke skjul det bak 100 %
+  document.getElementById('k-oee-sub').textContent=bd?('Tilgj. '+bd.avail.toFixed(0)+'% · Ytelse '+bd.perf.toFixed(0)+'%'+(bd.raw>105?' · ⚠ '+bd.raw.toFixed(0)+'% av tekn. kapasitet — sjekk produktdata':'')):('Mål: '+oeeGoal+'%');
   // Effektivitet (Ytelse): output mot maks i kjøretiden. i dag/uke kappes ved 100; maks (beste fullførte time) er uncapped.
   const effBDd=line?oeeBreakdown(line,tdy):oeeBreakdownAvg(LINES_ALL,tdy);
   const effBDw=line?oeeBreakdown(line,wkDays):oeeBreakdownAvg(LINES_ALL,wkDays);
@@ -1939,7 +1976,7 @@ function effForDay(line,day){
   const p=lineProduct(line); if(!p||!(p.teknKapasitet>0)||!(p.stkPerDpack>0))return null;
   const maxRate=p.teknKapasitet/p.stkPerDpack, pm=plannedMinForDate(line,day); if(pm<=0)return null;
   const up=pm-downtimeForDates(line,[day]); if(up<=0)return null;
-  return Math.max(0,Math.min(100,eskerFor(line,dateKeyOf(day))/(maxRate*(up/60))*100));
+  return Math.max(0,Math.min(100,producedInPlan(line,day)/(maxRate*(up/60))*100));
 }
 function effHour(line,dayKey,hh){
   const p=lineProduct(line); if(!p||!(p.teknKapasitet>0)||!(p.stkPerDpack>0))return null;
