@@ -192,7 +192,7 @@ Node-IDer:
 1. **Firebase-lyttere UTENFOR `onAuthStateChanged`** — ellers dupliseres de ved re-auth. Bruk navngitte handlers (`handleEvents`, `handleSettings`) med `.off()` før `.on()`, 50ms debounce på `renderAll`.
 2. **Ingen `:has()` CSS-selektor i JS** — krasjer Chrome-versjonen på fabrikken. Bruk `getElementById`.
 3. **Unngå inline `onclick` med dynamiske strenger som inneholder anførselstegn** — historisk kilde til syntaksfeil. Bruk `addEventListener` eller enkle ID-strenger uten spesialtegn.
-4. **Ved cache-problemer:** no-cache meta-tags finnes; test i inkognito. Bump versjonskommentar øverst i filen ved behov.
+4. **Ved cache-problemer:** HTML-sidene har no-cache meta-tags, men GitHub Pages sender `Cache-Control: max-age=600` på ALT — så theme.css, theme.js, time24.js, nav.js og dashboard-widgets.js kan henge igjen i ti minutter etter en push. Derfor lastes de med `?v=YYYYMMDDx` i alle sider. **Endrer du en av dem: bump versjonen i alle HTML-filene** (én sed/node-erstatning), ellers ser brukeren gammel fil. Test i inkognito.
 5. `linje_kjorer` er True i kun én PLS-syklus — ubrukelig for polling. Bruk `linje_aktiv` (30s holdetid) for nedetidsdeteksjon.
 6. Nedetid registreres når linjen STARTER igjen, ikke når den stopper. Min. varighet: `MIN_DOWNTIME_MIN = 4` (er debouncingen for sensoren — se PLS-seksjonen).
 7. **Dagstellingen må ha lagret nullpunkt.** Den gamle broen satte nullpunktet til PLS-verdien ved oppstart, så hver omstart skrev dagens telling til 0. Nullstilling av PLS oppdages ved at telleren går *bakover* (`_pls`), ikke ved sammenligning mot nullpunktet — det feiler så snart nullpunktet er negativt etter første nullstilling. Verifisert i simulering mot 8 scenarier.
