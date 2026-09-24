@@ -133,6 +133,11 @@ textarea{resize:vertical;min-height:55px}
 .en{font-size:12px;font-weight:500;color:var(--text)}
 .em{font-size:10px;color:var(--text3);font-family:var(--mono);margin-top:2px;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .ec{font-size:11px;color:var(--text2);margin-top:2px}
+.ec-edit{font-size:10px;color:var(--amber);margin-top:3px}
+.ebtn-e{background:none;border:none;cursor:pointer;color:var(--text3);padding:2px 5px;border-radius:3px;font-size:12px;flex-shrink:0}
+.ebtn-e:hover{color:var(--blue);background:var(--bg3)}
+.ed-lbl{font-size:12px;color:var(--text2);display:block;margin-bottom:4px;margin-top:.6rem}
+.ed-hist{font-size:11px;color:var(--text3);background:var(--bg3);border-radius:var(--r);padding:6px 8px;margin-top:.6rem;line-height:1.5}
 .dbtn{background:none;border:none;cursor:pointer;color:var(--text3);padding:2px 5px;border-radius:3px;font-size:12px;flex-shrink:0}
 .dbtn:hover{background:#fef2f2;color:var(--red)}
 /* BADGES */
@@ -1255,12 +1260,16 @@ function renderHist(fil){
       +'<div class="einfo"><div class="en">'+e.cause+' <span style="color:var(--text3);font-weight:400">— '+(e.machine||'')+' / '+e.line+'</span>'
       +(e.wholeLine?'<span style="font-size:9px;background:#f0fdf4;color:var(--green);border:1px solid #bbf7d0;border-radius:2px;padding:0 4px;margin-left:4px">hel linje</span>':'')
       +'</div><div class="em"><span>'+fmtSpan(e)+'</span><span>'+fmtD(e.duration)+'</span><span class="badge '+badge+'">'+lbl+'</span></div>'
-      +(e.comment?'<div class="ec">'+e.comment+'</div>':'')+'</div>'
+      +(e.comment?'<div class="ec">'+e.comment+'</div>':'')
+      +editNoteHTML(e)+'</div>'
+      +(e.unhandled?'':'<button class="ebtn-e ebtn-edit" title="Rediger hendelsen (krever begrunnelse)">✎</button>')
       +(isStaff()
         ?'<button class="dbtn" onclick="askDel(\''+e.id+'\',\''+( e.cause||'').replace(/'/g,"\\'")+'\')">✕</button>'
         :'<button class="dbtn dbtn-ask" title="Be om sletting" data-id="'+e.id+'">🗑</button>');
     const ask=d.querySelector('.dbtn-ask');
     if(ask)ask.addEventListener('click',function(){openDreqModal(e.id);});
+    const edb=d.querySelector('.ebtn-edit');
+    if(edb)edb.addEventListener('click',function(){openEditModal(e.id);});
     el.appendChild(d);
   });
 }
@@ -1277,7 +1286,7 @@ function renderTable(fil){
     const tr=document.createElement('tr');
     tr.innerHTML='<td style="white-space:nowrap">'+fmtSpan(e)+'</td><td>'+e.line+(e.wholeLine?'<span style="font-size:9px;background:#f0fdf4;color:var(--green);border:1px solid #bbf7d0;border-radius:2px;padding:0 3px;margin-left:3px">HL</span>':'')+'</td>'
       +'<td>'+(e.machine||'—')+'</td><td class="td-prod">'+(evtProduct(e)||'—').replace(/</g,'&lt;')+'</td><td>'+e.cause+'</td><td>'+fmtD(e.duration)+'</td>'
-      +'<td><span class="badge '+badge+'">'+lbl+'</span></td><td>'+(e.comment||'—')+'</td>'
+      +'<td><span class="badge '+badge+'">'+lbl+'</span></td><td>'+(e.comment||'—')+editNoteHTML(e)+'</td>'
       // Direkte sletting av enkelthendelser er en korreksjon, ikke en opprydding —
       // forbeholdt master og leder. Operatører ber om sletting, og leder/master godkjenner.
       +'<td>'+(isStaff()
@@ -2551,6 +2560,95 @@ function eventsInRange(line,from,to){
 /* ── Søknadsskjema ── */
 /* eventId satt = søknaden gjelder én bestemt hendelse (operatørens «Be om sletting»
    i hendelsesloggen). Uten = et tidsrom på en linje, som før. */
+/* ═══ REDIGERING AV HENDELSER ═══
+   Alle innloggede (også operatører) kan rette en behandlet hendelse, men
+   hver endring krever en begrunnelse og lagres med hvem/når. Forrige verdi
+   legges i edits[] så sporet er komplett. Ubehandlede hendelser redigeres
+   ikke her — de går gjennom behandlingsmodalen. */
+let EDIT_EVT=null;
+function editNoteHTML(e){
+  if(!e.editedAt)return '';
+  return '<div class="ec-edit">✎ Redigert av '+String(e.editedByName||'ukjent').replace(/</g,'&lt;')+' '+fmtT(e.editedAt)
+    +(e.editReason?' — '+String(e.editReason).replace(/</g,'&lt;'):'')
+    +((e.edits||[]).length>1?' <span style="color:var(--text3)">('+e.edits.length+' endringer)</span>':'')+'</div>';
+}
+function edErr(m){const el=document.getElementById('ed-error');if(el){el.textContent=m;el.style.display=m?'':'none';}if(m)showToast(m,true);}
+function fillEdCauses(){
+  const line=EDIT_EVT?EDIT_EVT.line:'';
+  const m=document.getElementById('ed-machine').value;
+  const cur=document.getElementById('ed-cause').value||(EDIT_EVT&&EDIT_EVT.cause)||'';
+  document.getElementById('ed-cause').innerHTML=causeOptsHTML(line,m,cur);
+  if(cur&&!document.getElementById('ed-cause').value){
+    const o=document.createElement('option');o.value=cur;o.textContent=cur+' (nåværende)';o.selected=true;
+    document.getElementById('ed-cause').appendChild(o);
+  }
+}
+function openEditModal(id){
+  const e=EVENTS.find(function(x){return x.id===id;}); if(!e)return;
+  if(e.unhandled){showToast('Ubehandlede hendelser behandles i banneret øverst',true);return;}
+  EDIT_EVT=e;
+  document.getElementById('ed-sub').textContent=e.line+' · '+fmtSpan(e)+' · '+fmtD(e.duration);
+  const ms=getMachines(e.line);
+  const msel=document.getElementById('ed-machine');
+  msel.innerHTML='<option value="">— Ingen / hele linja —</option>'+ms.map(function(m){return '<option value="'+m.replace(/"/g,'&quot;')+'"'+(m===e.machine?' selected':'')+'>'+m.replace(/</g,'&lt;')+'</option>';}).join('');
+  if(e.machine&&ms.indexOf(e.machine)<0){const o=document.createElement('option');o.value=e.machine;o.textContent=e.machine;o.selected=true;msel.appendChild(o);}
+  document.getElementById('ed-cause').value='';
+  fillEdCauses();
+  const d=new Date(e.ts);
+  document.getElementById('ed-time').value=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'T'+pad(d.getHours())+':'+pad(d.getMinutes());
+  document.getElementById('ed-dur').value=fmtD(e.duration).replace(/\s/g,'');
+  const lkey=lk(e.line);
+  const prods=(SETTINGS.products?.[lkey]||[]).map(function(p){return p.name;}).filter(Boolean);
+  const curP=evtProduct(e);
+  document.getElementById('ed-prod').innerHTML='<option value="">— Ukjent —</option>'
+    +(curP&&prods.indexOf(curP)<0?'<option value="'+curP.replace(/"/g,'&quot;')+'" selected>'+curP.replace(/</g,'&lt;')+'</option>':'')
+    +prods.map(function(p){return '<option value="'+p.replace(/"/g,'&quot;')+'"'+(p===curP?' selected':'')+'>'+p.replace(/</g,'&lt;')+'</option>';}).join('');
+  document.getElementById('ed-com').value=e.comment||'';
+  document.getElementById('ed-reason').value='';
+  const h=document.getElementById('ed-hist');
+  const edits=(e.edits||[]).filter(Boolean);
+  if(edits.length){
+    h.style.display='';
+    h.innerHTML='<b>Tidligere endringer</b><br>'+edits.slice().reverse().map(function(x){
+      return fmtT(x.at)+' · '+String(x.byName||'ukjent').replace(/</g,'&lt;')+': '+String(x.reason||'').replace(/</g,'&lt;');
+    }).join('<br>');
+  }else h.style.display='none';
+  edErr('');
+  document.getElementById('edit-modal').classList.add('on');
+}
+function closeEditModal(){document.getElementById('edit-modal').classList.remove('on');EDIT_EVT=null;}
+async function saveEdit(){
+  const e=EDIT_EVT; if(!e)return;
+  const reason=document.getElementById('ed-reason').value.trim();
+  if(reason.length<5){edErr('Skriv hvorfor hendelsen endres (minst 5 tegn)');return;}
+  const cause=document.getElementById('ed-cause').value;
+  if(!cause){edErr('Velg årsak');return;}
+  const dur=parseDur(document.getElementById('ed-dur').value);
+  if(!dur){edErr('Ugyldig varighet — bruk f.eks. 45m eller 1t30m');return;}
+  const tv=document.getElementById('ed-time').value;
+  const ts=tv?new Date(tv).getTime():e.ts;
+  if(isNaN(ts)){edErr('Ugyldig dato og tid');return;}
+  if(ts>Date.now()+5*60000){edErr('Starttidspunktet er i framtida');return;}
+  const machine=document.getElementById('ed-machine').value;
+  const product=document.getElementById('ed-prod').value;
+  const comment=document.getElementById('ed-com').value.trim();
+  const before={machine:e.machine||'',cause:e.cause||'',ts:e.ts,duration:e.duration||0,comment:e.comment||'',product:e.product||''};
+  const after={machine:machine,cause:cause,ts:ts,duration:dur,comment:comment,product:product};
+  const changed=Object.keys(after).filter(function(k){return String(after[k])!==String(before[k]);});
+  if(!changed.length){edErr('Ingenting er endret');return;}
+  const entry={at:Date.now(),by:(auth.currentUser&&auth.currentUser.uid)||'',byName:(myProfile&&myProfile.name)||'',reason:reason,changed:changed,before:before};
+  const upd=Object.assign({},after,{
+    severity:isPlanned(cause)||isOmst(cause)?'low':(dur>=30?'high':dur>=10?'medium':(e.severity||'low')),
+    editedAt:entry.at,editedBy:entry.by,editedByName:entry.byName,editReason:reason,
+    edits:(e.edits||[]).filter(Boolean).concat([entry])
+  });
+  try{
+    await db.ref('events/'+e.id).update(upd);
+    closeEditModal();
+    showToast('Hendelse endret');
+  }catch(err){edErr('Kunne ikke lagre endringen');}
+}
+
 let DREQ_EVENT=null;
 function openDreqModal(eventId){
   DREQ_EVENT=null;
@@ -3029,6 +3127,32 @@ function chatKey(e){if(e.key==='Enter'){e.preventDefault();chatSend();}}
 </style>
 
 <!-- Slettesøknad -->
+<div class="mover" id="edit-modal">
+  <div class="hmodal">
+    <h3>✎ Rediger hendelse</h3>
+    <div class="hmodal-sub" id="ed-sub">—</div>
+    <label class="ed-lbl">Maskin</label>
+    <select class="dash-field" id="ed-machine"></select>
+    <label class="ed-lbl">Årsak</label>
+    <select class="dash-field" id="ed-cause"></select>
+    <div style="display:flex;gap:8px">
+      <div style="flex:1"><label class="ed-lbl">Start (dato og tid)</label><input class="dash-field" type="datetime-local" id="ed-time" step="60"></div>
+      <div style="flex:1"><label class="ed-lbl">Varighet</label><input class="dash-field" type="text" id="ed-dur" placeholder="45m / 1t / 1t30m"></div>
+    </div>
+    <label class="ed-lbl">Produkt som kjørte</label>
+    <select class="dash-field" id="ed-prod"></select>
+    <label class="ed-lbl">Kommentar til hendelsen</label>
+    <textarea class="dash-field" id="ed-com" rows="2"></textarea>
+    <label class="ed-lbl">Hvorfor endres hendelsen? <span style="color:var(--red)">*</span> <span style="color:var(--text3)">(lagres med navnet ditt)</span></label>
+    <textarea class="dash-field" id="ed-reason" rows="2" placeholder="F.eks. «Feil maskin valgt — det var MLPH som stoppet»"></textarea>
+    <div id="ed-hist" class="ed-hist" style="display:none"></div>
+    <div id="ed-error" style="display:none;font-size:12px;color:var(--red);margin-top:.4rem;font-weight:600"></div>
+    <div style="display:flex;gap:8px;margin-top:1rem">
+      <button class="dash-btn" style="flex:1;justify-content:center;background:var(--accent);color:#fff;border-color:var(--accent)" id="ed-save">Lagre endring</button>
+      <button class="dash-btn" style="flex:1;justify-content:center" id="ed-cancel">Avbryt</button>
+    </div>
+  </div>
+</div>
 <div class="mover" id="dreq-modal">
   <div class="hmodal">
     <h3>Be om sletting av hendelser</h3>
@@ -3092,6 +3216,10 @@ document.getElementById('chat-input').addEventListener('keydown',chatKey);
 document.getElementById('dash-close-btn').addEventListener('click',closeDashModal);
 document.getElementById('dash-open-btn').addEventListener('click',openDashModal);
 document.getElementById('dr-send').addEventListener('click',submitDreq);
+document.getElementById('ed-machine').addEventListener('change',function(){document.getElementById('ed-cause').value='';fillEdCauses();});
+document.getElementById('ed-save').addEventListener('click',saveEdit);
+document.getElementById('ed-cancel').addEventListener('click',closeEditModal);
+document.getElementById('edit-modal').addEventListener('click',function(ev){if(ev.target===this)closeEditModal();});
 document.getElementById('dr-cancel').addEventListener('click',closeDreqModal);
 ['dr-line','dr-from','dr-to'].forEach(function(id){
   document.getElementById(id).addEventListener('change',dreqPreview);
