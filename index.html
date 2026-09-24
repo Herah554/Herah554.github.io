@@ -1218,15 +1218,17 @@ function _doRenderAll(){
   // Effektivitet (Ytelse): output mot maks i kjøretiden. i dag/uke kappes ved 100; maks (beste fullførte time) er uncapped.
   const effBDd=line?oeeBreakdown(line,tdy):oeeBreakdownAvg(LINES_ALL,tdy);
   const effBDw=line?oeeBreakdown(line,wkDays):oeeBreakdownAvg(LINES_ALL,wkDays);
-  const effDay=effBDd?Math.min(100,effBDd.perf):null;
-  const effWeek=effBDw?Math.min(100,effBDw.perf):null;
+  // Ikke kapp ved 100: over 100 % betyr at teknisk kapasitet på produktet er satt for lavt,
+  // og det skal synes — ellers ser en feil kalkyle ut som en perfekt dag.
+  const effDay=effBDd?effBDd.perf:null;
+  const effWeek=effBDw?effBDw.perf:null;
   const effEl=document.getElementById('k-eff');
   effEl.textContent=effDay!=null?effDay.toFixed(0)+'%':'—';
-  if(effDay!=null)effEl.style.color=effDay>=90?'var(--green)':effDay>=75?'var(--amber)':'var(--red)';
+  if(effDay!=null)effEl.style.color=effDay>100.5?'var(--amber)':effDay>=90?'var(--green)':effDay>=75?'var(--amber)':'var(--red)';
   let peak=null;
   if(line){peak=peakHourEff(line);}
   else{let bp=null;LINES_ALL.forEach(l=>{const pe=peakHourEff(l);if(pe&&(bp===null||pe.pct>bp.pct))bp=pe;});peak=bp;}
-  document.getElementById('k-eff-sub').textContent='Uke '+(effWeek!=null?effWeek.toFixed(0)+'%':'—')+' · Maks '+(peak?Math.round(peak.pct)+'%':'—');
+  document.getElementById('k-eff-sub').textContent='Uke '+(effWeek!=null?effWeek.toFixed(0)+'%':'—')+' · Maks '+(peak?Math.round(peak.pct)+'%':'—')+(effDay!=null&&effDay>100.5?' · ⚠ over tekn. kapasitet — sjekk produktet':'');
   const calEl=document.getElementById('k-eff-cal');
   calEl.innerHTML=''; calEl.style.display='none';
   const isMaster=myProfile&&myProfile.role==='master';
