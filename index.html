@@ -185,7 +185,7 @@ td:first-child{font-family:var(--mono);font-size:11px;color:var(--text3)}
 /* TOAST */
 /* Ubehandlede nedetider skal ikke kunne overses: banneret følger med når man
    ruller, pulserer, og knappen er stor. */
-.unhandled-banner{display:none;position:sticky;top:0;z-index:150;background:#fef3c7;border-bottom:3px solid var(--amber);padding:.75rem 1.5rem;align-items:center;gap:12px;box-shadow:0 4px 16px rgba(217,119,6,.25);animation:ub-pulse 2s ease-in-out infinite}
+.unhandled-banner{display:none;position:fixed;top:54px;left:0;right:0;z-index:150;background:#fef3c7;border-bottom:3px solid var(--amber);padding:.75rem 1.5rem;align-items:center;gap:12px;box-shadow:0 4px 16px rgba(217,119,6,.25);animation:ub-pulse 2s ease-in-out infinite}
 .unhandled-banner.on{display:flex}
 @keyframes ub-pulse{0%,100%{box-shadow:0 4px 16px rgba(217,119,6,.2)}50%{box-shadow:0 4px 22px rgba(217,119,6,.5)}}
 .ub-icon{font-size:20px}
@@ -906,13 +906,25 @@ function onCause(){
   if(isPlanned(c)||isOmst(c))document.getElementById('f-sev').value='low';
 }
 
+/* «Dato og tid» starter på nå (lokal tid), så et stopp som registreres med én gang får riktig tid
+   uten at man rører feltet. Registreres det i etterkant, setter man starttidspunktet selv. */
+function resetTimeField(){
+  const el=document.getElementById('f-time'); if(!el)return;
+  const d=new Date();
+  el.value=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'T'+pad(d.getHours())+':'+pad(d.getMinutes());
+}
+resetTimeField();
 // ── SUBMIT ──
 async function submit(){
   const line=document.getElementById('f-line').value,machine=document.getElementById('f-machine').value;
   const cause=document.getElementById('f-cause').value,dur=parseDur(document.getElementById('f-dur').value);
   const sev=document.getElementById('f-sev').value,com=document.getElementById('f-com').value.trim();
   if(!line||!machine||!cause||!dur){showToast('Fyll inn linje, maskin, årsak og varighet',true);return;}
-  const ts=Date.now();
+  // Tidspunktet er starten på stoppet, fra «Dato og tid» i skjemaet
+  const tEl=document.getElementById('f-time');
+  let ts=tEl&&tEl.value?new Date(tEl.value).getTime():Date.now();
+  if(isNaN(ts)){showToast('Ugyldig dato og tid',true);return;}
+  if(ts>Date.now()+5*60000){showToast('Tidspunktet er i framtida — sjekk dato og tid',true);return;}
   if(isOmst(cause)){
     const ms=getMachines(line);const all=ms.length?ms:[machine];
     const product=evtProductNow(line);
@@ -924,6 +936,7 @@ async function submit(){
   }
   document.getElementById('f-cause').value='';document.getElementById('f-dur').value='';
   document.getElementById('f-com').value='';document.getElementById('dur-hint').textContent='';
+  resetTimeField();
   document.getElementById('b-omst').style.display='none';document.getElementById('b-plan').style.display='none';
 }
 
@@ -2098,9 +2111,14 @@ function updateUnhandledBanner(){
   const banner=document.getElementById('unhandled-banner');
   const cnt=document.getElementById('ub-count');
   if(!banner||!cnt)return;
+  const mainEl=document.querySelector('main.page');
   if(fil.length>0){
     banner.classList.add('on');
     cnt.textContent=fil.length;
+    // Fast plassert under nav — dytt innholdet ned like mye så ingenting ligger skjult bak
+    const navH=(document.querySelector('nav')||{}).offsetHeight||54;
+    banner.style.top=navH+'px';
+    if(mainEl)mainEl.style.paddingTop=(banner.offsetHeight+16)+'px';
     const sub=document.getElementById('ub-sub');
     if(sub){const tot=fil.reduce((s,e)=>s+(e.duration||0),0);sub.textContent=fmtD(tot)+' nedetid uten årsak · velg maskin og årsak så OEE-tallene blir riktige';}
     const fresh=fil.filter(e=>!HANDLE_SEEN.has(e.id));
@@ -2108,6 +2126,7 @@ function updateUnhandledBanner(){
     if(isOp&&fresh.length&&!document.getElementById('handle-modal').classList.contains('on'))openHandleModal();
   }else{
     banner.classList.remove('on');
+    if(mainEl)mainEl.style.paddingTop='';
   }
 }
 
