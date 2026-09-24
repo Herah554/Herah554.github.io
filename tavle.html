@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+<title>Daglig tavle — Diplom-is</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f4f6f9;--bg2:#fff;--bg3:#eef0f4;--border:#e2e6ed;
+  --text:#18202e;--text2:#4a5568;--text3:#8a95a8;
+  --red:#dc2626;--amber:#d97706;--green:#16a34a;--blue:#2563eb;--purple:#7c3aed;--teal:#0d9488;
+  --accent:#e63329;
+  --font:'IBM Plex Sans',sans-serif;--mono:'IBM Plex Mono',monospace;
+  --r:8px;--rl:12px;--sh:0 1px 4px rgba(0,0,0,.08);--shm:0 4px 20px rgba(0,0,0,.12);
+}
+body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:15px;min-height:100vh}
+nav{background:var(--bg2);border-bottom:1px solid var(--border);height:54px;display:flex;align-items:center;padding:0 1.5rem;gap:.4rem;position:sticky;top:0;z-index:50;box-shadow:var(--sh)}
+.logo{font-weight:600;font-size:15px;color:var(--accent);margin-right:.3rem}.logo span{font-weight:400;font-size:12px;color:var(--text3)}
+.nl{font-size:13px;color:var(--text2);text-decoration:none;padding:5px 10px;border-radius:var(--r);font-weight:500;white-space:nowrap}
+.nl:hover{background:var(--bg3)}.nl.on{color:var(--accent);background:var(--bg3)}
+.ml{margin-left:auto;display:flex;align-items:center;gap:8px}
+.ubadge{font-size:11px;font-family:var(--mono);background:var(--bg3);padding:3px 9px;border-radius:99px;color:var(--text2)}
+.lout{font-size:12px;background:none;border:1px solid var(--border);border-radius:var(--r);padding:4px 9px;cursor:pointer;color:var(--text3)}
+body.full nav{display:none}
+.page{max-width:1500px;margin:0 auto;padding:1rem 1.5rem 3rem}
+.top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:1rem}
+.top h1{font-size:22px;font-weight:700}
+.top .date{font-size:20px;font-weight:600;min-width:260px;text-align:center}
+.b{padding:7px 12px;border:1px solid var(--border);background:var(--bg2);border-radius:var(--r);cursor:pointer;font-size:13px;color:var(--text2);font-family:inherit}
+.b:hover{color:var(--text)}
+.chip{font-size:13px;padding:6px 13px;border:1px solid var(--border);background:var(--bg2);border-radius:99px;cursor:pointer;color:var(--text2);font-family:inherit}
+.chip.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.clk{margin-left:auto;font-family:var(--mono);font-size:22px;color:var(--text2)}
+h2{font-size:12px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin:1.2rem 0 .5rem}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:1rem 1.2rem;box-shadow:var(--sh)}
+.ct{font-size:15px;font-weight:600;margin-bottom:.7rem;display:flex;align-items:center;gap:8px}
+.ca{width:4px;height:16px;border-radius:2px;background:var(--accent)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+.kpi{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:.9rem 1.1rem;box-shadow:var(--sh);border-top:4px solid var(--border)}
+.kl{font-size:11px;font-family:var(--mono);text-transform:uppercase;color:var(--text3);letter-spacing:.06em}
+.kv{font-size:38px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1;margin:4px 0 2px}
+.ks{font-size:13px;color:var(--text2)}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.g3{display:grid;grid-template-columns:2fr 1fr;gap:12px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{font-size:11px;font-family:var(--mono);text-transform:uppercase;color:var(--text3);text-align:left;padding:6px 8px;border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:8px 8px;border-bottom:1px solid var(--border);vertical-align:top;font-variant-numeric:tabular-nums}
+tr:last-child td{border-bottom:none}
+.num{text-align:right;white-space:nowrap}
+.big{font-size:17px;font-weight:600}
+.sub{font-size:12px;color:var(--text3)}
+.good{color:var(--green)}.warn{color:var(--amber)}.bad{color:var(--red)}
+.bar{height:10px;background:var(--bg3);border-radius:99px;overflow:hidden;margin-top:4px}
+.bar div{height:100%;background:var(--red);border-radius:99px}
+.empty{color:var(--text3);font-size:13px;padding:.5rem 0}
+.tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:99px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);margin-left:4px}
+.tag.red{background:rgba(220,38,38,.12);color:var(--red);border-color:rgba(220,38,38,.35)}
+.tag.amber{background:rgba(217,119,6,.12);color:var(--amber);border-color:rgba(217,119,6,.35)}
+.comment{font-size:13px;color:var(--text2);white-space:pre-wrap}
+.gate{max-width:440px;margin:16vh auto;text-align:center;padding:2rem}
+@media(max-width:1000px){.g2,.g3{grid-template-columns:1fr}.kv{font-size:30px}}
+@media print{nav,.top .b,.chip{display:none}body{background:#fff}.card,.kpi{box-shadow:none;break-inside:avoid}}
+</style>
+<link rel="stylesheet" href="theme.css?v=20260924b"/>
+<script src="theme.js?v=20260924b"></script>
+<script src="time24.js?v=20260924b"></script>
+<script src="nav.js?v=20260924b"></script>
+</head>
+<body>
+<nav>
+  <div class="logo">Diplom-is<span> / Produksjon</span></div>
+  <a href="index.html" class="nl">Dashboard</a>
+  <a href="tavle.html" class="nl on" id="nav-tavle">Tavle</a>
+  <a href="dashbord.html" class="nl" id="nav-dash" style="display:none">Dashbord-oppsett</a>
+  <a href="rapporter.html" class="nl" id="nav-rap" style="display:none">Rapporter</a>
+  <a href="produkter.html" class="nl" id="nav-prod" style="display:none">Produkter</a>
+  <a href="skiftrapport.html" class="nl" id="nav-skift" style="display:none">Skiftrapport</a>
+  <a href="import.html" class="nl" id="nav-import" style="display:none">Import</a>
+  <a href="innstillinger.html" class="nl" id="nav-set" style="display:none">Innstillinger</a>
+  <a href="brukere.html" class="nl" id="nav-usr" style="display:none">Brukere</a>
+  <a href="logg.html" class="nl" id="nav-logg" style="display:none">Logg &amp; data</a>
+  <div class="ml">
+    <div class="ubadge" id="ubadge">—</div>
+    <button class="lout" onclick="auth.signOut().then(()=>location.href='login.html')">Logg ut</button>
+  </div>
+</nav>
+
+<main class="page" id="app" style="display:none">
+  <div class="top">
+    <h1>Daglig tavle</h1>
+    <button class="b" onclick="move(-1)">◀</button>
+    <div class="date" id="d-label">—</div>
+    <button class="b" onclick="move(1)">▶</button>
+    <button class="b" onclick="setOffset(-1)">I går</button>
+    <button class="b" onclick="setOffset(0)">I dag</button>
+    <span id="lines" style="display:flex;gap:6px;flex-wrap:wrap;margin-left:8px"></span>
+    <div class="clk" id="clk">--:--</div>
+    <button class="b" onclick="toggleFull()" title="Fullskjerm for tavle-TV">⛶</button>
+    <button class="b" onclick="window.print()" title="Skriv ut">🖨</button>
+  </div>
+
+  <h2 id="h-day">Dagen</h2>
+  <div class="kpis" id="kpis"></div>
+
+  <div class="g2" style="margin-top:12px">
+    <div class="card">
+      <div class="ct"><div class="ca"></div>Største stopp <span class="sub" id="t-stops"></span></div>
+      <div id="stops"></div>
+    </div>
+    <div class="card">
+      <div class="ct"><div class="ca" style="background:var(--amber)"></div>Nedetid per årsak</div>
+      <div id="causes"></div>
+    </div>
+  </div>
+
+  <h2 id="h-week">Uka så langt</h2>
+  <div class="g3">
+    <div class="card">
+      <div class="ct"><div class="ca" style="background:var(--blue)"></div>Dag for dag</div>
+      <div style="overflow-x:auto"><table><thead><tr><th>Dag</th><th class="num">Produsert</th><th class="num">Plan</th><th class="num">OEE</th><th class="num">Nedetid</th><th class="num">Stopp</th><th>Største stopp</th></tr></thead><tbody id="week"></tbody></table></div>
+    </div>
+    <div class="card">
+      <div class="ct"><div class="ca" style="background:var(--purple)"></div>Verstinger denne uka</div>
+      <div class="sub" style="margin-bottom:4px">Årsaker</div><div id="wk-causes"></div>
+      <div class="sub" style="margin:10px 0 4px">Maskiner</div><div id="wk-machines"></div>
+    </div>
+  </div>
+
+  <div class="g2" style="margin-top:12px">
+    <div class="card">
+      <div class="ct"><div class="ca" style="background:var(--green)"></div>Skiftrapporter <span class="sub" id="t-shifts"></span></div>
+      <div id="shifts"></div>
+    </div>
+    <div class="card">
+      <div class="ct"><div class="ca" style="background:var(--teal)"></div>Plan i dag <span class="sub" id="t-plan"></span></div>
+      <div id="plan"></div>
+    </div>
+  </div>
+
+  <h2>Åpne saker</h2>
+  <div class="g2">
+    <div class="card">
+      <div class="ct"><div class="ca" style="background:var(--amber)"></div>Ubehandlede stopp <span class="sub" id="t-unh"></span></div>
+      <div id="unhandled"></div>
+    </div>
+    <div class="card">
+      <div class="ct"><div class="ca" style="background:var(--red)"></div>Slettesøknader som venter <span class="sub" id="t-dreq"></span></div>
+      <div id="dreq"></div>
+    </div>
+  </div>
+</main>
+
+<script>
+const LINES=['Løp 1','Løp 2','Løp 3','Rollo','Koba','Glacier','Krokan'];
+const FB={apiKey:"AIzaSyCL4x1KNwgeDxqTFeP32BndJgH4B5MworQ",authDomain:"messystem-f14dd.firebaseapp.com",databaseURL:"https://messystem-f14dd-default-rtdb.firebaseio.com",projectId:"messystem-f14dd",storageBucket:"messystem-f14dd.firebasestorage.app",messagingSenderId:"1001051250309",appId:"1:1001051250309:web:0b2d82db50e8fd24ce93ec"};
+if(!firebase.apps.length)firebase.initializeApp(FB);
+localStorage.setItem('firebaseConfig',JSON.stringify(FB));
+const db=firebase.database(),auth=firebase.auth();
+
+let USER=null, LINE_SEL='Alle', OFF=-1;   // OFF = dager fra i dag; tavla åpner på i går
+let EVENTS=[], SETTINGS={}, PROD_ALL={}, PROD_HOURLY={}, ACTIVE_PROD={}, SHIFT_PLAN={}, SHIFT_REPORTS={}, PLAN={}, DREQ={};
+const lk=l=>(l||'').replace(/[\s\/]/g,'_');
+const pad=n=>String(n).padStart(2,'0');
+const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+const fmtN=n=>Math.round(n||0).toLocaleString('no-NO');
+function fmtD(m){m=Math.round(m||0);if(m<60)return m+' min';const h=Math.floor(m/60),r=m%60;return r?h+' t '+r+' min':h+' t';}
+function fmtT(ts){const d=new Date(ts);return pad(d.getHours())+':'+pad(d.getMinutes());}
+function fmtSpan(e){const a=new Date(e.ts),b=new Date(e.ts+(e.duration||0)*60000);return fmtT(a)+'–'+fmtT(b)+(b.toDateString()!==a.toDateString()?' (+1)':'');}
+const DAGER=['Søndag','Mandag','Tirsdag','Onsdag','Torsdag','Fredag','Lørdag'];
+const lineName=k=>LINES.find(l=>lk(l)===k)||k.replace(/_/g,' ');
+
+/* ── OEE-KJERNE — kopiert ordrett fra rapporter.html av tavle-build.js ──
+   Samme regnestykke som dashbord og rapporter. Endres funksjonene der, kjør
+   scratchpad/tavle-build.js på nytt (eller kopier for hånd). */
+function getOEEGoal(line){
+  if(!line||line==='Alle')return SETTINGS.oeeGoal||97;
+  return SETTINGS.oeeGoals?.[lk(line)]||SETTINGS.oeeGoal||97;
+}
+function _defaultSched(){return{mon:{on:true,start:'06:00',end:'00:00'},tue:{on:true,start:'00:00',end:'00:00'},wed:{on:true,start:'00:00',end:'00:00'},thu:{on:true,start:'00:00',end:'00:00'},fri:{on:true,start:'00:00',end:'22:30'},sat:{on:false,start:'06:00',end:'22:30'},sun:{on:false,start:'06:00',end:'22:30'},breaks:[]};}
+function getSched(line){const k=lk(line);const s=SETTINGS.schedule?.[k];const d=_defaultSched();if(!s)return d;['mon','tue','wed','thu','fri','sat','sun'].forEach(dk=>{if(s[dk])d[dk]=Object.assign({},d[dk],s[dk]);});d.breaks=Array.isArray(s.breaks)?s.breaks:[];return d;}
+function _tmin(t){if(!t)return 0;const p=String(t).split(':');return (parseInt(p[0])||0)*60+(parseInt(p[1])||0);}
+function _dmin(day){if(!day||!day.on)return 0;const s=_tmin(day.start);const e=(day.end==='00:00'||day.end==='24:00')?1440:_tmin(day.end);return Math.max(0,e-s);}
+function _brkmin(sched){return (sched.breaks||[]).reduce((a,b)=>a+Math.max(0,_tmin(b.end)-_tmin(b.start)),0);}
+function dateKeyOf(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
+/* ── Planlagt tid kommer KUN fra skiftkalenderen (shiftPlan) ──
+   Samme logikk som index.html, så OEE i rapportene og på dashbordet er
+   identisk. Ingen bobler den dagen = ingen plan = OEE måles ikke.
+   Pausene (settings/schedule/{lk}/breaks) trekkes fortsatt fra. */
+function _subBreaks(iv,sched){
+  (sched.breaks||[]).forEach(b=>{
+    const bs0=_tmin(b.start),be0=_tmin(b.end);
+    if(be0<=bs0)return;
+    // Pausen gjelder også neste døgn — vinduer kan gå forbi midnatt (>1440 min)
+    [[bs0,be0],[bs0+1440,be0+1440]].forEach(([bs,be])=>{
+      iv=iv.flatMap(([is,ie])=>{
+        if(be<=is||bs>=ie)return[[is,ie]];
+        const o=[];if(bs>is)o.push([is,bs]);if(be<ie)o.push([be,ie]);return o;
+      });
+    });
+  });
+  return iv;
+}
+function getSched(line){const k=lk(line);const s=SETTINGS.schedule?.[k];const d=_defaultSched();if(!s)return d;['mon','tue','wed','thu','fri','sat','sun'].forEach(dk=>{if(s[dk])d[dk]=Object.assign({},d[dk],s[dk]);});d.breaks=Array.isArray(s.breaks)?s.breaks:[];return d;}
+function _tmin(t){if(!t)return 0;const p=String(t).split(':');return (parseInt(p[0])||0)*60+(parseInt(p[1])||0);}
+function _dmin(day){if(!day||!day.on)return 0;const s=_tmin(day.start);const e=(day.end==='00:00'||day.end==='24:00')?1440:_tmin(day.end);return Math.max(0,e-s);}
+function _brkmin(sched){return (sched.breaks||[]).reduce((a,b)=>a+Math.max(0,_tmin(b.end)-_tmin(b.start)),0);}
+function dateKeyOf(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
+/* ── Planlagt tid kommer KUN fra skiftkalenderen (shiftPlan) ──
+   Samme logikk som index.html, så OEE i rapportene og på dashbordet er
+   identisk. Ingen bobler den dagen = ingen plan = OEE måles ikke.
+   Pausene (settings/schedule/{lk}/breaks) trekkes fortsatt fra. */
+function _subBreaks(iv,sched){
+  (sched.breaks||[]).forEach(b=>{
+    const bs0=_tmin(b.start),be0=_tmin(b.end);
+    if(be0<=bs0)return;
+    // Pausen gjelder også neste døgn — vinduer kan gå forbi midnatt (>1440 min)
+    [[bs0,be0],[bs0+1440,be0+1440]].forEach(([bs,be])=>{
+      iv=iv.flatMap(([is,ie])=>{
+        if(be<=is||bs>=ie)return[[is,ie]];
+        const o=[];if(bs>is)o.push([is,bs]);if(be<ie)o.push([be,ie]);return o;
+      });
+    });
+  });
+  return iv;
+}
+function _tmin(t){if(!t)return 0;const p=String(t).split(':');return (parseInt(p[0])||0)*60+(parseInt(p[1])||0);}
+function _dmin(day){if(!day||!day.on)return 0;const s=_tmin(day.start);const e=(day.end==='00:00'||day.end==='24:00')?1440:_tmin(day.end);return Math.max(0,e-s);}
+function _brkmin(sched){return (sched.breaks||[]).reduce((a,b)=>a+Math.max(0,_tmin(b.end)-_tmin(b.start)),0);}
+function dateKeyOf(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
+/* ── Planlagt tid kommer KUN fra skiftkalenderen (shiftPlan) ──
+   Samme logikk som index.html, så OEE i rapportene og på dashbordet er
+   identisk. Ingen bobler den dagen = ingen plan = OEE måles ikke.
+   Pausene (settings/schedule/{lk}/breaks) trekkes fortsatt fra. */
+function _subBreaks(iv,sched){
+  (sched.breaks||[]).forEach(b=>{
+    const bs0=_tmin(b.start),be0=_tmin(b.end);
+    if(be0<=bs0)return;
+    // Pausen gjelder også neste døgn — vinduer kan gå forbi midnatt (>1440 min)
+    [[bs0,be0],[bs0+1440,be0+1440]].forEach(([bs,be])=>{
+      iv=iv.flatMap(([is,ie])=>{
+        if(be<=is||bs>=ie)return[[is,ie]];
+        const o=[];if(bs>is)o.push([is,bs]);if(be<ie)o.push([be,ie]);return o;
+      });
+    });
+  });
+  return iv;
+}
+function dateKeyOf(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
+/* ── Planlagt tid kommer KUN fra skiftkalenderen (shiftPlan) ──
+   Samme logikk som index.html, så OEE i rapportene og på dashbordet er
+   identisk. Ingen bobler den dagen = ingen plan = OEE måles ikke.
+   Pausene (settings/schedule/{lk}/breaks) trekkes fortsatt fra. */
+function _subBreaks(iv,sched){
+  (sched.breaks||[]).forEach(b=>{
+    const bs0=_tmin(b.start),be0=_tmin(b.end);
+    if(be0<=bs0)return;
+    // Pausen gjelder også neste døgn — vinduer kan gå forbi midnatt (>1440 min)
+    [[bs0,be0],[bs0+1440,be0+1440]].forEach(([bs,be])=>{
+      iv=iv.flatMap(([is,ie])=>{
+        if(be<=is||bs>=ie)return[[is,ie]];
+        const o=[];if(bs>is)o.push([is,bs]);if(be<ie)o.push([be,ie]);return o;
+      });
+    });
+  });
+  return iv;
+}
+function _subBreaks(iv,sched){
+  (sched.breaks||[]).forEach(b=>{
+    const bs0=_tmin(b.start),be0=_tmin(b.end);
+    if(be0<=bs0)return;
+    // Pausen gjelder også neste døgn — vinduer kan gå forbi midnatt (>1440 min)
+    [[bs0,be0],[bs0+1440,be0+1440]].forEach(([bs,be])=>{
+      iv=iv.flatMap(([is,ie])=>{
+        if(be<=is||bs>=ie)return[[is,ie]];
+        const o=[];if(bs>is)o.push([is,bs]);if(be<ie)o.push([be,ie]);return o;
+      });
+    });
+  });
+  return iv;
+}
+function shiftWindowsFor(line,dateObj){
+  const day=SHIFT_PLAN[dateKeyOf(dateObj)];
+  if(!day)return null;
+  const raw=day[lk(line)];
+  if(!raw)return null;
+  const list=Object.keys(raw).map(k=>raw[k]).filter(Boolean);
+  if(!list.length)return null;
+  const iv=[];
+  list.forEach(b=>{const st=_tmin(b.start);let e=_tmin(b.end);if(e<=st)e+=1440;if(e>st)iv.push([st,e]);});
+  if(!iv.length)return null;
+  iv.sort((x,y)=>x[0]-y[0]);
+  const out=[iv[0]];
+  for(let i=1;i<iv.length;i++){const last=out[out.length-1];if(iv[i][0]<=last[1])last[1]=Math.max(last[1],iv[i][1]);else out.push(iv[i]);}
+  return out;
+}
+function dayWindows(line,dateObj){return shiftWindowsFor(line,dateObj)||[];}
+function plannedMinForDate(line,dateObj){
+  const iv=_subBreaks(dayWindows(line,dateObj),getSched(line));
+  if(!iv.length)return 0;
+  // Klippes mot nå i absolutt tid: vinduer kan gå forbi midnatt, og et nattskift
+  // lagt på i går skal telle fram til det faktisk er ferdig i dag.
+  const base=new Date(dateObj.getFullYear(),dateObj.getMonth(),dateObj.getDate()).getTime();
+  const now=Date.now();
+  return iv.reduce((t,x)=>t+Math.max(0,Math.min(now,base+x[1]*60000)-(base+x[0]*60000))/60000,0);
+}
+function plannedMinForDate(line,dateObj){
+  const iv=_subBreaks(dayWindows(line,dateObj),getSched(line));
+  if(!iv.length)return 0;
+  // Klippes mot nå i absolutt tid: vinduer kan gå forbi midnatt, og et nattskift
+  // lagt på i går skal telle fram til det faktisk er ferdig i dag.
+  const base=new Date(dateObj.getFullYear(),dateObj.getMonth(),dateObj.getDate()).getTime();
+  const now=Date.now();
+  return iv.reduce((t,x)=>t+Math.max(0,Math.min(now,base+x[1]*60000)-(base+x[0]*60000))/60000,0);
+}
+function lineProduct(line){
+  const k=lk(line);const prods=SETTINGS.products?.[k]||[];const active=ACTIVE_PROD[k];
+  let p=prods.find(x=>x.name===active&&x.teknKapasitet>0&&x.stkPerDpack>0);
+  if(!p)p=prods.find(x=>x.teknKapasitet>0&&x.stkPerDpack>0);
+  return p||null;
+}
+function eskerFor(line,dateKey){const d=PROD_ALL[dateKey];return d?(d[lk(line)]||0):0;}
+/* Produksjonsdagen et tidspunkt hører til (resetTime-regelen, samme som broen bruker) */
+function prodDayKeyFor(d){
+  const rt=String((SETTINGS&&SETTINGS.resetTime)||'00:00').split(':');
+  const reset=new Date(d);reset.setHours(parseInt(rt[0])||0,parseInt(rt[1])||0,0,0);
+  return dateKeyOf(d<reset?new Date(d.getTime()-86400000):d);
+}
+function prodDayKeyFor(d){
+  const rt=String((SETTINGS&&SETTINGS.resetTime)||'00:00').split(':');
+  const reset=new Date(d);reset.setHours(parseInt(rt[0])||0,parseInt(rt[1])||0,0,0);
+  return dateKeyOf(d<reset?new Date(d.getTime()-86400000):d);
+}
+function producedInPlan(line,dateObj){
+  const key=lk(line);
+  const iv=prodIntervalsForDate(line,dateObj);
+  if(!iv.length)return 0;
+  const now=Date.now();
+  let sum=0,any=false;
+  iv.forEach(([a,b])=>{
+    b=Math.min(b,now);if(b<=a)return;
+    for(let t=Math.floor(a/3600000)*3600000;t<b;t+=3600000){
+      const h=new Date(t);
+      const hrs=(PROD_HOURLY[prodDayKeyFor(h)]||{})[key];
+      if(!hrs)continue;
+      any=true;
+      const v=parseFloat(hrs[pad(h.getHours())])||0;
+      if(!v)continue;
+      const lo=Math.max(a,t),hi=Math.min(b,t+3600000);
+      const span=Math.min(t+3600000,now)-t;   // bøtta dekker bare fram til nå
+      if(span>0)sum+=v*((hi-lo)/span);
+    }
+  });
+  return any?sum:eskerFor(line,dateKeyOf(dateObj));
+}
+function oeeOutput(line,dateObjs){
+  const p=lineProduct(line);if(!p)return null;
+  const maxDpackPerHour=p.teknKapasitet/p.stkPerDpack;
+  let totDpack=0,totMax=0;
+  dateObjs.forEach(d=>{const pm=plannedMinForDate(line,d);if(pm<=0)return;totDpack+=producedInPlan(line,d);totMax+=maxDpackPerHour*(pm/60);});
+  if(totMax<=0)return null;
+  return Math.max(0,Math.min(100,totDpack/totMax*100));
+}
+function oeeForDates(line,dateObjs){
+  if(line&&line!=='Alle')return oeeOutput(line,dateObjs);
+  const vals=LINES.map(l=>oeeOutput(l,dateObjs)).filter(v=>v!==null);
+  return vals.length?vals.reduce((s,v)=>s+v,0)/vals.length:null;
+}
+function prodIntervalsForDate(line,dateObj){
+  const iv=_subBreaks(dayWindows(line,dateObj),getSched(line));
+  if(!iv.length)return [];
+  const base=new Date(dateObj.getFullYear(),dateObj.getMonth(),dateObj.getDate()).getTime();
+  return iv.map(([is,ie])=>[base+is*60000,base+ie*60000]);
+}
+function downtimeOnDate(line,dateObj){
+  const iv=prodIntervalsForDate(line,dateObj);
+  if(!iv.length)return 0;
+  let mins=0;
+  EVENTS.forEach(ev=>{if(ev.line!==line)return;const a=ev.ts,b=ev.ts+(ev.duration||0)*60000;iv.forEach(([is,ie])=>{const lo=Math.max(a,is),hi=Math.min(b,ie);if(hi>lo)mins+=(hi-lo)/60000;});});
+  return Math.round(mins);
+}
+function downtimeForDates(line,dateObjs){
+  const lines=(line&&line!=='Alle')?[line]:LINES;
+  let t=0;dateObjs.forEach(d=>lines.forEach(l=>t+=downtimeOnDate(l,d)));
+  return Math.round(t);
+}
+function isPlanned(c){return(SETTINGS.plannedStops||[]).includes(c);}
+function isOmst(c){return/omstilling/i.test(c);}
+function getMachines(line){return SETTINGS.machines?.[lk(line)]||[];}
+function getCauses(line,machine){
+  const gen=(SETTINGS.generalCauses||[]).map(c=>({n:c,t:'gen'}));
+  const cust=(SETTINGS.causes?.[lk(line)+'__'+lk(machine)]||[]).map(c=>({n:c,t:'cust'}));
+  const plan=(SETTINGS.plannedStops||[]).map(c=>({n:c,t:'plan'}));
+  return [...gen,...cust,...plan];
+}
+function isOmst(c){return/omstilling/i.test(c);}
+function getMachines(line){return SETTINGS.machines?.[lk(line)]||[];}
+function getCauses(line,machine){
+  const gen=(SETTINGS.generalCauses||[]).map(c=>({n:c,t:'gen'}));
+  const cust=(SETTINGS.causes?.[lk(line)+'__'+lk(machine)]||[]).map(c=>({n:c,t:'cust'}));
+  const plan=(SETTINGS.plannedStops||[]).map(c=>({n:c,t:'plan'}));
+  return [...gen,...cust,...plan];
+}
+
+/* ── AUTH ── */
+auth.onAuthStateChanged(async user=>{
+  if(!user){location.href='login.html';return;}
+  const s=await db.ref('users/'+user.uid).once('value');USER=s.val();
+  if(!USER){auth.signOut();location.href='login.html';return;}
+  document.getElementById('ubadge').textContent=USER.name+' · '+(USER.role==='master'?'Master':USER.role==='leder'?'Leder':'Operatør');
+  if(USER.role==='linjeoperator'&&(USER.lines||[]).length===1)LINE_SEL=USER.lines[0];
+  document.getElementById('app').style.display='block';
+  renderChips();start();
+});
+let started=false;
+function start(){
+  if(started)return;started=true;
+  db.ref('settings').on('value',s=>{SETTINGS=s.val()||{};sched();});
+  db.ref('events').on('value',s=>{const a=[];if(s.exists())s.forEach(c=>{const v=c.val();if(v&&v.ts&&v.line)a.push(Object.assign({id:c.key},v));});EVENTS=a;sched();});
+  db.ref('production').on('value',s=>{const m={},hm={};if(s.exists())s.forEach(ds=>{m[ds.key]={};hm[ds.key]={};ds.forEach(ls=>{const v=ls.val()||{};m[ds.key][ls.key]=v.count||0;if(v.hourly)hm[ds.key][ls.key]=v.hourly;});});PROD_ALL=m;PROD_HOURLY=hm;sched();});
+  db.ref('active_product').on('value',s=>{const m={};if(s.exists())s.forEach(ls=>{m[ls.key]=(ls.val()&&ls.val().product)||null;});ACTIVE_PROD=m;sched();});
+  db.ref('shiftPlan').on('value',s=>{SHIFT_PLAN=s.val()||{};sched();});
+  db.ref('shiftReports').on('value',s=>{SHIFT_REPORTS=s.val()||{};sched();});
+  db.ref('plan/production').on('value',s=>{PLAN=s.val()||{};sched();});
+  db.ref('deleteRequests').on('value',s=>{DREQ=s.val()||{};sched();});
+  setInterval(()=>{document.getElementById('clk').textContent=new Date().toLocaleTimeString('no-NO',{hour:'2-digit',minute:'2-digit'});},1000);
+  setInterval(render,5*60000);   // tavla står på — tegn på nytt uansett hvert 5. min
+}
+let _t=null;function sched(){if(_t)return;_t=setTimeout(()=>{_t=null;render();},200);}
+function renderChips(){
+  const c=document.getElementById('lines');c.innerHTML='';
+  let ls=LINES;if(USER&&USER.role==='linjeoperator'&&(USER.lines||[]).length)ls=USER.lines;
+  ['Alle'].concat(ls).forEach(l=>{const b=document.createElement('button');b.className='chip'+(LINE_SEL===l?' on':'');b.textContent=l==='Alle'?'Alle linjer':l;b.onclick=()=>{LINE_SEL=l;renderChips();render();};c.appendChild(b);});
+}
+function move(n){OFF+=n;if(OFF>0)OFF=0;render();}
+function setOffset(n){OFF=n;render();}
+function toggleFull(){document.body.classList.toggle('full');if(document.body.classList.contains('full')&&document.documentElement.requestFullscreen)document.documentElement.requestFullscreen().catch(()=>{});else if(document.exitFullscreen&&document.fullscreenElement)document.exitFullscreen();}
+
+/* Produksjonsdag = kalenderdag her (som i rapporter). Tellingen ligger under resetTime-dagen. */
+function dayObj(off){const d=new Date();d.setHours(12,0,0,0);d.setDate(d.getDate()+off);return d;}
+function linesSel(){return LINE_SEL==='Alle'?LINES:[LINE_SEL];}
+function evtsOn(dateObj){const dk=dateKeyOf(dateObj);return EVENTS.filter(e=>dateKeyOf(new Date(e.ts))===dk&&(LINE_SEL==='Alle'||e.line===LINE_SEL));}
+function planFor(dk){let sum=0;const items=[];linesSel().forEach(l=>{const raw=(PLAN[dk]||{})[lk(l)];if(!raw)return;(Array.isArray(raw)?raw:Object.values(raw)).filter(Boolean).forEach(r=>{sum+=parseFloat(r.antall)||0;items.push(Object.assign({line:l},r));});});return {sum,items};}
+function producedOn(dk){return linesSel().reduce((s,l)=>s+eskerFor(l,dk),0);}
+function oeeOn(dateObj){return oeeForDates(LINE_SEL==='Alle'?null:LINE_SEL,[dateObj]);}
+function downOn(dateObj){return downtimeForDates(LINE_SEL==='Alle'?null:LINE_SEL,[dateObj]);}
+function shiftsOn(dk){const out=[];const d=SHIFT_REPORTS[dk]||{};linesSel().forEach(l=>{const r=d[lk(l)];if(r&&r.date)out.push(Object.assign({line:l},r));});return out;}
+function oeeCls(v,goal){return v==null?'':v>=goal?'good':v>=goal-15?'warn':'bad';}
+
+function render(){
+  if(!USER)return;
+  const day=dayObj(OFF), dk=dateKeyOf(day), isToday=OFF===0;
+  const label=DAGER[day.getDay()]+' '+pad(day.getDate())+'.'+pad(day.getMonth()+1)+'.'+day.getFullYear();
+  document.getElementById('d-label').textContent=label+(OFF===-1?' (i går)':isToday?' (i dag)':'');
+  document.getElementById('h-day').textContent=(isToday?'I dag':OFF===-1?'I går':label)+' — '+(LINE_SEL==='Alle'?'alle linjer':LINE_SEL);
+  const goal=getOEEGoal(LINE_SEL==='Alle'?null:LINE_SEL);
+
+  /* KPI-er */
+  const ev=evtsOn(day).sort((a,b)=>(b.duration||0)-(a.duration||0));
+  const real=ev.filter(e=>!isPlanned(e.cause)&&!isOmst(e.cause));
+  const plan=planFor(dk), prod=producedOn(dk), oee=oeeOn(day), down=downOn(day);
+  const biggest=real[0];
+  const unh=EVENTS.filter(e=>e.unhandled===true&&(LINE_SEL==='Alle'||e.line===LINE_SEL));
+  const sh=shiftsOn(dk);
+  const svinn=sh.reduce((s,r)=>s+(parseFloat(r.svinnSumKg)||parseFloat(r.svinn)||0),0);
+  const pct=plan.sum?Math.round(prod/plan.sum*100):null;
+  const kp=[
+    ['Produsert',fmtN(prod),plan.sum?'av plan '+fmtN(plan.sum)+' · <b class="'+(pct>=100?'good':pct>=80?'warn':'bad')+'">'+pct+' %</b>':'ingen plan importert','var(--blue)'],
+    ['OEE',oee!=null?oee.toFixed(1)+' %':'—',oee!=null?'mål '+goal+' %':'ingen skift i kalenderen',oee==null?'var(--border)':oee>=goal?'var(--green)':'var(--red)'],
+    ['Nedetid',fmtD(down),real.length+' reelle stopp · '+(ev.length-real.length)+' planlagt/omstilling','var(--red)'],
+    ['Største stopp',biggest?fmtD(biggest.duration):'—',biggest?esc(biggest.line)+' · '+esc(biggest.cause||'')+' · '+fmtSpan(biggest):'ingen','var(--amber)'],
+    ['Ubehandlet',unh.length,unh.length?fmtD(unh.reduce((s,e)=>s+(e.duration||0),0))+' uten årsak':'alt er behandlet',unh.length?'var(--amber)':'var(--green)'],
+    ['Svinn',svinn?svinn.toLocaleString('no-NO')+' kg':'—',sh.length+' skiftrapport'+(sh.length===1?'':'er'),'var(--purple)']
+  ];
+  document.getElementById('kpis').innerHTML=kp.map(x=>'<div class="kpi" style="border-top-color:'+x[3]+'"><div class="kl">'+x[0]+'</div><div class="kv">'+x[1]+'</div><div class="ks">'+x[2]+'</div></div>').join('');
+
+  /* Største stopp */
+  document.getElementById('t-stops').textContent=ev.length?ev.length+' hendelser':'';
+  document.getElementById('stops').innerHTML=ev.length?'<table><thead><tr><th>Tid</th><th>Linje</th><th>Maskin</th><th>Årsak</th><th class="num">Varighet</th><th>Kommentar</th></tr></thead><tbody>'
+    +ev.slice(0,10).map(e=>'<tr><td class="num">'+fmtSpan(e)+'</td><td>'+esc(e.line)+'</td><td>'+esc(e.machine||'—')+'</td><td>'+esc(e.cause||'')+(e.unhandled?'<span class="tag amber">ubehandlet</span>':'')+(isPlanned(e.cause)||isOmst(e.cause)?'<span class="tag">planlagt</span>':'')+'</td><td class="num big">'+fmtD(e.duration)+'</td><td class="comment">'+esc(e.comment||'')+'</td></tr>').join('')
+    +'</tbody></table>':'<div class="empty">Ingen registrerte stopp.</div>';
+
+  /* Årsaker */
+  document.getElementById('causes').innerHTML=barList(ev,e=>e.cause||'—',8);
+
+  /* Uka: mandag → valgt dag (eller i dag) */
+  const mon=new Date(day);mon.setDate(day.getDate()-((day.getDay()+6)%7));
+  const today=dayObj(0);
+  const days=[];for(let i=0;i<7;i++){const d=new Date(mon);d.setDate(mon.getDate()+i);if(d>today)break;days.push(d);}
+  document.getElementById('h-week').textContent='Uke '+isoWeek(day)+' så langt — '+(LINE_SEL==='Alle'?'alle linjer':LINE_SEL);
+  let wProd=0,wPlan=0,wDown=0,wN=0;const wEv=[];
+  const rows=days.map(d=>{
+    const k=dateKeyOf(d), e=evtsOn(d), r=e.filter(x=>!isPlanned(x.cause)&&!isOmst(x.cause)).sort((a,b)=>(b.duration||0)-(a.duration||0));
+    const p=producedOn(k), pl=planFor(k).sum, o=oeeOn(d), dn=downOn(d);
+    wProd+=p;wPlan+=pl;wDown+=dn;wN+=r.length;wEv.push(...e);
+    const sel=dateKeyOf(d)===dk;
+    return '<tr'+(sel?' style="background:var(--bg3)"':'')+'><td><b>'+DAGER[d.getDay()].slice(0,3)+'</b> '+pad(d.getDate())+'.'+pad(d.getMonth()+1)+'</td><td class="num">'+fmtN(p)+'</td><td class="num sub">'+(pl?fmtN(pl):'—')+'</td>'
+      +'<td class="num '+oeeCls(o,goal)+'"><b>'+(o!=null?o.toFixed(0)+' %':'—')+'</b></td><td class="num">'+(dn?fmtD(dn):'—')+'</td><td class="num">'+r.length+'</td><td class="sub">'+(r[0]?esc(r[0].line)+' · '+esc(r[0].cause||'')+' · '+fmtD(r[0].duration):'—')+'</td></tr>';
+  });
+  const wo=oeeForDates(LINE_SEL==='Alle'?null:LINE_SEL,days);
+  rows.push('<tr style="font-weight:700"><td>Uka</td><td class="num">'+fmtN(wProd)+'</td><td class="num sub">'+(wPlan?fmtN(wPlan):'—')+'</td><td class="num '+oeeCls(wo,goal)+'">'+(wo!=null?wo.toFixed(0)+' %':'—')+'</td><td class="num">'+fmtD(wDown)+'</td><td class="num">'+wN+'</td><td></td></tr>');
+  document.getElementById('week').innerHTML=rows.join('');
+  document.getElementById('wk-causes').innerHTML=barList(wEv,e=>e.cause||'—',6);
+  document.getElementById('wk-machines').innerHTML=barList(wEv,e=>(e.line||'')+' · '+(e.machine||'hele linja'),6);
+
+  /* Skiftrapporter for dagen */
+  document.getElementById('t-shifts').textContent=sh.length?sh.length+' stk':'';
+  document.getElementById('shifts').innerHTML=sh.length?sh.map(r=>'<div style="padding:8px 0;border-bottom:1px solid var(--border)">'
+    +'<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:baseline"><b>'+esc(r.line)+'</b><span class="sub">'+esc(r.skift||'')+'</span><span>'+esc(r.produkt||'')+'</span>'
+    +'<span class="sub">produsert <b>'+(r.antallProdusert?fmtN(r.antallProdusert):'—')+'</b>'+(r.antallBestilt?' av '+fmtN(r.antallBestilt):'')+'</span>'
+    +((r.svinnSumKg||r.svinn)?'<span class="sub">svinn <b>'+esc(r.svinnSumKg||r.svinn)+' kg</b></span>':'')+(r.reworkKg?'<span class="sub">rework '+esc(r.reworkKg)+' kg</span>':'')
+    +(r.bemanning?'<span class="sub">'+esc(r.bemanning)+' pers</span>':'')+(r.signatur?'<span class="sub" style="margin-left:auto">'+esc(r.signatur)+'</span>':'')+'</div>'
+    +(r.kommentar?'<div class="comment" style="margin-top:4px">'+esc(r.kommentar)+'</div>':'')
+    +((r.svinnRegistreringer||[]).length?'<div class="sub" style="margin-top:3px">'+r.svinnRegistreringer.filter(Boolean).map(x=>esc(x.kg||'')+' kg '+esc(x.tekst||'')).join(' · ')+'</div>':'')
+    +'</div>').join(''):'<div class="empty">Ingen skiftrapporter levert for dagen.</div>';
+
+  /* Plan i dag + skift */
+  const tk=dateKeyOf(today), pt=planFor(tk);
+  document.getElementById('t-plan').textContent=pad(today.getDate())+'.'+pad(today.getMonth()+1);
+  const bubbles=[];linesSel().forEach(l=>{const raw=(SHIFT_PLAN[tk]||{})[lk(l)];if(raw)Object.values(raw).filter(Boolean).forEach(b=>bubbles.push(Object.assign({line:l},b)));});
+  document.getElementById('plan').innerHTML=
+    (pt.items.length?'<table><thead><tr><th>Linje</th><th>Produkt</th><th class="num">Antall</th><th class="num">Timer</th><th class="num">Produsert nå</th></tr></thead><tbody>'
+      +pt.items.map(r=>{const p=eskerFor(r.line,tk);const a=parseFloat(r.antall)||0;return '<tr><td>'+esc(r.line)+'</td><td>'+(r.artNr?'('+esc(r.artNr)+') ':'')+esc(r.product||'')+'</td><td class="num big">'+fmtN(a)+'</td><td class="num">'+(r.timer||'—')+'</td><td class="num '+(a&&p>=a?'good':'')+'">'+fmtN(p)+(a?' <span class="sub">('+Math.round(p/a*100)+' %)</span>':'')+'</td></tr>';}).join('')
+      +'</tbody></table>':'<div class="empty">Ingen plan importert for i dag.</div>')
+    +(bubbles.length?'<div class="sub" style="margin-top:8px">Skift i dag: '+bubbles.map(b=>esc(b.line)+' '+esc(b.name||'')+' '+esc((b.start||'').slice(0,5))+'–'+esc((b.end||'').slice(0,5))+(b.bemanning?' ('+esc(b.bemanning)+' pers)':'')).join(' · ')+'</div>':'<div class="sub" style="margin-top:8px">Ingen skift lagt inn i kalenderen for i dag — OEE måles ikke.</div>');
+
+  /* Åpne saker */
+  document.getElementById('t-unh').textContent=unh.length?unh.length+' stk':'';
+  document.getElementById('unhandled').innerHTML=unh.length?'<table><tbody>'+unh.sort((a,b)=>b.ts-a.ts).slice(0,10).map(e=>{const d=new Date(e.ts);return '<tr><td class="num">'+pad(d.getDate())+'.'+pad(d.getMonth()+1)+' '+fmtSpan(e)+'</td><td>'+esc(e.line)+'</td><td class="num big">'+fmtD(e.duration)+'</td><td class="sub">'+esc(e.comment||'')+'</td></tr>';}).join('')+'</tbody></table>':'<div class="empty good">✓ Alle stopp er behandlet.</div>';
+  const pend=Object.keys(DREQ).map(k=>DREQ[k]).filter(r=>r&&r.status==='pending'&&(LINE_SEL==='Alle'||r.line===LINE_SEL));
+  document.getElementById('t-dreq').textContent=pend.length?pend.length+' stk':'';
+  document.getElementById('dreq').innerHTML=pend.length?'<table><tbody>'+pend.map(r=>'<tr><td>'+esc(r.line)+'</td><td>'+esc(r.eventId?(r.eventLabel||'én hendelse'):(r.from===r.to?r.from:r.from+' → '+r.to))+'</td><td class="sub">'+esc(r.requestedByName||'')+'</td><td class="comment">'+esc(r.reason||'')+'</td></tr>').join('')+'</tbody></table>':'<div class="empty good">✓ Ingen søknader venter.</div>';
+}
+function barList(evs,keyFn,n){
+  const agg={};evs.forEach(e=>{const k=keyFn(e);agg[k]=agg[k]||{min:0,n:0};agg[k].min+=e.duration||0;agg[k].n++;});
+  const keys=Object.keys(agg).sort((a,b)=>agg[b].min-agg[a].min).slice(0,n);
+  if(!keys.length)return '<div class="empty">Ingen stopp.</div>';
+  const max=agg[keys[0]].min||1;
+  return keys.map(k=>'<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;font-size:14px"><span>'+esc(k)+' <span class="sub">('+agg[k].n+')</span></span><b>'+fmtD(agg[k].min)+'</b></div><div class="bar"><div style="width:'+Math.round(agg[k].min/max*100)+'%"></div></div></div>').join('');
+}
+function isoWeek(d){const t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));const day=t.getUTCDay()||7;t.setUTCDate(t.getUTCDate()+4-day);const y0=new Date(Date.UTC(t.getUTCFullYear(),0,1));return Math.ceil(((t-y0)/86400000+1)/7);}
+</script>
+</body>
+</html>
