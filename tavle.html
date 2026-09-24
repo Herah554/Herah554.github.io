@@ -28,6 +28,8 @@ nav{background:var(--bg2);border-bottom:1px solid var(--border);height:54px;disp
 .ubadge{font-size:11px;font-family:var(--mono);background:var(--bg3);padding:3px 9px;border-radius:99px;color:var(--text2)}
 .lout{font-size:12px;background:none;border:1px solid var(--border);border-radius:var(--r);padding:4px 9px;cursor:pointer;color:var(--text3)}
 body.full nav{display:none}
+body.full .page{max-width:none;padding:.6rem 1rem 1rem}
+body.full{overflow:hidden}
 .page{max-width:1500px;margin:0 auto;padding:1rem 1.5rem 3rem}
 .top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:1rem}
 .top h1{font-size:22px;font-weight:700}
@@ -452,7 +454,24 @@ function renderChips(){
 }
 function move(n){OFF+=n;if(OFF>0)OFF=0;render();}
 function setOffset(n){OFF=n;render();}
-function toggleFull(){document.body.classList.toggle('full');if(document.body.classList.contains('full')&&document.documentElement.requestFullscreen)document.documentElement.requestFullscreen().catch(()=>{});else if(document.exitFullscreen&&document.fullscreenElement)document.exitFullscreen();}
+function toggleFull(){
+  document.body.classList.toggle('full');
+  if(document.body.classList.contains('full')&&document.documentElement.requestFullscreen)document.documentElement.requestFullscreen().catch(()=>{});
+  else if(document.exitFullscreen&&document.fullscreenElement)document.exitFullscreen();
+  setTimeout(fitScreen,50);
+}
+/* Fullskjerm på TV: skaler hele tavla så alt får plass på én skjerm, uten rulling.
+   Måles med zoom nullstilt, så skaleres til det minste av høyde- og breddeforhold. */
+function fitScreen(){
+  const m=document.getElementById('app');if(!m)return;
+  if(!document.body.classList.contains('full')){m.style.zoom='';return;}
+  m.style.zoom='';
+  const h=m.scrollHeight,w=m.scrollWidth;
+  if(!h||!w)return;
+  m.style.zoom=Math.max(.4,Math.min(window.innerHeight/h,window.innerWidth/w,2.2));
+}
+window.addEventListener('resize',()=>setTimeout(fitScreen,50));
+document.addEventListener('fullscreenchange',()=>{if(!document.fullscreenElement)document.body.classList.remove('full');setTimeout(fitScreen,50);});
 
 /* Produksjonsdag = kalenderdag her (som i rapporter). Tellingen ligger under resetTime-dagen. */
 function dayObj(off){const d=new Date();d.setHours(12,0,0,0);d.setDate(d.getDate()+off);return d;}
@@ -550,6 +569,7 @@ function render(){
   document.getElementById('unhandled').innerHTML=unh.length?'<table><tbody>'+unh.sort((a,b)=>b.ts-a.ts).slice(0,10).map(e=>{const d=new Date(e.ts);return '<tr><td class="num">'+pad(d.getDate())+'.'+pad(d.getMonth()+1)+' '+fmtSpan(e)+'</td><td>'+esc(e.line)+'</td><td class="num big">'+fmtD(e.duration)+'</td><td class="sub">'+esc(e.comment||'')+'</td></tr>';}).join('')+'</tbody></table>':'<div class="empty good">✓ Alle stopp er behandlet.</div>';
   const pend=Object.keys(DREQ).map(k=>DREQ[k]).filter(r=>r&&r.status==='pending'&&(LINE_SEL==='Alle'||r.line===LINE_SEL));
   document.getElementById('t-dreq').textContent=pend.length?pend.length+' stk':'';
+  setTimeout(fitScreen,0);
   document.getElementById('dreq').innerHTML=pend.length?'<table><tbody>'+pend.map(r=>'<tr><td>'+esc(r.line)+'</td><td>'+esc(r.eventId?(r.eventLabel||'én hendelse'):(r.from===r.to?r.from:r.from+' → '+r.to))+'</td><td class="sub">'+esc(r.requestedByName||'')+'</td><td class="comment">'+esc(r.reason||'')+'</td></tr>').join('')+'</tbody></table>':'<div class="empty good">✓ Ingen søknader venter.</div>';
 }
 /* Én kortstatus per periode: OEE mot mål, produsert mot plan, nedetid. */
