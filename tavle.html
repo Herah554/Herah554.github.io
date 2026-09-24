@@ -49,15 +49,17 @@ h2{font-size:12px;font-family:var(--mono);text-transform:uppercase;letter-spacin
 .kv{font-size:38px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1;margin:4px 0 2px}
 .ks{font-size:13px;color:var(--text2)}
 .st{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:1rem 1.2rem;box-shadow:var(--sh);border-top:5px solid var(--border)}
-.st .kl{font-size:13px;color:var(--text)}
+.st .kl{font-size:16px;font-weight:700;color:var(--text)}
 .st .kv{font-size:44px}
-.st .row{display:flex;justify-content:space-between;gap:8px;font-size:14px;padding:5px 0;border-top:1px solid var(--border)}
+.st .row{display:flex;justify-content:space-between;gap:8px;font-size:14px;font-weight:600;padding:5px 0;border-top:1px solid var(--border)}
 .st .row b{font-variant-numeric:tabular-nums}
 .pct{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .g3{display:grid;grid-template-columns:2fr 1fr;gap:12px}
 table{width:100%;border-collapse:collapse;font-size:14px}
 th{font-size:11px;font-family:var(--mono);text-transform:uppercase;color:var(--text3);text-align:left;padding:6px 8px;border-bottom:1px solid var(--border);white-space:nowrap}
+#perline th{font-size:13px;font-weight:700;color:var(--text);font-family:var(--font);text-transform:none;letter-spacing:0}
+#perline th[colspan]{font-size:15px}
 td{padding:8px 8px;border-bottom:1px solid var(--border);vertical-align:top;font-variant-numeric:tabular-nums}
 tr:last-child td{border-bottom:none}
 .num{text-align:right;white-space:nowrap}
@@ -116,7 +118,7 @@ tr:last-child td{border-bottom:none}
   <h2>Status — hvor bra gikk det, og hvor ligger vi an</h2>
   <div class="kpis" id="status" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr))"></div>
   <div class="card" id="perline-card" style="margin-top:12px;display:none">
-    <div class="ct"><div class="ca" style="background:var(--blue)"></div>Per linje — hvor går det bra, og hvor ikke</div>
+    <div class="ct"><div class="ca" style="background:var(--blue)"></div>Per linje</div>
     <div style="overflow-x:auto"><table id="perline"></table></div>
   </div>
 
