@@ -1516,7 +1516,9 @@ function renderOEE(fil){
   }
 
   const colors=data.map(v=>v===null?'transparent':v>=oeeGoal?GREEN:v>=90?AMBER:RED);
-  const cd={labels,datasets:[{data,borderColor:colors,backgroundColor:data.map(v=>v===null?'transparent':v>=oeeGoal?GREEN+'22':v>=90?AMBER+'22':RED+'22'),borderWidth:2,pointBackgroundColor:colors,pointRadius:4,fill:true,tension:0.3,spanGaps:true}]};
+  // Streken må ha ÉN farge — Chart.js tegner ingen linje når borderColor er en liste per punkt.
+  // Punktene farges etter mål; streken er nøytral og fyllet svakt.
+  const cd={labels,datasets:[{data,borderColor:'#0d9488',backgroundColor:'rgba(13,148,136,.10)',borderWidth:2,pointBackgroundColor:colors,pointBorderColor:colors,pointRadius:4,fill:true,tension:0.3,spanGaps:true}]};
   const opts={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.parsed.y===null?'Ingen data':ctx.parsed.y+'%'}}},scales:{x:{grid:{color:GRID},ticks:{font:{size:10}}},y:{grid:{color:GRID},min:0,max:100,ticks:{callback:v=>v+'%',font:{size:10}}}}};
   const goalLines=[{value:oeeGoal,color:'#15803d',label:'Mål '+oeeGoal+'%',dash:[6,4],width:2,align:'right'}];
   if(charts.oee){charts.oee.data=cd;charts.oee.options=opts;charts.oee.$goalLines=goalLines;charts.oee.update();return;}
