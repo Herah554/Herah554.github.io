@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+<title>Produkter — Diplom-is</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f4f6f9;--bg2:#fff;--bg3:#eef0f4;--border:#e2e6ed;
+  --text:#18202e;--text2:#4a5568;--text3:#8a95a8;
+  --red:#dc2626;--amber:#d97706;--green:#16a34a;--blue:#2563eb;--purple:#7c3aed;--teal:#0d9488;
+  --accent:#e63329;
+  --font:'IBM Plex Sans',sans-serif;--mono:'IBM Plex Mono',monospace;
+  --r:8px;--rl:12px;--sh:0 1px 4px rgba(0,0,0,.08);--shm:0 4px 20px rgba(0,0,0,.12);
+}
+body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14px;min-height:100vh}
+nav{background:var(--bg2);border-bottom:1px solid var(--border);height:54px;display:flex;align-items:center;padding:0 1.5rem;gap:.4rem;position:sticky;top:0;z-index:50;box-shadow:var(--sh)}
+.logo{font-weight:600;font-size:15px;color:var(--accent);margin-right:.3rem}.logo span{font-weight:400;font-size:12px;color:var(--text3)}
+.nl{font-size:13px;color:var(--text2);text-decoration:none;padding:5px 10px;border-radius:var(--r);font-weight:500;white-space:nowrap}
+.nl:hover{background:var(--bg3)}.nl.on{color:var(--accent);background:var(--bg3)}
+.ml{margin-left:auto;display:flex;align-items:center;gap:8px}
+.ubadge{font-size:11px;font-family:var(--mono);background:var(--bg3);padding:3px 9px;border-radius:99px;color:var(--text2)}
+.lout{font-size:12px;background:none;border:1px solid var(--border);border-radius:var(--r);padding:4px 9px;cursor:pointer;color:var(--text3)}
+.lout:hover{border-color:#fecaca;color:var(--red)}
+.page{max-width:1300px;margin:0 auto;padding:1.25rem 1.5rem}
+h2{font-size:11px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin:1.4rem 0 .6rem}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:1rem 1.2rem;box-shadow:var(--sh);margin-bottom:1rem}
+.ct{font-size:13px;font-weight:600;margin-bottom:.7rem;display:flex;align-items:center;gap:7px}
+.ca{width:3px;height:14px;border-radius:2px;background:var(--accent)}
+input,select{padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;font-family:inherit;background:var(--bg2);color:var(--text)}
+input:focus,select:focus{outline:none;border-color:var(--accent)}
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.search{flex:1;min-width:240px;font-size:14px;padding:10px 12px}
+.chip{font-size:12px;padding:5px 11px;border:1px solid var(--border);background:var(--bg2);border-radius:99px;cursor:pointer;color:var(--text2);font-family:inherit}
+.chip.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{font-size:10px;font-family:var(--mono);text-transform:uppercase;color:var(--text3);text-align:left;padding:6px 8px;border-bottom:1px solid var(--border);white-space:nowrap;cursor:pointer;user-select:none}
+th.sorted{color:var(--accent)}
+td{padding:7px 8px;border-bottom:1px solid var(--border);vertical-align:top;font-variant-numeric:tabular-nums}
+tr.pr{cursor:pointer}tr.pr:hover td{background:var(--bg3)}tr.pr.sel td{background:rgba(230,51,41,.08)}
+.num{text-align:right}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:1rem}
+.kpi{background:var(--bg3);border-radius:var(--r);padding:.7rem .9rem}
+.kl{font-size:10px;font-family:var(--mono);text-transform:uppercase;color:var(--text3);letter-spacing:.05em}
+.kv{font-size:22px;font-weight:600;font-variant-numeric:tabular-nums;margin-top:2px}
+.ks{font-size:11px;color:var(--text3)}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.cw{position:relative;height:220px}
+.hint{font-size:11px;color:var(--text3);line-height:1.5}
+.good{color:var(--green)}.warn{color:var(--amber)}.bad{color:var(--red)}
+.tag{display:inline-block;font-size:10px;padding:1px 6px;border-radius:3px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);margin-right:3px}
+.sub{font-size:11px;color:var(--text3)}
+.gate{max-width:440px;margin:16vh auto;text-align:center;padding:2rem}
+.gate h1{font-size:18px;margin-bottom:.5rem}.gate p{color:var(--text2);font-size:13px;margin-bottom:1rem}
+.bp{display:inline-block;padding:8px 14px;border:none;background:var(--accent);color:#fff;border-radius:var(--r);cursor:pointer;font-size:13px;font-weight:600;text-decoration:none}
+.empty{color:var(--text3);font-size:12px;padding:.6rem 0}
+@media(max-width:900px){.g2{grid-template-columns:1fr}.page{padding:1rem}nav{padding:0 1rem}}
+</style>
+<link rel="stylesheet" href="theme.css"/>
+<script src="theme.js"></script>
+<script src="time24.js"></script>
+<script src="nav.js"></script>
+</head>
+<body>
+<nav>
+  <div class="logo">Diplom-is<span> / Produksjon</span></div>
+  <a href="index.html" class="nl">Dashboard</a>
+  <a href="dashbord.html" class="nl" id="nav-dash">Dashbord-oppsett</a>
+  <a href="rapporter.html" class="nl" id="nav-rap">Rapporter</a>
+  <a href="produkter.html" class="nl on" id="nav-prod">Produkter</a>
+  <a href="skiftrapport.html" class="nl" id="nav-skift">Skiftrapport</a>
+  <a href="import.html" class="nl" id="nav-import" style="display:none">Import</a>
+  <a href="innstillinger.html" class="nl" id="nav-set">Innstillinger</a>
+  <a href="brukere.html" class="nl" id="nav-usr">Brukere</a>
+  <a href="logg.html" class="nl" id="nav-logg" style="display:none">Logg &amp; data</a>
+  <div class="ml">
+    <div class="ubadge" id="ubadge">—</div>
+    <button class="lout" onclick="auth.signOut().then(()=>location.href='login.html')">Logg ut</button>
+  </div>
+</nav>
+
+<div id="gate" class="gate" style="display:none">
+  <h1>Ingen tilgang</h1>
+  <p>Produktoversikten er for master og leder.</p>
+  <a class="bp" href="index.html">Til dashbordet</a>
+</div>
+
+<main class="page" id="app" style="display:none">
+  <h2>Produkter — søk og historikk</h2>
+  <div class="card">
+    <div class="bar">
+      <input class="search" id="q" placeholder="Søk på art.nr, produktnavn, gruppe eller linje…" autofocus>
+      <select id="period">
+        <option value="30">Siste 30 dager</option>
+        <option value="90" selected>Siste 90 dager</option>
+        <option value="365">Siste år</option>
+        <option value="0">Alt</option>
+      </select>
+      <span class="sub" id="cnt"></span>
+    </div>
+    <div class="bar" id="lines" style="margin-top:.6rem"></div>
+    <div class="hint" style="margin-top:.6rem">
+      Kjøring = sammenhengende timer med samme produkt aktivt på linja (fra dashbordets produktvalg). Effektivitet = snitt dpack/t
+      delt på teknisk kapasitet for produktet. Nedetid = registrerte hendelser i kjøringen; «ved oppstart» = de to første timene.
+      Klikk på en rad for full historikk.
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="tw"><table id="ptbl">
+      <thead><tr>
+        <th data-k="line">Linje</th><th data-k="artNr">Art.nr</th><th data-k="name" class="sorted">Produkt</th><th data-k="group">Gruppe</th>
+        <th data-k="maxRate" class="num">Kap. dpk/t</th><th data-k="runs" class="num">Kjøringer</th><th data-k="hours" class="num">Timer</th>
+        <th data-k="dpack" class="num">Dpack</th><th data-k="avg" class="num">Snitt dpk/t</th><th data-k="eff" class="num">Eff.</th>
+        <th data-k="down" class="num">Nedetid</th><th data-k="downPerRun" class="num">Per kjøring</th><th data-k="startDown" class="num">Ved oppstart</th>
+        <th data-k="svinn" class="num">Svinn kg</th><th data-k="last">Sist kjørt</th>
+      </tr></thead>
+      <tbody id="pbody"></tbody>
+    </table></div>
+  </div>
+
+  <div id="detail" style="display:none">
+    <h2 id="d-title">Produkt</h2>
+    <div class="card">
+      <div class="bar" style="margin-bottom:.8rem">
+        <div><div class="ct" style="margin:0"><div class="ca"></div><span id="d-name">—</span></div><div class="sub" id="d-meta">—</div></div>
+        <input id="dq" placeholder="Filtrer kjøringer, hendelser og skiftrapporter…" style="margin-left:auto;min-width:280px">
+      </div>
+      <div class="kpis" id="d-kpis"></div>
+      <div class="g2">
+        <div><div class="ct"><div class="ca" style="background:var(--teal)"></div>Effektivitet per kjøring (%)</div><div class="cw"><canvas id="ch-eff"></canvas></div></div>
+        <div><div class="ct"><div class="ca" style="background:var(--red)"></div>Nedetid per kjøring (min)</div><div class="cw"><canvas id="ch-down"></canvas></div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="ct"><div class="ca" style="background:var(--blue)"></div>Kjøringer <span class="sub" id="d-runs-n"></span></div>
+      <div class="tw"><table><thead><tr><th>Start</th><th>Slutt</th><th>Linje</th><th class="num">Timer</th><th class="num">Dpack</th><th class="num">Snitt dpk/t</th><th class="num">2 første t</th><th class="num">Beste time</th><th class="num">Eff.</th><th class="num">Stopp</th><th class="num">Nedetid</th><th class="num">Ved oppstart</th><th>Største årsak</th></tr></thead><tbody id="d-runs"></tbody></table></div>
+    </div>
+
+    <div class="g2">
+      <div class="card">
+        <div class="ct"><div class="ca" style="background:var(--red)"></div>Nedetid per årsak</div>
+        <div class="tw"><table><thead><tr><th>Årsak</th><th>Maskin</th><th class="num">Antall</th><th class="num">Nedetid</th><th class="num">Andel</th></tr></thead><tbody id="d-causes"></tbody></table></div>
+      </div>
+      <div class="card">
+        <div class="ct"><div class="ca" style="background:var(--purple)"></div>Produktbytter <span class="sub">(hvem satte produktet aktivt, når)</span></div>
+        <div class="tw"><table><thead><tr><th>Tid</th><th>Linje</th><th>Fra</th><th>Til</th><th>Av</th></tr></thead><tbody id="d-changes"></tbody></table></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="ct"><div class="ca" style="background:var(--amber)"></div>Hendelser <span class="sub" id="d-ev-n"></span></div>
+      <div class="tw"><table><thead><tr><th>Tid</th><th>Linje</th><th>Maskin</th><th>Årsak</th><th class="num">Varighet</th><th>Kommentar</th><th>Registrert av</th></tr></thead><tbody id="d-events"></tbody></table></div>
+    </div>
+
+    <div class="card">
+      <div class="ct"><div class="ca" style="background:var(--green)"></div>Skiftrapporter <span class="sub" id="d-sr-n"></span></div>
+      <div class="tw"><table><thead><tr><th>Dato</th><th>Linje</th><th>Skift</th><th class="num">Produsert</th><th class="num">Bestilt</th><th class="num">Plan t</th><th class="num">Hastighet</th><th class="num">Bemanning</th><th class="num">Svinn kg</th><th class="num">Rework kg</th><th>Kommentar</th><th>Signatur</th></tr></thead><tbody id="d-shifts"></tbody></table></div>
+    </div>
+  </div>
+</main>
+
+<script>
+const LINES=['Løp 1','Løp 2','Løp 3','Rollo','Koba','Glacier','Krokan'];
+const FB={apiKey:"AIzaSyCL4x1KNwgeDxqTFeP32BndJgH4B5MworQ",authDomain:"messystem-f14dd.firebaseapp.com",databaseURL:"https://messystem-f14dd-default-rtdb.firebaseio.com",projectId:"messystem-f14dd",storageBucket:"messystem-f14dd.firebasestorage.app",messagingSenderId:"1001051250309",appId:"1:1001051250309:web:0b2d82db50e8fd24ce93ec"};
+if(!firebase.apps.length)firebase.initializeApp(FB);
+localStorage.setItem('firebaseConfig',JSON.stringify(FB));
+const db=firebase.database(),auth=firebase.auth();
+
+let USER=null, MY_LINES=LINES.slice(), LINE_SEL='Alle';
+let SETTINGS={}, PROD_HOURLY={}, PRODUCT_HOURLY={}, EVENTS=[], SHIFT_REPORTS={}, ACTIVE={};
+let SORT={k:'name',dir:1}, SELECTED=null, charts={};
+const lk=l=>(l||'').replace(/[\s\/]/g,'_');
+const pad=n=>String(n).padStart(2,'0');
+const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+const fmtN=n=>Math.round(n||0).toLocaleString('no-NO');
+function fmtD(m){m=Math.round(m||0);if(m<60)return m+' m';const h=Math.floor(m/60),r=m%60;return r?h+' t '+r+' m':h+' t';}
+function fmtT(ts){const d=new Date(ts);return pad(d.getDate())+'.'+pad(d.getMonth()+1)+' '+pad(d.getHours())+':'+pad(d.getMinutes());}
+function fmtDate(ts){const d=new Date(ts);return pad(d.getDate())+'.'+pad(d.getMonth()+1)+'.'+d.getFullYear();}
+const lineName=k=>LINES.find(l=>lk(l)===k)||k.replace(/_/g,' ');
+function resetHour(){return parseInt(String((SETTINGS.resetTime)||'00:00').split(':')[0])||0;}
+/* Timebøttene ligger under produksjonsdagen (resetTime). Timer før resetTime hører til neste kalenderdag. */
+function hourTs(dateKey,hh){
+  const p=dateKey.split('-');const h=parseInt(hh,10);
+  const d=new Date(+p[0],+p[1]-1,+p[2],h,0,0);
+  if(h<resetHour())d.setDate(d.getDate()+1);
+  return d.getTime();
+}
+
+/* ── AUTH ── */
+auth.onAuthStateChanged(async user=>{
+  if(!user){location.href='login.html';return;}
+  const snap=await db.ref('users/'+user.uid).once('value');
+  USER=snap.exists()?snap.val():null;
+  const role=USER&&USER.role;
+  document.getElementById('ubadge').textContent=(USER?USER.name:'')+' · '+(role==='master'?'Master':role==='leder'?'Leder':'Operatør');
+  if(role!=='master'&&role!=='leder'){document.getElementById('gate').style.display='block';return;}
+  if(role==='leder'){const mine=(USER.lines||[]).filter(l=>LINES.includes(l));if(mine.length)MY_LINES=mine;}
+  document.getElementById('app').style.display='block';
+  renderLineChips();
+  startListeners();
+});
+let started=false;
+function startListeners(){
+  if(started)return;started=true;
+  db.ref('settings').on('value',s=>{SETTINGS=s.val()||{};sched();});
+  db.ref('production').on('value',s=>{const m={};if(s.exists())s.forEach(ds=>{m[ds.key]={};ds.forEach(ls=>{const v=ls.val()||{};if(v.hourly)m[ds.key][ls.key]=v.hourly;});});PROD_HOURLY=m;sched();});
+  db.ref('productHourly').on('value',s=>{PRODUCT_HOURLY=s.val()||{};sched();});
+  db.ref('events').on('value',s=>{const a=[];if(s.exists())s.forEach(c=>{const v=c.val();if(v&&v.ts&&v.line)a.push(Object.assign({id:c.key},v));});EVENTS=a.sort((x,y)=>x.ts-y.ts);sched();});
+  db.ref('shiftReports').on('value',s=>{SHIFT_REPORTS=s.val()||{};sched();});
+  db.ref('active_product').on('value',s=>{ACTIVE=s.val()||{};sched();});
+}
+let _t=null;function sched(){if(_t)return;_t=setTimeout(()=>{_t=null;render();},150);}
+
+/* ── FILTRE ── */
+function renderLineChips(){
+  const c=document.getElementById('lines');c.innerHTML='';
+  ['Alle'].concat(MY_LINES).forEach(l=>{
+    const b=document.createElement('button');b.className='chip'+(LINE_SEL===l?' on':'');b.textContent=l==='Alle'?'Alle linjer':l;
+    b.onclick=()=>{LINE_SEL=l;renderLineChips();render();};c.appendChild(b);
+  });
+}
+document.getElementById('q').addEventListener('input',()=>render());
+document.getElementById('period').addEventListener('change',()=>render());
+document.getElementById('dq').addEventListener('input',()=>{if(SELECTED)renderDetail(SELECTED);});
+document.querySelectorAll('#ptbl th').forEach(th=>th.addEventListener('click',()=>{
+  const k=th.getAttribute('data-k');if(!k)return;
+  if(SORT.k===k)SORT.dir=-SORT.dir;else{SORT.k=k;SORT.dir=(k==='name'||k==='line'||k==='artNr'||k==='group')?1:-1;}
+  document.querySelectorAll('#ptbl th').forEach(x=>x.classList.toggle('sorted',x===th));render();
+}));
+function periodStart(){const d=parseInt(document.getElementById('period').value)||0;return d?Date.now()-d*86400000:0;}
+function evtProduct(e){
+  if(e.product)return e.product;
+  const d=new Date(e.ts);const dk=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+  const sr=(SHIFT_REPORTS[dk]||{})[lk(e.line)];return (sr&&sr.produkt)||'';
+}
+
+/* ── KJØRINGER ──
+   Alle stemplede timer per linje sorteres på absolutt tid; sammenhengende timer
+   med samme produkt er én kjøring. Nedetid hentes fra hendelser i tidsrommet. */
+function buildRuns(){
+  const perLine={};
+  Object.keys(PRODUCT_HOURLY).forEach(dk=>{
+    const lines=PRODUCT_HOURLY[dk]||{};
+    Object.keys(lines).forEach(lkey=>{
+      const hrs=lines[lkey]||{};
+      Object.keys(hrs).forEach(hh=>{
+        const prod=hrs[hh];if(!prod)return;
+        const dpk=parseFloat(((PROD_HOURLY[dk]||{})[lkey]||{})[hh])||0;
+        (perLine[lkey]=perLine[lkey]||[]).push({ts:hourTs(dk,hh),prod,dpk});
+      });
+    });
+  });
+  const runs=[];
+  Object.keys(perLine).forEach(lkey=>{
+    const hrs=perLine[lkey].sort((a,b)=>a.ts-b.ts);
+    let cur=null;
+    hrs.forEach(h=>{
+      if(cur&&cur.prod===h.prod&&h.ts-cur.end===3600000){cur.end=h.ts;cur.hours.push(h.dpk);}
+      else{cur={lkey,line:lineName(lkey),prod:h.prod,start:h.ts,end:h.ts,hours:[h.dpk]};runs.push(cur);}
+    });
+  });
+  runs.forEach(r=>{
+    r.n=r.hours.length;r.dpack=r.hours.reduce((a,b)=>a+b,0);r.avg=r.dpack/r.n;
+    r.best=Math.max.apply(null,r.hours);
+    const f2=r.hours.slice(0,2);r.first2=f2.reduce((a,b)=>a+b,0)/f2.length;
+    const a=r.start,b=r.end+3600000;
+    r.events=EVENTS.filter(e=>e.line===r.line&&e.ts<b&&e.ts+(e.duration||0)*60000>a);
+    r.down=0;r.startDown=0;
+    r.events.forEach(e=>{const s=e.ts,t=e.ts+(e.duration||0)*60000;
+      r.down+=Math.max(0,Math.min(t,b)-Math.max(s,a))/60000;
+      r.startDown+=Math.max(0,Math.min(t,a+7200000)-Math.max(s,a))/60000;});
+    const c={};r.events.forEach(e=>{c[e.cause]=(c[e.cause]||0)+(e.duration||0);});
+    r.topCause=Object.keys(c).sort((x,y)=>c[y]-c[x])[0]||'';
+  });
+  return runs.sort((a,b)=>b.start-a.start);
+}
+function productDefs(){
+  const out=[];const seen={};
+  MY_LINES.forEach(line=>{
+    ((SETTINGS.products||{})[lk(line)]||[]).forEach(p=>{
+      if(!p||!p.name)return;
+      const key=lk(line)+'|'+p.name;if(seen[key])return;seen[key]=1;
+      out.push({key,line,lkey:lk(line),name:p.name,artNr:p.artNr||'',group:p.group||'',
+        maxRate:(p.teknKapasitet>0&&p.stkPerDpack>0)?p.teknKapasitet/p.stkPerDpack:0,
+        stk:p.stkPerDpack||'',kap:p.teknKapasitet||'',epd:p.eskerPerDpack||''});
+    });
+  });
+  return out;
+}
+let ROWS=[];
+function render(){
+  const since=periodStart();
+  const runsAll=buildRuns().filter(r=>r.start>=since);
+  const q=(document.getElementById('q').value||'').trim().toLowerCase();
+  const defs=productDefs();
+  // Produkter som er kjørt men ikke ligger i produktdatabasen tas med, så ingenting forsvinner
+  runsAll.forEach(r=>{if(MY_LINES.includes(r.line)&&!defs.find(d=>d.lkey===r.lkey&&d.name===r.prod))defs.push({key:r.lkey+'|'+r.prod,line:r.line,lkey:r.lkey,name:r.prod,artNr:'',group:'(ikke i produktdatabasen)',maxRate:0});});
+  ROWS=defs.filter(d=>LINE_SEL==='Alle'||d.line===LINE_SEL).map(d=>{
+    const runs=runsAll.filter(r=>r.lkey===d.lkey&&r.prod===d.name);
+    const hours=runs.reduce((s,r)=>s+r.n,0), dpack=runs.reduce((s,r)=>s+r.dpack,0);
+    const down=runs.reduce((s,r)=>s+r.down,0), startDown=runs.reduce((s,r)=>s+r.startDown,0);
+    const avg=hours?dpack/hours:0;
+    const eff=(d.maxRate>0&&hours)?avg/d.maxRate*100:null;
+    const shifts=[];Object.keys(SHIFT_REPORTS).forEach(dk=>{const r=(SHIFT_REPORTS[dk]||{})[d.lkey];if(r&&r.produkt===d.name&&new Date(dk).getTime()>=since)shifts.push(Object.assign({date:dk},r));});
+    const svinn=shifts.reduce((s,r)=>s+(parseFloat(r.svinnSumKg)||parseFloat(r.svinn)||0),0);
+    return Object.assign({},d,{runs:runs.length,hours,dpack,avg,eff,down,downPerRun:runs.length?down/runs.length:0,startDown:runs.length?startDown/runs.length:0,svinn,last:runs.length?runs[0].start:0,_runs:runs,_shifts:shifts});
+  }).filter(d=>!q||(d.artNr+' '+d.name+' '+d.group+' '+d.line).toLowerCase().includes(q));
+  const k=SORT.k;
+  ROWS.sort((a,b)=>{const x=a[k],y=b[k];if(x==null&&y==null)return 0;if(x==null)return 1;if(y==null)return -1;return (typeof x==='string'?x.localeCompare(y,'no'):x-y)*SORT.dir;});
+  document.getElementById('cnt').textContent=ROWS.length+' produkt'+(ROWS.length===1?'':'er')+' · '+runsAll.length+' kjøringer i perioden';
+  const tb=document.getElementById('pbody');tb.innerHTML='';
+  if(!ROWS.length){tb.innerHTML='<tr><td colspan="15" class="empty">Ingen produkter matcher.</td></tr>';}
+  ROWS.forEach(d=>{
+    const tr=document.createElement('tr');tr.className='pr'+(SELECTED===d.key?' sel':'');
+    const effC=d.eff==null?'':d.eff>100?'warn':d.eff>=85?'good':d.eff>=60?'warn':'bad';
+    tr.innerHTML='<td>'+esc(d.line)+'</td><td>'+esc(d.artNr)+'</td><td><b>'+esc(d.name)+'</b></td><td class="sub">'+esc(d.group)+'</td>'
+      +'<td class="num">'+(d.maxRate?fmtN(d.maxRate):'—')+'</td><td class="num">'+d.runs+'</td><td class="num">'+d.hours+'</td>'
+      +'<td class="num">'+fmtN(d.dpack)+'</td><td class="num">'+(d.hours?fmtN(d.avg):'—')+'</td><td class="num '+effC+'"><b>'+(d.eff!=null?Math.round(d.eff)+' %':'—')+'</b></td>'
+      +'<td class="num">'+(d.down?fmtD(d.down):'—')+'</td><td class="num">'+(d.runs?fmtD(d.downPerRun):'—')+'</td><td class="num">'+(d.runs?fmtD(d.startDown):'—')+'</td>'
+      +'<td class="num">'+(d.svinn?d.svinn.toLocaleString('no-NO'):'—')+'</td><td class="sub">'+(d.last?fmtDate(d.last):'—')+'</td>';
+    tr.addEventListener('click',()=>{SELECTED=d.key;render();renderDetail(d.key);document.getElementById('detail').scrollIntoView({behavior:'smooth',block:'start'});});
+    tb.appendChild(tr);
+  });
+  if(SELECTED)renderDetail(SELECTED);
+}
+
+/* ── DETALJ ── */
+function renderDetail(key){
+  const d=ROWS.find(x=>x.key===key);
+  const box=document.getElementById('detail');
+  if(!d){box.style.display='none';return;}
+  box.style.display='';
+  const dq=(document.getElementById('dq').value||'').trim().toLowerCase();
+  const hit=s=>!dq||String(s).toLowerCase().includes(dq);
+  document.getElementById('d-title').textContent='Historikk — '+d.name;
+  document.getElementById('d-name').textContent=(d.artNr?'('+d.artNr+') ':'')+d.name;
+  document.getElementById('d-meta').textContent=d.line+' · '+(d.group||'—')+' · Tekn.kap '+(d.kap||'—')+' stk/t · '+(d.stk||'—')+' stk/dpack'+(d.epd?' · '+d.epd+' esker/dpack':'')+' → maks '+(d.maxRate?fmtN(d.maxRate):'—')+' dpack/t';
+  const runs=d._runs, shifts=d._shifts;
+  const evs=EVENTS.filter(e=>e.line===d.line&&e.ts>=periodStart()&&evtProduct(e)===d.name);
+  const produced=shifts.reduce((s,r)=>s+(parseFloat(r.antallProdusert)||0),0);
+  const bestRun=runs.length?Math.max.apply(null,runs.map(r=>r.avg)):0;
+  const first2=runs.length?runs.reduce((s,r)=>s+r.first2,0)/runs.length:0;
+  const kp=[
+    ['Kjøringer',runs.length,'i perioden'],
+    ['Timer logget',d.hours,fmtN(d.dpack)+' dpack'],
+    ['Snitt dpack/t',d.hours?fmtN(d.avg):'—','beste kjøring '+fmtN(bestRun)],
+    ['Effektivitet',d.eff!=null?Math.round(d.eff)+' %':'—',d.maxRate?'av '+fmtN(d.maxRate)+' dpk/t':'mangler kapasitet'],
+    ['2 første timer',runs.length?fmtN(first2)+' /t':'—',d.maxRate&&runs.length?Math.round(first2/d.maxRate*100)+' % av kap.':'oppstartstempo'],
+    ['Nedetid',fmtD(d.down),evs.length+' hendelser'],
+    ['Per kjøring',runs.length?fmtD(d.downPerRun):'—','snitt'],
+    ['Ved oppstart',runs.length?fmtD(d.startDown):'—','2 første timer, snitt'],
+    ['Skiftrapporter',shifts.length,produced?fmtN(produced)+' produsert':''],
+    ['Svinn',d.svinn?d.svinn.toLocaleString('no-NO')+' kg':'—',shifts.length?(d.svinn/Math.max(1,shifts.length)).toFixed(1)+' kg per skift':'']
+  ];
+  document.getElementById('d-kpis').innerHTML=kp.map(x=>'<div class="kpi"><div class="kl">'+x[0]+'</div><div class="kv">'+x[1]+'</div><div class="ks">'+esc(x[2])+'</div></div>').join('');
+
+  // grafer (eldste først)
+  const rs=runs.slice().reverse();
+  const labels=rs.map(r=>fmtDate(r.start).slice(0,5)+' '+pad(new Date(r.start).getHours()));
+  drawChart('ch-eff','line',labels,rs.map(r=>d.maxRate?Math.round(r.avg/d.maxRate*100):null),'#0d9488');
+  drawChart('ch-down','bar',labels,rs.map(r=>Math.round(r.down)),'#dc2626');
+
+  // kjøringer
+  const fr=runs.filter(r=>hit(fmtT(r.start)+' '+r.line+' '+r.topCause));
+  document.getElementById('d-runs-n').textContent=fr.length+' av '+runs.length;
+  document.getElementById('d-runs').innerHTML=fr.length?fr.map(r=>{
+    const eff=d.maxRate?Math.round(r.avg/d.maxRate*100):null;
+    return '<tr><td>'+fmtT(r.start)+'</td><td>'+fmtT(r.end+3600000)+'</td><td>'+esc(r.line)+'</td><td class="num">'+r.n+'</td><td class="num">'+fmtN(r.dpack)+'</td><td class="num"><b>'+fmtN(r.avg)+'</b></td><td class="num">'+fmtN(r.first2)+'</td><td class="num">'+fmtN(r.best)+'</td>'
+      +'<td class="num '+(eff==null?'':eff>=85?'good':eff>=60?'warn':'bad')+'">'+(eff!=null?eff+' %':'—')+'</td><td class="num">'+r.events.length+'</td><td class="num">'+(r.down?fmtD(r.down):'—')+'</td><td class="num">'+(r.startDown?fmtD(r.startDown):'—')+'</td><td class="sub">'+esc(r.topCause||'—')+'</td></tr>';
+  }).join(''):'<tr><td colspan="13" class="empty">Ingen kjøringer logget. Kjøringer registreres når dashbordet står åpent med produktet aktivt.</td></tr>';
+
+  // årsaker
+  const agg={};evs.forEach(e=>{const k=(e.cause||'—')+'|'+(e.machine||'—');const a=agg[k]=agg[k]||{cause:e.cause||'—',machine:e.machine||'—',n:0,min:0};a.n++;a.min+=e.duration||0;});
+  const tot=Object.values(agg).reduce((s,a)=>s+a.min,0)||1;
+  const ca=Object.values(agg).sort((a,b)=>b.min-a.min).filter(a=>hit(a.cause+' '+a.machine));
+  document.getElementById('d-causes').innerHTML=ca.length?ca.map(a=>'<tr><td>'+esc(a.cause)+'</td><td class="sub">'+esc(a.machine)+'</td><td class="num">'+a.n+'</td><td class="num"><b>'+fmtD(a.min)+'</b></td><td class="num">'+Math.round(a.min/tot*100)+' %</td></tr>').join(''):'<tr><td colspan="5" class="empty">Ingen hendelser knyttet til produktet.</td></tr>';
+
+  // produktbytter (active_product/{lk}/history)
+  const ch=[];Object.keys(ACTIVE).forEach(lkey=>{const h=(ACTIVE[lkey]||{}).history||{};Object.keys(h).forEach(id=>{const x=h[id];if(x&&(x.to===d.name||x.from===d.name)&&lkey===d.lkey&&(x.ts||0)>=periodStart())ch.push(x);});});
+  ch.sort((a,b)=>(b.ts||0)-(a.ts||0));
+  const fch=ch.filter(x=>hit((x.from||'')+' '+(x.to||'')+' '+(x.byName||'')));
+  document.getElementById('d-changes').innerHTML=fch.length?fch.map(x=>'<tr><td>'+fmtT(x.ts)+'</td><td>'+esc(lineName(d.lkey))+'</td><td class="sub">'+esc(x.from||'—')+'</td><td><b>'+esc(x.to||'—')+'</b></td><td class="sub">'+esc(x.byName||'—')+(x.at&&Math.abs(x.at-x.ts)>10*60000?' <span class="tag">etterregistrert '+fmtT(x.at)+'</span>':'')+'</td></tr>').join(''):'<tr><td colspan="5" class="empty">Ingen bytter logget ennå (loggen startet 24.09.2026).</td></tr>';
+
+  // hendelser
+  const fe=evs.slice().reverse().filter(e=>hit(fmtT(e.ts)+' '+e.line+' '+(e.machine||'')+' '+(e.cause||'')+' '+(e.comment||'')+' '+(e.handledBy||'')));
+  document.getElementById('d-ev-n').textContent=fe.length+' av '+evs.length;
+  document.getElementById('d-events').innerHTML=fe.length?fe.map(e=>'<tr><td>'+fmtT(e.ts)+'</td><td>'+esc(e.line)+'</td><td>'+esc(e.machine||'—')+'</td><td>'+esc(e.cause||'')+(e.source==='opc'?' <span class="tag">auto</span>':'')+'</td><td class="num">'+fmtD(e.duration)+'</td><td class="sub">'+esc(e.comment||'')+(e.editedByName?' <span class="tag">redigert av '+esc(e.editedByName)+'</span>':'')+'</td><td class="sub">'+esc(e.handledBy||'')+'</td></tr>').join(''):'<tr><td colspan="7" class="empty">Ingen hendelser.</td></tr>';
+
+  // skiftrapporter
+  const fs=shifts.sort((a,b)=>b.date.localeCompare(a.date)).filter(r=>hit(r.date+' '+(r.skift||'')+' '+(r.kommentar||'')+' '+(r.signatur||'')));
+  document.getElementById('d-sr-n').textContent=fs.length+' av '+shifts.length;
+  document.getElementById('d-shifts').innerHTML=fs.length?fs.map(r=>'<tr><td>'+r.date.split('-').reverse().join('.')+'</td><td>'+esc(d.line)+'</td><td>'+esc(r.skift||'—')+'</td><td class="num">'+(r.antallProdusert?fmtN(r.antallProdusert):'—')+'</td><td class="num">'+(r.antallBestilt?fmtN(r.antallBestilt):'—')+'</td><td class="num">'+(r.planlagteTimer||'—')+'</td><td class="num">'+(r.hastighet||'—')+'</td><td class="num">'+(r.bemanning||'—')+'</td><td class="num">'+(r.svinnSumKg||r.svinn||'—')+'</td><td class="num">'+(r.reworkKg||'—')+'</td><td class="sub">'+esc(r.kommentar||'')+'</td><td class="sub">'+esc(r.signatur||'')+'</td></tr>').join(''):'<tr><td colspan="12" class="empty">Ingen skiftrapporter med dette produktet.</td></tr>';
+}
+function drawChart(id,type,labels,data,color){
+  const ctx=document.getElementById(id);if(!ctx)return;
+  if(charts[id])charts[id].destroy();
+  const dark=document.documentElement.getAttribute('data-theme')==='dark';
+  charts[id]=new Chart(ctx,{type,data:{labels,datasets:[{data,borderColor:color,backgroundColor:type==='bar'?color+'cc':color+'22',fill:type==='line',tension:.3,pointRadius:3,spanGaps:true}]},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false}},
+      scales:{x:{ticks:{font:{size:10},color:dark?'#7d8898':'#8a95a8',maxRotation:0,autoSkip:true},grid:{display:false}},
+              y:{beginAtZero:true,ticks:{font:{size:10},color:dark?'#7d8898':'#8a95a8'},grid:{color:dark?'rgba(255,255,255,.06)':'rgba(0,0,0,.05)'}}}}});
+}
+</script>
+</body>
+</html>

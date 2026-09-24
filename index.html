@@ -268,6 +268,7 @@ table,#eff-kpi-eff,#eff-kpi-nd,.klbl,.ksub{font-variant-numeric:tabular-nums;fon
 <link rel="stylesheet" href="theme.css"/>
 <script src="theme.js"></script>
 <script src="time24.js"></script>
+<script src="nav.js"></script>
 </head>
 <body>
 <nav>
@@ -275,6 +276,7 @@ table,#eff-kpi-eff,#eff-kpi-nd,.klbl,.ksub{font-variant-numeric:tabular-nums;fon
   <a href="index.html" class="nl on">Dashboard</a>
   <a href="dashbord.html" class="nl" id="nav-dash">Dashbord-oppsett</a>
   <a href="rapporter.html" class="nl" id="nav-rap" style="display:none">Rapporter</a>
+  <a href="produkter.html" class="nl" id="nav-prod" style="display:none">Produkter</a>
   <a href="skiftrapport.html" class="nl" id="nav-skift" style="display:none">Skiftrapport</a>
   <a href="import.html" class="nl" id="nav-import" style="display:none">Import</a>
   <a href="innstillinger.html" class="nl" id="nav-set" style="display:none">Innstillinger</a>
@@ -314,6 +316,7 @@ table,#eff-kpi-eff,#eff-kpi-nd,.klbl,.ksub{font-variant-numeric:tabular-nums;fon
       <select class="prod-select" id="active-product" onchange="onProductChange()">
         <option value="">— Velg produkt —</option>
       </select>
+      <div id="prod-since" style="font-size:10px;opacity:.8;margin-top:3px"></div>
     </div>
   </div>
   <div class="prod-card" style="margin-left:.5rem">
@@ -798,11 +801,22 @@ prodRef.on('value',snap=>{
   renderAll();
 });
 activeRef.off('value');
+let ACTIVE_FULL={};
 activeRef.on('value',snap=>{
-  const m={};
-  if(snap.exists())snap.forEach(ls=>{m[ls.key]=(ls.val()&&ls.val().product)||null;});
-  ACTIVE_PROD=m; renderAll(); stampProductHour();
+  const m={},full={};
+  if(snap.exists())snap.forEach(ls=>{m[ls.key]=(ls.val()&&ls.val().product)||null;full[ls.key]=ls.val()||{};});
+  ACTIVE_PROD=m; ACTIVE_FULL=full; renderAll(); stampProductHour(); renderProdSince();
 });
+/* «Kjører siden 06:00 · satt av Ola» under produktvelgeren */
+function renderProdSince(){
+  const el=document.getElementById('prod-since'); if(!el)return;
+  const line=filterLine==='Alle'?null:filterLine;
+  const a=line?ACTIVE_FULL[lk(line)]:null;
+  if(!a||!a.product){el.textContent='';return;}
+  el.textContent=(a.setAt?'siden '+fmtT(a.setAt):'')+(a.setByName?' · satt av '+a.setByName:'');
+  const sel=document.getElementById('active-product');
+  if(sel&&sel.value!==a.product&&!PM_PENDING)sel.value=a.product;
+}
 
 // ── KALIBRERINGS-BEHANDLINGER (effektivitet over 100%) ──
 db.ref('calibrationReviews').on('value',snap=>{
@@ -1603,19 +1617,60 @@ function getProducts(line){
   return SETTINGS.products?.[line.replace(/[\s\/]/g,'_')]||[];
 }
 
+/* ── PRODUKTBYTTE ──
+   Feil produkt på linja ødelegger effektivitet, OEE og nedetid-per-produkt. Derfor
+   bekreftes byttet i en modal som viser hva som kjører nå (siden når, satt av hvem)
+   og hva det byttes til. Tidspunktet kan settes bakover i dag hvis man glemte å
+   bytte — da stemples timene siden da om på det nye produktet, og loggen under
+   active_product/{lk}/history får posten merket som etterregistrert. */
+let PM_PENDING=null;
 function onProductChange(){
   const sel=document.getElementById('active-product');
   const prod=sel.value;
   const line=filterLine==='Alle'?null:filterLine;
   if(!line)return;
-  // Save active product to Firebase
-  if(db&&prod){
-    db.ref('active_product/'+line.replace(/[\s\/]/g,'_')).set({
-      product:prod,
-      setAt:Date.now()
-    });
-  }
-  updateProductCounter();
+  const cur=ACTIVE_FULL[lk(line)]||{};
+  if(!prod||prod===cur.product){sel.value=cur.product||'';return;}
+  PM_PENDING={line,from:cur.product||'',to:prod,fromSince:cur.setAt||null,fromBy:cur.setByName||''};
+  document.getElementById('pm-line').textContent=line;
+  document.getElementById('pm-from').textContent=PM_PENDING.from?PM_PENDING.from+(PM_PENDING.fromSince?' — siden '+fmtT(PM_PENDING.fromSince):'')+(PM_PENDING.fromBy?' (satt av '+PM_PENDING.fromBy+')':''):'Ingen produkt satt';
+  document.getElementById('pm-to').textContent=prod;
+  const n=new Date();document.getElementById('pm-time').value=pad(n.getHours())+':'+pad(n.getMinutes());
+  const err=document.getElementById('pm-error');err.style.display='none';
+  document.getElementById('prod-modal').classList.add('on');
+}
+function cancelProductChange(){
+  const sel=document.getElementById('active-product');
+  if(PM_PENDING)sel.value=PM_PENDING.from||'';
+  PM_PENDING=null;
+  document.getElementById('prod-modal').classList.remove('on');
+}
+async function confirmProductChange(){
+  const p=PM_PENDING; if(!p)return;
+  const err=document.getElementById('pm-error');
+  const tv=document.getElementById('pm-time').value;
+  const m=/^(\d{2}):(\d{2})$/.exec(tv||'');
+  if(!m){err.textContent='Sett klokkeslettet byttet skjedde';err.style.display='';return;}
+  const ts=new Date();ts.setHours(+m[1],+m[2],0,0);
+  let t=ts.getTime();
+  if(t>Date.now()+60000){err.textContent='Klokkeslettet er i framtida';err.style.display='';return;}
+  if(t>Date.now())t=Date.now();
+  const lkey=lk(p.line);
+  const by=(auth.currentUser&&auth.currentUser.uid)||'', byName=(myProfile&&myProfile.name)||'';
+  try{
+    await db.ref('active_product/'+lkey).update({product:p.to,setAt:t,setBy:by,setByName:byName,prev:p.from||''});
+    await db.ref('active_product/'+lkey+'/history').push({from:p.from||'',to:p.to,ts:t,at:Date.now(),by,byName});
+    // Stemple timene fra byttet og fram til nå om på det nye produktet
+    const upd={};
+    for(let h=new Date(t);h.getTime()<=Date.now();h.setHours(h.getHours()+1)){
+      upd[prodDayKeyFor(h)+'/'+lkey+'/'+pad(h.getHours())]=p.to;
+    }
+    if(Object.keys(upd).length)await db.ref('productHourly').update(upd);
+    PM_PENDING=null;
+    document.getElementById('prod-modal').classList.remove('on');
+    showToast('Produkt byttet til '+p.to);
+    updateProductCounter();
+  }catch(e){err.textContent='Kunne ikke lagre byttet';err.style.display='';}
 }
 
 function updateProductCounter(){
@@ -1663,10 +1718,10 @@ function updateProductSelector(line){
   // Load saved active product
   const lk=line.replace(/[\s\/]/g,'_');
   db.ref('active_product/'+lk).once('value').then(snap=>{
-    if(snap.exists()&&snap.val().product){
+    if(snap.exists()&&snap.val().product&&!PM_PENDING){
       sel.value=snap.val().product;
     }
-    updateProductCounter();
+    updateProductCounter();renderProdSince();
   });
 }
 
@@ -3130,6 +3185,24 @@ function chatKey(e){if(e.key==='Enter'){e.preventDefault();chatSend();}}
 </style>
 
 <!-- Slettesøknad -->
+<div class="mover" id="prod-modal">
+  <div class="hmodal" style="width:460px">
+    <h3>Bytte produkt?</h3>
+    <div class="hmodal-sub" id="pm-line">—</div>
+    <div style="display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:13px;margin:.6rem 0">
+      <div style="color:var(--text3)">Kjører nå</div><div id="pm-from" style="font-weight:600">—</div>
+      <div style="color:var(--text3)">Bytter til</div><div id="pm-to" style="font-weight:600;color:var(--accent)">—</div>
+    </div>
+    <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">Byttet skjedde kl. <span style="color:var(--text3)">(i dag — sett riktig tid hvis du glemte å bytte)</span></label>
+    <input class="dash-field" type="time" id="pm-time" style="max-width:140px">
+    <div style="font-size:11px;color:var(--text3);margin-top:6px;line-height:1.5">Tellingen fra dette klokkeslettet føres på det nye produktet. Byttet logges med navnet ditt.</div>
+    <div id="pm-error" style="display:none;font-size:12px;color:var(--red);margin-top:.4rem;font-weight:600"></div>
+    <div style="display:flex;gap:8px;margin-top:1rem">
+      <button class="dash-btn" style="flex:1;justify-content:center;background:var(--accent);color:#fff;border-color:var(--accent)" id="pm-ok">Bekreft bytte</button>
+      <button class="dash-btn" style="flex:1;justify-content:center" id="pm-cancel">Avbryt</button>
+    </div>
+  </div>
+</div>
 <div class="mover" id="edit-modal">
   <div class="hmodal">
     <h3>✎ Rediger hendelse</h3>
@@ -3219,6 +3292,9 @@ document.getElementById('chat-input').addEventListener('keydown',chatKey);
 document.getElementById('dash-close-btn').addEventListener('click',closeDashModal);
 document.getElementById('dash-open-btn').addEventListener('click',openDashModal);
 document.getElementById('dr-send').addEventListener('click',submitDreq);
+document.getElementById('pm-ok').addEventListener('click',confirmProductChange);
+document.getElementById('pm-cancel').addEventListener('click',cancelProductChange);
+document.getElementById('prod-modal').addEventListener('click',function(ev){if(ev.target===this)cancelProductChange();});
 document.getElementById('ed-machine').addEventListener('change',function(){document.getElementById('ed-cause').value='';fillEdCauses();});
 document.getElementById('ed-save').addEventListener('click',saveEdit);
 document.getElementById('ed-cancel').addEventListener('click',closeEditModal);
