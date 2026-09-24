@@ -78,3 +78,61 @@ html[data-theme="dark"] .hcell.empty { background: var(--bg3); color: var(--text
   padding: 4px 9px; cursor: pointer; color: var(--text3); font-family: inherit; line-height: 1;
 }
 .theme-btn:hover { color: var(--text); border-color: var(--text3); }
+
+/* ── Gjennomgang 24.09.2026: faste pastellfarger som ble uleselige i mørk modus ──
+   Fem familier (rød/gul/grønn/blå/lilla) + rene hvite flater. Inline-stiler
+   treffes via [style*=…], derfor !important der. */
+
+/* Rødt */
+html[data-theme="dark"] .line-bar-card.sel, html[data-theme="dark"] .effcal:hover, html[data-theme="dark"] .dbtn:hover,
+html[data-theme="dark"] .rdel:hover, html[data-theme="dark"] .pi-del:hover, html[data-theme="dark"] .del:hover,
+html[data-theme="dark"] .br, html[data-theme="dark"] .cal-tag.r, html[data-theme="dark"] .err,
+html[data-theme="dark"] .dbtn[class="dbtn"] {
+  background: rgba(220,38,38,.16); border-color: rgba(220,38,38,.45); color: #fca5a5;
+}
+html[data-theme="dark"] .line-bar-card.sel { border-color: var(--accent); color: var(--text); }
+
+/* Gult / oransje */
+html[data-theme="dark"] .ba, html[data-theme="dark"] .rdel-ask:hover, html[data-theme="dark"] .b-un,
+html[data-theme="dark"] .note, html[data-theme="dark"] #preview-bar,
+html[data-theme="dark"] [style*="background:#fffbeb"], html[data-theme="dark"] [style*="background:#fef3c7"] {
+  background: rgba(217,119,6,.14) !important; border-color: rgba(217,119,6,.45) !important; color: #fcd34d !important;
+}
+html[data-theme="dark"] .ub-text { color: #fcd34d; }
+html[data-theme="dark"] .ub-sub { color: #fbbf24; }
+html[data-theme="dark"] .unhandled-banner { background: #2a1f0a; box-shadow: 0 4px 16px rgba(0,0,0,.5); }
+
+/* Grønt */
+html[data-theme="dark"] .bg2c, html[data-theme="dark"] .ban-g, html[data-theme="dark"] .he-done,
+html[data-theme="dark"] .bg, html[data-theme="dark"] .b-ok,
+html[data-theme="dark"] [style*="background:#f0fdf4"] {
+  background: rgba(22,163,74,.14) !important; border-color: rgba(22,163,74,.45) !important; color: #86efac !important;
+}
+
+/* Blått */
+html[data-theme="dark"] .bb, html[data-theme="dark"] .tk-banner, html[data-theme="dark"] .cb,
+html[data-theme="dark"] .lchk.on, html[data-theme="dark"] .b-opc, html[data-theme="dark"] input.auto,
+html[data-theme="dark"] [style*="background:#eff6ff"] {
+  background: rgba(37,99,235,.14) !important; border-color: rgba(37,99,235,.45) !important; color: #93c5fd !important;
+}
+html[data-theme="dark"] .tk-text { color: #93c5fd; }
+
+/* Lilla */
+html[data-theme="dark"] .bpu, html[data-theme="dark"] .ban-p, html[data-theme="dark"] .he-part.planned,
+html[data-theme="dark"] .b-plan {
+  background: rgba(124,58,237,.16) !important; border-color: rgba(124,58,237,.45) !important; color: #c4b5fd !important;
+}
+html[data-theme="dark"] .he-part.planned .he-pt-from, html[data-theme="dark"] .he-part.planned .he-pt-to { background: var(--bg3); }
+
+/* Rene hvite flater */
+html[data-theme="dark"] body { background: var(--bg); }           /* rapporter.html hadde body{background:#fff} */
+html[data-theme="dark"] .effcal, html[data-theme="dark"] .effdismiss,
+html[data-theme="dark"] [style*="background:#fff;"], html[data-theme="dark"] [style*="background:#fff\""] {
+  background: var(--bg3) !important; color: var(--text) !important;
+}
+html[data-theme="dark"] .effdismiss { border-color: var(--border); color: var(--text2); }
+html[data-theme="dark"] .effdismiss:hover, html[data-theme="dark"] .mhdr:hover { background: var(--bg2); }
+html[data-theme="dark"] .effcal { color: #fca5a5; border-color: rgba(220,38,38,.45); }
+
+/* Utskrift skal alltid være lys */
+@media print { html[data-theme="dark"] { --bg:#fff; --bg2:#fff; --bg3:#f5f5f5; --text:#000; --text2:#333; --text3:#666; --border:#ccc; } }

@@ -135,7 +135,7 @@ repoen** — siden er offentlig. `botContext()` sender et kompakt sammendrag, al
 - `dashbord.html` — dashbord-oppsett: bygg maler på et abstrakt lerret (uten levende grafer), og tildel delte maler til brukere. Alle kan lage egne; master ser delte + tildelingstabell
 - `dashboard-widgets.js` — **delt** widget-register brukt av både index.html og dashbord.html. Legges en widget til her, dukker den opp begge steder
 - `login.html` — innlogging
-- `theme.css` / `theme.js` — lys/mørk modus. Lastes av alle sider etter deres `<style>`; `theme.js` setter `data-theme` på `<html>` før tegning og legger en bryter i `nav .ml`. Valget ligger i localStorage (`diplomis.theme`) — per nettleser, ikke per bruker. Bare tokenene og de vanligste status-merkene er overstyrt; enkelte faste pastellfarger forblir lyse.
+- `theme.css` / `theme.js` — lys/mørk modus. Lastes av alle sider etter deres `<style>`; `theme.js` setter `data-theme` på `<html>` før tegning og legger en bryter i `nav .ml`. Valget ligger i localStorage (`diplomis.theme`) — per nettleser, ikke per bruker. Tokenene pluss ALLE faste pastellfarger (rød/gul/grønn/blå/lilla + hvite flater, også inline `style="background:#…"` via `[style*=]`) er overstyrt (24.09.2026). Ny fast lys farge i en side → legg klassen til i riktig familie i theme.css. Utskrift tvinges lys.
 
 - `bridge.py` — OPC-UA→Firebase-bro. Kjører på fabrikk-PC, men vedlikeholdes her. Trenger `bridge_auth.py` ved siden av seg og `py -m pip install opcua`.
 - `bridge_auth.py` — innlogging for broen (se sikkerhetsnotatet).
