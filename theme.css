@@ -136,3 +136,12 @@ html[data-theme="dark"] .effcal { color: #fca5a5; border-color: rgba(220,38,38,.
 
 /* Utskrift skal alltid være lys */
 @media print { html[data-theme="dark"] { --bg:#fff; --bg2:#fff; --bg3:#f5f5f5; --text:#000; --text2:#333; --text3:#666; --border:#ccc; } }
+
+/* ── Aktiv-tilstander (.on) — den generelle «hvit bakgrunn»-overstyringen over slår
+   sidenes egne .on-regler på spesifisitet, så valgt linje/fane/periode ble usynlig. */
+html[data-theme="dark"] .fb.on, html[data-theme="dark"] .qchip.on, html[data-theme="dark"] .chip.on,
+html[data-theme="dark"] .tab.on {
+  background: var(--accent); border-color: var(--accent); color: #fff; box-shadow: none;
+}
+html[data-theme="dark"] .effp-btn.on { background: #0d9488; border-color: #0d9488; color: #fff; }
+html[data-theme="dark"] .date-preset.on { background: var(--blue); border-color: var(--blue); color: #fff; }
