@@ -591,6 +591,13 @@ document.getElementById('clk').textContent=new Date().toLocaleTimeString('no-NO'
 const pad=n=>String(n).padStart(2,'0');
 function fmtD(m){if(!m&&m!==0)return'—';if(m<60)return m+'m';const h=Math.floor(m/60),r=m%60;return r?h+'t '+r+'m':h+'t';}
 function fmtT(ts){const d=new Date(ts);return pad(d.getDate())+'.'+pad(d.getMonth()+1)+' '+pad(d.getHours())+':'+pad(d.getMinutes());}
+/* Perioden stoppet varte: «24.09 10:00–12:00». Går den over midnatt: «23.09 22:30–01:10 (+1)». */
+function fmtSpan(e){
+  const a=new Date(e.ts), b=new Date(e.ts+(e.duration||0)*60000);
+  const hm=d=>pad(d.getHours())+':'+pad(d.getMinutes());
+  const nextDay=b.toDateString()!==a.toDateString()&&(e.duration||0)>0;
+  return pad(a.getDate())+'.'+pad(a.getMonth()+1)+' '+hm(a)+'–'+hm(b)+(nextDay?' (+1)':'');
+}
 function isToday(ts){return new Date(ts).toDateString()===new Date().toDateString();}
 function isWTD(ts){const d=new Date(ts),n=new Date(),s=new Date(n);s.setDate(n.getDate()-((n.getDay()+6)%7));s.setHours(0,0,0,0);return d>=s;}
 function isMTD(ts){const d=new Date(ts),n=new Date();return d.getMonth()===n.getMonth()&&d.getFullYear()===n.getFullYear();}
@@ -1234,9 +1241,13 @@ function renderHist(fil){
     d.innerHTML='<div class="edot" style="background:'+dot+'"></div>'
       +'<div class="einfo"><div class="en">'+e.cause+' <span style="color:var(--text3);font-weight:400">— '+(e.machine||'')+' / '+e.line+'</span>'
       +(e.wholeLine?'<span style="font-size:9px;background:#f0fdf4;color:var(--green);border:1px solid #bbf7d0;border-radius:2px;padding:0 4px;margin-left:4px">hel linje</span>':'')
-      +'</div><div class="em"><span>'+fmtT(e.ts)+'</span><span>'+fmtD(e.duration)+'</span><span class="badge '+badge+'">'+lbl+'</span></div>'
+      +'</div><div class="em"><span>'+fmtSpan(e)+'</span><span>'+fmtD(e.duration)+'</span><span class="badge '+badge+'">'+lbl+'</span></div>'
       +(e.comment?'<div class="ec">'+e.comment+'</div>':'')+'</div>'
-      +'<button class="dbtn" onclick="askDel(\''+e.id+'\',\''+( e.cause||'').replace(/'/g,"\\'")+'\')">✕</button>';
+      +(isStaff()
+        ?'<button class="dbtn" onclick="askDel(\''+e.id+'\',\''+( e.cause||'').replace(/'/g,"\\'")+'\')">✕</button>'
+        :'<button class="dbtn dbtn-ask" title="Be om sletting" data-id="'+e.id+'">🗑</button>');
+    const ask=d.querySelector('.dbtn-ask');
+    if(ask)ask.addEventListener('click',function(){openDreqModal(e.id);});
     el.appendChild(d);
   });
 }
@@ -1251,7 +1262,7 @@ function renderTable(fil){
     const badge=omst?'bg2c':plan?'bpu':bc;
     const lbl=omst?'Omstilling':plan?'Planlagt':sl;
     const tr=document.createElement('tr');
-    tr.innerHTML='<td>'+fmtT(e.ts)+'</td><td>'+e.line+(e.wholeLine?'<span style="font-size:9px;background:#f0fdf4;color:var(--green);border:1px solid #bbf7d0;border-radius:2px;padding:0 3px;margin-left:3px">HL</span>':'')+'</td>'
+    tr.innerHTML='<td style="white-space:nowrap">'+fmtSpan(e)+'</td><td>'+e.line+(e.wholeLine?'<span style="font-size:9px;background:#f0fdf4;color:var(--green);border:1px solid #bbf7d0;border-radius:2px;padding:0 3px;margin-left:3px">HL</span>':'')+'</td>'
       +'<td>'+(e.machine||'—')+'</td><td class="td-prod">'+(evtProduct(e)||'—').replace(/</g,'&lt;')+'</td><td>'+e.cause+'</td><td>'+fmtD(e.duration)+'</td>'
       +'<td><span class="badge '+badge+'">'+lbl+'</span></td><td>'+(e.comment||'—')+'</td>'
       // Direkte sletting av enkelthendelser er en korreksjon, ikke en opprydding —
@@ -2124,7 +2135,7 @@ function openHandleModal(){
       let html='<div class="he-hdr">'
         +'<div class="he-dot"></div>'
         +'<div class="he-title">'+e.line+(isOpc?' — automatisk':' — '+(e.machine||''))+'</div>'
-        +'<div class="he-meta">'+fmtT(e.ts)+' — '+fmtD(e.duration)+'</div>'
+        +'<div class="he-meta">'+fmtSpan(e)+' — '+fmtD(e.duration)+'</div>'
         +'</div>';
       // Produktet som kjørte — forhåndsvalgt fra hendelsen, ellers aktivt produkt nå
       const lineProds=(SETTINGS.products?.[lkey]||[]).map(p=>p.name).filter(Boolean);
@@ -2547,7 +2558,7 @@ function openDreqModal(eventId){
     sel.value=one.line;sel.disabled=true;
     document.getElementById('dr-from').value=dk;document.getElementById('dr-to').value=dk;
     if(rng)rng.style.display='none';
-    if(one_el){one_el.style.display='';one_el.textContent='Gjelder én hendelse: '+fmtT(one.ts)+' · '+(one.machine||'—')+' · '+(one.cause||'')+' · '+fmtD(one.duration);}
+    if(one_el){one_el.style.display='';one_el.textContent='Gjelder én hendelse: '+fmtSpan(one)+' · '+(one.machine||'—')+' · '+(one.cause||'')+' · '+fmtD(one.duration);}
   }else{
     sel.disabled=false;
     if(rng)rng.style.display='';
@@ -2597,7 +2608,7 @@ async function submitDreq(){
     };
     if(DREQ_EVENT){
       req.eventId=DREQ_EVENT.id;
-      req.eventLabel=fmtT(DREQ_EVENT.ts)+' · '+(DREQ_EVENT.machine||'—')+' · '+(DREQ_EVENT.cause||'')+' · '+fmtD(DREQ_EVENT.duration);
+      req.eventLabel=fmtSpan(DREQ_EVENT)+' · '+(DREQ_EVENT.machine||'—')+' · '+(DREQ_EVENT.cause||'')+' · '+fmtD(DREQ_EVENT.duration);
     }
     await db.ref('deleteRequests').push(req);
     closeDreqModal();
