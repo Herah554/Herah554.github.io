@@ -1950,7 +1950,8 @@ function renderProdChart(prodData, dateKeys, LINES_ALL){
         const fullMin=plannedMinFullDay(dayLine,dObj);
         const elapsedMin=plannedMinForDate(dayLine,dObj);
         const remMin=Math.max(0,fullMin-elapsedMin);
-        const produced=eskerFor(dayLine,dkey);
+        // Samme grunnlag som OEE-tallet: bare det som er produsert innenfor planlagt tid
+        const produced=producedInPlan(dayLine,dObj);
         const need=G*maxRate*(fullMin/60)-produced;        // gjenstående dpk for å nå mål
         if(fullMin>0 && remMin>0){
           if(need<=0){
@@ -1959,9 +1960,14 @@ function renderProdChart(prodData, dateKeys, LINES_ALL){
             const reqRate=need/(remMin/60);                // påkrevd dpk/t resten av dagen
             const reqOEE=reqRate/maxRate*100;
             const col=reqOEE>100?'#dc2626':(reqOEE>G*100+10?'#d97706':'#15803d');
+            // Teksten skal si om man ligger foran eller bak: «trenger bare 38 dpk/t» betyr at
+            // mesteparten av dagsmålet alt er produsert, ikke at målet er 12 %.
+            const goalPct=Math.round(G*100);
             const lbl=reqOEE>100
-              ? 'Trenger '+Math.round(reqRate)+' dpk/t (>100%) – vanskelig i dag'
-              : 'Må snitte '+Math.round(reqRate)+' dpk/t (≈'+Math.round(reqOEE)+'% OEE) videre';
+              ? 'Bak mål: trenger '+Math.round(reqRate)+' dpk/t (over kapasitet) for å nå '+goalPct+' % i dag'
+              : reqRate<goalRate
+                ? 'Foran mål: trenger bare '+Math.round(reqRate)+' dpk/t resten av skiftet ('+Math.round(reqOEE)+' % av kap.) for å nå '+goalPct+' % i dag'
+                : 'Bak mål: må snitte '+Math.round(reqRate)+' dpk/t resten av skiftet ('+Math.round(reqOEE)+' % av kap.) for å nå '+goalPct+' % i dag';
             paceLines.push({value:Math.min(reqRate,maxRate),color:col,label:lbl,dash:[6,4],width:2.5,align:'right'});
           }
         }
