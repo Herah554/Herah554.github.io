@@ -201,6 +201,16 @@ table{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
     <div id="speed-body"></div>
   </div>
 
+  <h2>Nedetid per produkt</h2>
+  <div class="card">
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:.5rem">
+      <input id="pd-search" placeholder="Søk på produkt…" oninput="renderProductDowntime()" style="max-width:300px">
+      <span class="autohint" id="pd-period" style="font-size:11px;color:var(--text3)"></span>
+    </div>
+    <div class="autohint" style="margin-bottom:.6rem;font-size:11px;color:var(--text3)">Følger perioden og linja valgt øverst. Produktet lagres på hver hendelse når den registreres eller behandles; for eldre hendelser uten produkt brukes produktet fra skiftrapporten den dagen.</div>
+    <div id="pd-body"></div>
+  </div>
+
   <div id="report-content"><div class="loading">Laster data...</div></div>
 </main>
 
@@ -211,7 +221,7 @@ localStorage.setItem('firebaseConfig',JSON.stringify(FB));
 const db=firebase.database(), auth=firebase.auth();
 
 let EVENTS=[], SETTINGS={defaultDayHours:8,oeeGoal:97,oeeGoals:{},prodPlan:{},products:{},schedule:{}};
-let PROD_ALL={}, ACTIVE_PROD={}, PROD_HOURLY={}, SHIFT_PLAN={};
+let PROD_ALL={}, ACTIVE_PROD={}, PROD_HOURLY={}, SHIFT_PLAN={}, SHIFT_REPORTS={};
 let charts={};
 const LINES=['Løp 1','Løp 2','Løp 3','Rollo','Koba','Glacier','Krokan'];
 const MONTHS=['Januar','Februar','Mars','April','Mai','Juni','Juli','August','September','Oktober','November','Desember'];
@@ -237,6 +247,47 @@ function getOEEForDay(evts_day,line){
   if(line&&line!=='Alle'){return calcOEE(evts_day.filter(e=>e.line===line),getDayPlanMin(line));}
   const vals=LINES.map(l=>calcOEE(evts_day.filter(e=>e.line===l),getDayPlanMin(l))).filter(v=>v!==null);
   return vals.length?vals.reduce((s,v)=>s+v,0)/vals.length:null;
+}
+/* Produkt for en hendelse: eget felt, ellers skiftrapporten for linja den dagen */
+function evtProduct(e){
+  if(e.product)return e.product;
+  const sr=(SHIFT_REPORTS[dateKeyOf(new Date(e.ts))]||{})[lk(e.line)];
+  return (sr&&sr.produkt)||'';
+}
+/* ── NEDETID PER PRODUKT ──
+   Summerer registrert nedetid per produkt i valgt periode og linje. Planlagte
+   stopp og omstillinger tas med men merkes, så man ser hva som er reelle stopp. */
+function renderProductDowntime(){
+  const el=document.getElementById('pd-body'); if(!el)return;
+  const mode=document.getElementById('view-mode').value;
+  const year=parseInt(document.getElementById('sel-year').value)||new Date().getFullYear();
+  const month=parseInt(document.getElementById('sel-month').value);
+  const line=LINE_SEL==='Alle'?null:LINE_SEL;
+  const byMonth=(mode==='month'||mode==='week');
+  const evts=getEvtsFor(year,byMonth?month:null,line);
+  const per=document.getElementById('pd-period');
+  if(per)per.textContent=(byMonth?MONTHS[month]+' '+year:'hele '+year)+' · '+(line||'alle linjer');
+  const q=(document.getElementById('pd-search').value||'').trim().toLowerCase();
+  const planned=new Set(SETTINGS.plannedStops||[]);
+  const agg={};
+  evts.forEach(e=>{
+    const p=evtProduct(e)||'(ukjent produkt)';
+    const a=agg[p]=agg[p]||{n:0,min:0,plan:0,causes:{},lines:{}};
+    a.n++;a.min+=e.duration||0;
+    if(planned.has(e.cause)||/omstilling/i.test(e.cause||''))a.plan+=e.duration||0;
+    a.causes[e.cause]=(a.causes[e.cause]||0)+(e.duration||0);
+    a.lines[e.line]=1;
+  });
+  let names=Object.keys(agg);
+  if(q)names=names.filter(n=>n.toLowerCase().includes(q));
+  if(!names.length){el.innerHTML='<div class="autohint" style="color:var(--text3)">'+(Object.keys(agg).length?'Ingen treff.':'Ingen hendelser i perioden.')+'</div>';return;}
+  const tot=names.reduce((s,n)=>s+agg[n].min,0)||1;
+  names.sort((a,b)=>agg[b].min-agg[a].min);
+  el.innerHTML='<div class="tw"><table><thead><tr><th>Produkt</th><th>Linje</th><th>Hendelser</th><th>Nedetid</th><th>Herav planlagt</th><th>Snitt/hendelse</th><th>Andel</th><th>Største årsak</th></tr></thead><tbody>'
+    +names.map(n=>{const a=agg[n];
+      const top=Object.keys(a.causes).sort((x,y)=>a.causes[y]-a.causes[x])[0]||'—';
+      return '<tr><td>'+_esc(n)+'</td><td style="font-size:11px;color:var(--text3)">'+Object.keys(a.lines).join(', ')+'</td><td>'+a.n+'</td><td><b>'+fmtD(a.min)+'</b></td><td>'+(a.plan?fmtD(a.plan):'—')+'</td><td>'+fmtD(Math.round(a.min/a.n))+'</td><td>'+Math.round(a.min/tot*100)+' %</td><td style="font-size:11px">'+_esc(top)+' <span style="color:var(--text3)">('+fmtD(a.causes[top]||0)+')</span></td></tr>';}).join('')
+    +'</tbody></table></div>';
 }
 function getEvtsFor(year,month=null,line=null){
   return EVENTS.filter(e=>{
@@ -472,6 +523,7 @@ db.ref('active_product').on('value',snap=>{
   if(snap.exists())snap.forEach(ls=>{m[ls.key]=(ls.val()&&ls.val().product)||null;});
   ACTIVE_PROD=m; scheduleRender();
 });
+db.ref('shiftReports').on('value',snap=>{SHIFT_REPORTS=snap.val()||{};scheduleRender();});
 db.ref('events').on('value',snap=>{
   EVENTS=[];
   snap.forEach(c=>EVENTS.push({id:c.key,...c.val()}));
@@ -691,6 +743,7 @@ function render(){
   else if(mode==='compare') renderCompare(year,year2,line);
   renderEffTrend();
   renderSpeedStats();
+  renderProductDowntime();
 }
 
 // ── YEAR VIEW ──

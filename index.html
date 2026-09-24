@@ -183,12 +183,20 @@ td:first-child{font-family:var(--mono);font-size:11px;color:var(--text3)}
 .mcan{flex:1;padding:8px;border:1px solid var(--border);background:var(--bg3);border-radius:var(--r);cursor:pointer;font-size:12px;color:var(--text2)}
 .mcon{flex:1;padding:8px;border:none;background:var(--red);border-radius:var(--r);cursor:pointer;font-size:12px;font-weight:600;color:#fff}
 /* TOAST */
-.unhandled-banner{display:none;background:#fffbeb;border-bottom:2px solid var(--amber);padding:.6rem 1.5rem;align-items:center;gap:10px}
+/* Ubehandlede nedetider skal ikke kunne overses: banneret følger med når man
+   ruller, pulserer, og knappen er stor. */
+.unhandled-banner{display:none;position:sticky;top:0;z-index:150;background:#fef3c7;border-bottom:3px solid var(--amber);padding:.75rem 1.5rem;align-items:center;gap:12px;box-shadow:0 4px 16px rgba(217,119,6,.25);animation:ub-pulse 2s ease-in-out infinite}
 .unhandled-banner.on{display:flex}
-.ub-icon{font-size:16px}
-.ub-text{font-size:13px;font-weight:500;color:#92400e}
-.ub-count{background:var(--amber);color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;font-family:var(--mono)}
-.ub-btn{margin-left:auto;background:var(--amber);border:none;border-radius:var(--r);color:#fff;font-size:12px;font-weight:600;padding:6px 14px;cursor:pointer}
+@keyframes ub-pulse{0%,100%{box-shadow:0 4px 16px rgba(217,119,6,.2)}50%{box-shadow:0 4px 22px rgba(217,119,6,.5)}}
+.ub-icon{font-size:20px}
+.ub-text{font-size:15px;font-weight:700;color:#92400e}
+.ub-sub{font-size:12px;color:#b45309}
+.ub-count{background:var(--red);color:#fff;font-size:13px;font-weight:700;padding:3px 10px;border-radius:99px;font-family:var(--mono)}
+.ub-btn{margin-left:auto;background:var(--amber);border:none;border-radius:var(--r);color:#fff;font-size:14px;font-weight:700;padding:10px 20px;cursor:pointer;box-shadow:0 2px 8px rgba(217,119,6,.35)}
+.rdel-ask{color:var(--amber);font-size:10px;white-space:nowrap}
+.rdel-ask:hover{background:#fef3c7}
+.td-prod{font-size:11px;color:var(--text2);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.he-card.focus{border-color:var(--amber);box-shadow:0 0 0 3px rgba(217,119,6,.2)}
 .ub-btn:hover{opacity:.9}
 .tk-banner{display:none;background:#eff6ff;border-bottom:2px solid var(--blue);padding:.6rem 1.5rem;align-items:center;gap:10px}
 .tk-banner.on{display:flex}
@@ -196,7 +204,8 @@ td:first-child{font-family:var(--mono);font-size:11px;color:var(--text3)}
 .tk-btn{margin-left:auto;background:var(--blue);border:none;border-radius:var(--r);color:#fff;font-size:12px;font-weight:600;padding:6px 14px;cursor:pointer;text-decoration:none}
 .tk-btn:hover{opacity:.9}
 /* HANDLE MODAL */
-.hmodal{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:1.25rem;width:520px;max-width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.18)}
+.hmodal{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:1.25rem;width:620px;max-width:100%;max-height:88vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.18)}
+#handle-modal.on{background:rgba(0,0,0,.65)}
 .hmodal h3{font-size:15px;font-weight:600;margin-bottom:.3rem}
 .hmodal-sub{font-size:12px;color:var(--text3);margin-bottom:1rem}
 .he-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:.85rem 1rem;margin-bottom:.6rem}
@@ -275,7 +284,7 @@ table,#eff-kpi-eff,#eff-kpi-nd,.klbl,.ksub{font-variant-numeric:tabular-nums;fon
 <!-- Unhandled downtime banner -->
 <div class="unhandled-banner" id="unhandled-banner">
   <span class="ub-icon">⚠️</span>
-  <span class="ub-text">Ubehandlede nedetider</span>
+  <div><div class="ub-text">Ubehandlede nedetider</div><div class="ub-sub" id="ub-sub">Velg maskin og årsak så OEE-tallene blir riktige</div></div>
   <span class="ub-count" id="ub-count">0</span>
   <button class="ub-btn" onclick="openHandleModal()">Behandle nå →</button>
 </div>
@@ -501,7 +510,7 @@ table,#eff-kpi-eff,#eff-kpi-nd,.klbl,.ksub{font-variant-numeric:tabular-nums;fon
   </div>
   <div class="card">
     <div class="ct"><div class="ca" style="background:var(--accent)"></div>Hendelseslogg</div>
-    <div class="tw"><table><thead><tr><th>Tid</th><th>Linje</th><th>Maskin</th><th>Årsak</th><th>Varighet</th><th>Type</th><th>Kommentar</th><th></th></tr></thead><tbody id="tbl"><tr><td colspan="8" style="color:var(--text3);text-align:center;padding:1.5rem">Ingen hendelser enda</td></tr></tbody></table></div>
+    <div class="tw"><table><thead><tr><th>Tid</th><th>Linje</th><th>Maskin</th><th>Produkt</th><th>Årsak</th><th>Varighet</th><th>Type</th><th>Kommentar</th><th></th></tr></thead><tbody id="tbl"><tr><td colspan="9" style="color:var(--text3);text-align:center;padding:1.5rem">Ingen hendelser enda</td></tr></tbody></table></div>
   </div>
   </section>
 </main>
@@ -899,10 +908,11 @@ async function submit(){
   const ts=Date.now();
   if(isOmst(cause)){
     const ms=getMachines(line);const all=ms.length?ms:[machine];
-    await Promise.all(all.map(m=>db.ref('events').push({line,machine:m,cause,duration:dur,severity:'low',comment:com,ts,wholeLine:true})));
+    const product=evtProductNow(line);
+    await Promise.all(all.map(m=>db.ref('events').push({line,machine:m,cause,duration:dur,severity:'low',comment:com,ts,wholeLine:true,product})));
     showToast('Omstilling på '+all.length+' maskiner');
   }else{
-    await db.ref('events').push({line,machine,cause,duration:dur,severity:sev,comment:com,ts,wholeLine:false});
+    await db.ref('events').push({line,machine,cause,duration:dur,severity:sev,comment:com,ts,wholeLine:false,product:evtProductNow(line)});
     showToast('Hendelse registrert');
   }
   document.getElementById('f-cause').value='';document.getElementById('f-dur').value='';
@@ -944,6 +954,16 @@ function lineProduct(line){
   return p||null;
 }
 function eskerFor(line,dateKey){const d=PROD_ALL[dateKey];return d?(d[lk(line)]||0):0;}
+/* Produktet som kjører på linja akkurat nå — lagres på hver hendelse, så nedetid
+   kan summeres per produkt i ettertid (rapporter.html). */
+function evtProductNow(line){return ACTIVE_PROD[lk(line)]||'';}
+/* Produkt for en hendelse: eget felt først, ellers skiftrapporten for linja den dagen
+   (dekker hendelser fra før feltet fantes). */
+function evtProduct(e){
+  if(e.product)return e.product;
+  const sr=(SHIFT_REPORTS[dateKeyOf(new Date(e.ts))]||{})[lk(e.line)];
+  return (sr&&sr.produkt)||'';
+}
 /* Produksjonsdagen et tidspunkt hører til (resetTime-regelen, samme som broen bruker) */
 function prodDayKeyFor(d){
   const rt=String((SETTINGS&&SETTINGS.resetTime)||'00:00').split(':');
@@ -1224,7 +1244,7 @@ function renderHist(fil){
 // ── TABLE ──
 function renderTable(fil){
   const tb=document.getElementById('tbl');tb.innerHTML='';
-  if(!fil.length){tb.innerHTML='<tr><td colspan="8" style="color:var(--text3);text-align:center;padding:1.5rem">Ingen hendelser enda</td></tr>';return;}
+  if(!fil.length){tb.innerHTML='<tr><td colspan="9" style="color:var(--text3);text-align:center;padding:1.5rem">Ingen hendelser enda</td></tr>';return;}
   fil.forEach(e=>{
     const [,bc,sl]=sevInfo(e.severity);
     const plan=isPlanned(e.cause),omst=isOmst(e.cause);
@@ -1232,11 +1252,15 @@ function renderTable(fil){
     const lbl=omst?'Omstilling':plan?'Planlagt':sl;
     const tr=document.createElement('tr');
     tr.innerHTML='<td>'+fmtT(e.ts)+'</td><td>'+e.line+(e.wholeLine?'<span style="font-size:9px;background:#f0fdf4;color:var(--green);border:1px solid #bbf7d0;border-radius:2px;padding:0 3px;margin-left:3px">HL</span>':'')+'</td>'
-      +'<td>'+(e.machine||'—')+'</td><td>'+e.cause+'</td><td>'+fmtD(e.duration)+'</td>'
+      +'<td>'+(e.machine||'—')+'</td><td class="td-prod">'+(evtProduct(e)||'—').replace(/</g,'&lt;')+'</td><td>'+e.cause+'</td><td>'+fmtD(e.duration)+'</td>'
       +'<td><span class="badge '+badge+'">'+lbl+'</span></td><td>'+(e.comment||'—')+'</td>'
       // Direkte sletting av enkelthendelser er en korreksjon, ikke en opprydding —
-      // forbeholdt master og leder. Andre bruker slettesøknad.
-      +'<td>'+(isStaff()?'<button class="rdel" onclick="askDel(\''+e.id+'\',\''+( e.cause||'').replace(/'/g,"\\'")+'\')">✕</button>':'')+'</td>';
+      // forbeholdt master og leder. Operatører ber om sletting, og leder/master godkjenner.
+      +'<td>'+(isStaff()
+        ?'<button class="rdel" onclick="askDel(\''+e.id+'\',\''+( e.cause||'').replace(/'/g,"\\'")+'\')">✕</button>'
+        :'<button class="rdel rdel-ask" title="Be om sletting av denne hendelsen" data-id="'+e.id+'">🗑 Be om sletting</button>')+'</td>';
+    const ask=tr.querySelector('.rdel-ask');
+    if(ask)ask.addEventListener('click',function(){openDreqModal(e.id);});
     tb.appendChild(tr);
   });
 }
@@ -2051,18 +2075,26 @@ function checkHourlyPrompt(){
   banner.classList.add('on');
 }
 
+/* Hendelser vi allerede har åpnet modalen for i denne økta. Nye ubehandlede
+   nedetider åpner modalen av seg selv for operatøren — én gang per hendelse,
+   så den ikke spretter opp igjen etter «Lukk». */
+const HANDLE_SEEN=new Set();
 function updateUnhandledBanner(){
   const unhandled=getUnhandled();
   // Filter by line if linjeoperator
-  const fil=myProfile?.role==='linjeoperator'
-    ?unhandled.filter(e=>myProfile.lines?.includes(e.line))
-    :unhandled;
+  const isOp=myProfile?.role==='linjeoperator';
+  const fil=isOp?unhandled.filter(e=>myProfile.lines?.includes(e.line)):unhandled;
   const banner=document.getElementById('unhandled-banner');
   const cnt=document.getElementById('ub-count');
   if(!banner||!cnt)return;
   if(fil.length>0){
     banner.classList.add('on');
     cnt.textContent=fil.length;
+    const sub=document.getElementById('ub-sub');
+    if(sub){const tot=fil.reduce((s,e)=>s+(e.duration||0),0);sub.textContent=fmtD(tot)+' nedetid uten årsak · velg maskin og årsak så OEE-tallene blir riktige';}
+    const fresh=fil.filter(e=>!HANDLE_SEEN.has(e.id));
+    fil.forEach(e=>HANDLE_SEEN.add(e.id));
+    if(isOp&&fresh.length&&!document.getElementById('handle-modal').classList.contains('on'))openHandleModal();
   }else{
     banner.classList.remove('on');
   }
@@ -2094,6 +2126,15 @@ function openHandleModal(){
         +'<div class="he-title">'+e.line+(isOpc?' — automatisk':' — '+(e.machine||''))+'</div>'
         +'<div class="he-meta">'+fmtT(e.ts)+' — '+fmtD(e.duration)+'</div>'
         +'</div>';
+      // Produktet som kjørte — forhåndsvalgt fra hendelsen, ellers aktivt produkt nå
+      const lineProds=(SETTINGS.products?.[lkey]||[]).map(p=>p.name).filter(Boolean);
+      const curProd=evtProduct(e)||ACTIVE_PROD[lkey]||'';
+      html+='<div class="he-fr"><div class="he-lbl">Produkt som kjørte</div>'
+        +'<select class="he-sel" id="hc-prod-'+e.id+'">'
+        +'<option value="">— Ukjent —</option>'
+        +(curProd&&lineProds.indexOf(curProd)<0?'<option value="'+curProd.replace(/"/g,'&quot;')+'" selected>'+curProd.replace(/</g,'&lt;')+'</option>':'')
+        +lineProds.map(p=>'<option value="'+p.replace(/"/g,'&quot;')+'"'+(p===curProd?' selected':'')+'>'+p.replace(/</g,'&lt;')+'</option>').join('')
+        +'</select></div>';
       // Maskinvelger for OPC-hendelser
       if(isOpc&&lineMachines.length){
         html+='<div class="he-fr"><div class="he-lbl">Hvilken maskin stoppet? (valgfritt)</div>'
@@ -2127,6 +2168,9 @@ function openHandleModal(){
       }
       refreshSum(e.id);
     });
+    // Første kort i fokus: markert ramme og markøren i første valg
+    const first=list.querySelector('.he-card');
+    if(first){first.classList.add('focus');const sel=first.querySelector('select');if(sel)setTimeout(()=>sel.focus(),50);}
   }
   document.getElementById('handle-modal').classList.add('on');
 }
@@ -2214,6 +2258,8 @@ async function saveHandle(id){
   const machEl=document.getElementById('hc-machine-'+id);
   const machine=isOpc?((machEl&&machEl.value)||e.machine||''):(e.machine||'');
   const comment=(document.getElementById('hc-com-'+id)?.value||'').trim();
+  const prodEl=document.getElementById('hc-prod-'+id);
+  const product=prodEl?prodEl.value:(e.product||'');
   const cont=document.getElementById('hc-parts-'+id);
   const rows=cont?[...cont.querySelectorAll('.he-part')]:[];
   const baseDate=new Date(e.ts);
@@ -2231,14 +2277,14 @@ async function saveHandle(id){
   if(!parts.length){showToast('Ingen deler å lagre',true);return;}
   if(parts.length===1){
     const p=parts[0];
-    const updates={cause:p.cause, comment, duration:p.duration, ts:p.ts, unhandled:false, handledAt:Date.now(), handledBy:myProfile?.name||'ukjent'};
+    const updates={cause:p.cause, comment, duration:p.duration, ts:p.ts, product, unhandled:false, handledAt:Date.now(), handledBy:myProfile?.name||'ukjent'};
     if(machine)updates.machine=machine;
     await db.ref('events/'+id).update(updates);
   }else{
     for(const p of parts){
       await db.ref('events').push({
         line:e.line, machine:machine||'', cause:p.cause, duration:p.duration,
-        severity:p.duration>=30?'high':'medium', comment, ts:p.ts,
+        severity:p.duration>=30?'high':'medium', comment, ts:p.ts, product,
         wholeLine:e.wholeLine||false, source:'split', unhandled:false,
         handledAt:Date.now(), handledBy:myProfile?.name||'ukjent'
       });
@@ -2473,7 +2519,12 @@ function eventsInRange(line,from,to){
 }
 
 /* ── Søknadsskjema ── */
-function openDreqModal(){
+/* eventId satt = søknaden gjelder én bestemt hendelse (operatørens «Be om sletting»
+   i hendelsesloggen). Uten = et tidsrom på en linje, som før. */
+let DREQ_EVENT=null;
+function openDreqModal(eventId){
+  DREQ_EVENT=null;
+  const one=eventId?EVENTS.find(function(x){return x.id===eventId;}):null;
   const sel=document.getElementById('dr-line');
   sel.innerHTML='';
   let lines=LINES_ALL.slice();
@@ -2487,6 +2538,21 @@ function openDreqModal(){
   document.getElementById('dr-from').value=t;
   document.getElementById('dr-to').value=t;
   document.getElementById('dr-reason').value='';
+  const one_el=document.getElementById('dr-one');
+  const rng=document.getElementById('dr-range');
+  if(one){
+    DREQ_EVENT=one;
+    const dk=dateKeyOf(new Date(one.ts));
+    if(lines.indexOf(one.line)<0){const o=document.createElement('option');o.value=one.line;o.textContent=one.line;sel.appendChild(o);}
+    sel.value=one.line;sel.disabled=true;
+    document.getElementById('dr-from').value=dk;document.getElementById('dr-to').value=dk;
+    if(rng)rng.style.display='none';
+    if(one_el){one_el.style.display='';one_el.textContent='Gjelder én hendelse: '+fmtT(one.ts)+' · '+(one.machine||'—')+' · '+(one.cause||'')+' · '+fmtD(one.duration);}
+  }else{
+    sel.disabled=false;
+    if(rng)rng.style.display='';
+    if(one_el)one_el.style.display='none';
+  }
   dreqPreview();
   const err=document.getElementById('dr-error');
   if(err){err.textContent='';err.style.display='none';}
@@ -2500,6 +2566,7 @@ function dreqErr(m){
   showToast(m,true);
 }
 function dreqPreview(){
+  if(DREQ_EVENT){const el=document.getElementById('dr-preview');el.textContent='Dette omfatter 1 hendelse.';el.style.color='var(--text2)';return;}
   const n=eventsInRange(
     document.getElementById('dr-line').value,
     document.getElementById('dr-from').value,
@@ -2517,17 +2584,22 @@ async function submitDreq(){
   if(!from||!to){dreqErr('Velg tidsrom',true);return;}
   if(new Date(to)<new Date(from)){dreqErr('Til-dato er før fra-dato',true);return;}
   if(reason.length<10){dreqErr('Skriv en begrunnelse (minst 10 tegn)',true);return;}
-  const n=eventsInRange(line,from,to).length;
+  const n=DREQ_EVENT?1:eventsInRange(line,from,to).length;
   if(!n){dreqErr('Ingen hendelser i tidsrommet',true);return;}
   try{
-    await db.ref('deleteRequests').push({
+    const req={
       line:line,from:from,to:to,reason:reason,
       requestedBy:(auth.currentUser&&auth.currentUser.uid)||'',
       requestedByName:(myProfile&&myProfile.name)||'',
       requestedAt:Date.now(),
       affectedCount:n,
       status:'pending'
-    });
+    };
+    if(DREQ_EVENT){
+      req.eventId=DREQ_EVENT.id;
+      req.eventLabel=fmtT(DREQ_EVENT.ts)+' · '+(DREQ_EVENT.machine||'—')+' · '+(DREQ_EVENT.cause||'')+' · '+fmtD(DREQ_EVENT.duration);
+    }
+    await db.ref('deleteRequests').push(req);
     closeDreqModal();
     showToast('Søknad sendt til godkjenning');
   }catch(e){dreqErr('Kunne ikke sende søknad',true);}
@@ -2561,11 +2633,11 @@ function renderDreq(){
     head.appendChild(st);
     const who=document.createElement('span');
     who.style.fontSize='12px';who.style.fontWeight='600';
-    who.textContent=(r.line||'—')+' · '+(r.from===r.to?r.from:r.from+' → '+r.to);
+    who.textContent=(r.line||'—')+' · '+(r.eventId?(r.eventLabel||'én hendelse'):(r.from===r.to?r.from:r.from+' → '+r.to));
     head.appendChild(who);
     const meta=document.createElement('span');
     meta.style.fontSize='11px';meta.style.color='var(--text3)';
-    meta.textContent=(r.affectedCount||0)+' hendelser · '+(r.requestedByName||'ukjent')+
+    meta.textContent=(r.eventId?'1 hendelse':(r.affectedCount||0)+' hendelser')+' · '+(r.requestedByName||'ukjent')+
       ' · '+(r.requestedAt?fmtT(r.requestedAt):'');
     head.appendChild(meta);
     row.appendChild(head);
@@ -2597,9 +2669,11 @@ function renderDreq(){
 }
 async function decideDreq(r,decision){
   if(!canDecide(r)){showToast('Bare master eller leder for '+r.line+' kan behandle',true);return;}
-  const hits=eventsInRange(r.line,r.from,r.to);
+  const hits=r.eventId?EVENTS.filter(function(e){return e.id===r.eventId;}):eventsInRange(r.line,r.from,r.to);
   if(decision==='approved'){
-    if(!confirm('Slette '+hits.length+' hendelser på '+r.line+' i perioden '+r.from+' til '+r.to+'?\n\nDette kan ikke angres.'))return;
+    if(r.eventId&&!hits.length){showToast('Hendelsen finnes ikke lenger — søknaden lukkes',true);}
+    else if(!confirm(r.eventId?'Slette hendelsen '+(r.eventLabel||'')+' på '+r.line+'?\n\nDette kan ikke angres.'
+                              :'Slette '+hits.length+' hendelser på '+r.line+' i perioden '+r.from+' til '+r.to+'?\n\nDette kan ikke angres.'))return;
   }
   const note=prompt(decision==='approved'?'Kommentar til godkjenningen (valgfritt):'
                                          :'Hvorfor avslås søknaden?','');
@@ -2929,9 +3003,10 @@ function chatKey(e){if(e.key==='Enter'){e.preventDefault();chatSend();}}
   <div class="hmodal">
     <h3>Be om sletting av hendelser</h3>
     <div class="hmodal-sub">Sletting må godkjennes av master eller leder. Beskriv hvorfor.</div>
+    <div id="dr-one" style="display:none;font-size:12px;font-weight:600;color:var(--text);background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:8px 10px;margin-bottom:.7rem"></div>
     <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">Linje</label>
     <select class="dash-field" id="dr-line" style="margin-bottom:.7rem"></select>
-    <div style="display:flex;gap:8px;margin-bottom:.7rem">
+    <div id="dr-range" style="display:flex;gap:8px;margin-bottom:.7rem">
       <div style="flex:1">
         <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">Fra dato</label>
         <input class="dash-field" type="date" id="dr-from">

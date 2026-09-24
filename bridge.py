@@ -139,6 +139,15 @@ def fb_push(path, data): return fb_req(path, "POST", data)
 def fb_get(path):        return fb_req(path, "GET")
 
 
+def aktivt_produkt(navn):
+    """Produktet dashbordet har satt som aktivt på linja — lagres på hendelsen,
+    så nedetid kan summeres per produkt. Tom streng om det ikke er satt."""
+    r = fb_get("active_product/" + lk_url(navn))
+    if r is FB_FEIL or not isinstance(r, dict):
+        return ""
+    return r.get("product") or ""
+
+
 def fb_get_vent(path):
     """GET som venter til Firebase svarer. Brukes der vi ikke kan gjette."""
     forsok = 0
@@ -297,6 +306,7 @@ class Linje:
                         "wholeLine": False,
                         "source":    "opc",
                         "unhandled": True,
+                        "product":   aktivt_produkt(self.navn),
                     }
                     if fb_push("events", ev) is not FB_FEIL:
                         log.info("[%s] Nedetid sendt: %d min", self.navn, dur)
