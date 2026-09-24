@@ -137,6 +137,8 @@ repoen** — siden er offentlig. `botContext()` sender et kompakt sammendrag, al
 - `login.html` — innlogging
 - `theme.css` / `theme.js` — lys/mørk modus. Lastes av alle sider etter deres `<style>`; `theme.js` setter `data-theme` på `<html>` før tegning og legger en bryter i `nav .ml`. Valget ligger i localStorage (`diplomis.theme`) — per nettleser, ikke per bruker. Tokenene pluss ALLE faste pastellfarger (rød/gul/grønn/blå/lilla + hvite flater, også inline `style="background:#…"` via `[style*=]`) er overstyrt (24.09.2026). Ny fast lys farge i en side → legg klassen til i riktig familie i theme.css. Utskrift tvinges lys.
 
+- `time24.js` — 24-timers klokkeslett i alle skjema (24.09.2026). Chrome viser `type="time"`/`datetime-local` med AM/PM når Windows står på engelsk, og det kan ikke overstyres. Skriptet bytter `type="time"` til tekstfelt «HH:MM» som retter seg selv ved blur («830» → 08:30, ugyldig → tømt + rødt), og `datetime-local` til dato-felt + HH:MM-felt der det opprinnelige feltet blir `hidden` med en `.value`-accessor som gir/tar «YYYY-MM-DDTHH:MM». Sidene leser/skriver `.value` som før. MutationObserver tar felt som lages senere. Lastes etter theme.js på alle sider. Bruk fortsatt `type="time"` i ny markup — skriptet tar det.
+
 - `bridge.py` — OPC-UA→Firebase-bro. Kjører på fabrikk-PC, men vedlikeholdes her. Trenger `bridge_auth.py` ved siden av seg og `py -m pip install opcua`.
 - `bridge_auth.py` — innlogging for broen (se sikkerhetsnotatet).
 
