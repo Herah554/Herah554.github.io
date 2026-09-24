@@ -46,6 +46,12 @@ h2{font-size:12px;font-family:var(--mono);text-transform:uppercase;letter-spacin
 .kl{font-size:11px;font-family:var(--mono);text-transform:uppercase;color:var(--text3);letter-spacing:.06em}
 .kv{font-size:38px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1;margin:4px 0 2px}
 .ks{font-size:13px;color:var(--text2)}
+.st{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:1rem 1.2rem;box-shadow:var(--sh);border-top:5px solid var(--border)}
+.st .kl{font-size:13px;color:var(--text)}
+.st .kv{font-size:44px}
+.st .row{display:flex;justify-content:space-between;gap:8px;font-size:14px;padding:5px 0;border-top:1px solid var(--border)}
+.st .row b{font-variant-numeric:tabular-nums}
+.pct{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .g3{display:grid;grid-template-columns:2fr 1fr;gap:12px}
 table{width:100%;border-collapse:collapse;font-size:14px}
@@ -104,6 +110,9 @@ tr:last-child td{border-bottom:none}
     <button class="b" onclick="toggleFull()" title="Fullskjerm for tavle-TV">⛶</button>
     <button class="b" onclick="window.print()" title="Skriv ut">🖨</button>
   </div>
+
+  <h2>Status — hvor bra gikk det, og hvor ligger vi an</h2>
+  <div class="kpis" id="status" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr))"></div>
 
   <h2 id="h-day">Dagen</h2>
   <div class="kpis" id="kpis"></div>
@@ -460,6 +469,9 @@ function render(){
   document.getElementById('h-day').textContent=(isToday?'I dag':OFF===-1?'I går':label)+' — '+(LINE_SEL==='Alle'?'alle linjer':LINE_SEL);
   const goal=getOEEGoal(LINE_SEL==='Alle'?null:LINE_SEL);
 
+  /* Status: i går, i dag og uka — alltid synlig uansett hvilken dag som er valgt */
+  renderStatus(goal);
+
   /* KPI-er */
   const ev=evtsOn(day).sort((a,b)=>(b.duration||0)-(a.duration||0));
   const real=ev.filter(e=>!isPlanned(e.cause)&&!isOmst(e.cause));
@@ -535,6 +547,38 @@ function render(){
   const pend=Object.keys(DREQ).map(k=>DREQ[k]).filter(r=>r&&r.status==='pending'&&(LINE_SEL==='Alle'||r.line===LINE_SEL));
   document.getElementById('t-dreq').textContent=pend.length?pend.length+' stk':'';
   document.getElementById('dreq').innerHTML=pend.length?'<table><tbody>'+pend.map(r=>'<tr><td>'+esc(r.line)+'</td><td>'+esc(r.eventId?(r.eventLabel||'én hendelse'):(r.from===r.to?r.from:r.from+' → '+r.to))+'</td><td class="sub">'+esc(r.requestedByName||'')+'</td><td class="comment">'+esc(r.reason||'')+'</td></tr>').join('')+'</tbody></table>':'<div class="empty good">✓ Ingen søknader venter.</div>';
+}
+/* Én kortstatus per periode: OEE mot mål, produsert mot plan, nedetid. */
+function periodStatus(days){
+  const line=LINE_SEL==='Alle'?null:LINE_SEL;
+  const oee=oeeForDates(line,days);
+  let prod=0,plan=0;days.forEach(d=>{const k=dateKeyOf(d);prod+=producedOn(k);plan+=planFor(k).sum;});
+  const down=downtimeForDates(line,days);
+  let stops=0;days.forEach(d=>{stops+=evtsOn(d).filter(e=>!isPlanned(e.cause)&&!isOmst(e.cause)).length;});
+  return {oee,prod,plan,down,stops};
+}
+function renderStatus(goal){
+  const today=dayObj(0), yest=dayObj(-1);
+  const mon=new Date(today);mon.setDate(today.getDate()-((today.getDay()+6)%7));
+  const wk=[];for(let i=0;i<7;i++){const d=new Date(mon);d.setDate(mon.getDate()+i);if(d>today)break;wk.push(d);}
+  const cards=[
+    ['I går · '+DAGER[yest.getDay()]+' '+pad(yest.getDate())+'.'+pad(yest.getMonth()+1),periodStatus([yest]),'gikk det'],
+    ['I dag så langt',periodStatus([today]),'ligger vi an'],
+    ['Uke '+isoWeek(today)+' så langt',periodStatus(wk),'ligger vi an']
+  ];
+  document.getElementById('status').innerHTML=cards.map(([t,st,verb])=>{
+    const ofGoal=st.oee!=null?Math.round(st.oee/goal*100):null;          // % av OEE-målet
+    const ofPlan=st.plan?Math.round(st.prod/st.plan*100):null;           // % av planen
+    const col=st.oee==null?'var(--border)':st.oee>=goal?'var(--green)':st.oee>=goal-15?'var(--amber)':'var(--red)';
+    const cls=v=>v==null?'':v>=100?'good':v>=80?'warn':'bad';
+    return '<div class="st" style="border-top-color:'+col+'">'
+      +'<div class="kl">'+esc(t)+'</div>'
+      +'<div class="kv" style="color:'+col+'">'+(st.oee!=null?st.oee.toFixed(0)+' %':'—')+' <span style="font-size:14px;color:var(--text3);font-weight:500">OEE</span></div>'
+      +'<div class="row"><span>Så bra '+verb+' mot OEE-målet ('+goal+' %)</span><b class="pct '+cls(ofGoal)+'">'+(ofGoal!=null?ofGoal+' %':'—')+'</b></div>'
+      +'<div class="row"><span>Produsert '+fmtN(st.prod)+(st.plan?' av plan '+fmtN(st.plan):' (ingen plan)')+'</span><b class="pct '+cls(ofPlan)+'">'+(ofPlan!=null?ofPlan+' %':'—')+'</b></div>'
+      +'<div class="row"><span>Nedetid · '+st.stops+' reelle stopp</span><b>'+(st.down?fmtD(st.down):'—')+'</b></div>'
+      +'</div>';
+  }).join('');
 }
 function barList(evs,keyFn,n){
   const agg={};evs.forEach(e=>{const k=keyFn(e);agg[k]=agg[k]||{min:0,n:0};agg[k].min+=e.duration||0;agg[k].n++;});
