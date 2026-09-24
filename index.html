@@ -556,6 +556,9 @@ table,#eff-kpi-eff,#eff-kpi-nd,.klbl,.ksub{font-variant-numeric:tabular-nums;fon
       <button onclick="submitCalReview('reject')" style="flex:1;padding:8px;border:1px solid var(--red);background:#fff;color:var(--red);border-radius:var(--r);cursor:pointer;font-size:12px;font-weight:600">Avvis (ikke reell)</button>
       <button id="cal-accept" onclick="submitCalReview('accept')" style="flex:1.5;padding:8px;border:none;background:var(--green);color:#fff;border-radius:var(--r);cursor:pointer;font-size:12px;font-weight:600">Godta</button>
     </div>
+    <div style="margin-top:.6rem;text-align:right">
+      <button onclick="resetCalQueue()" style="padding:6px 10px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);border-radius:var(--r);cursor:pointer;font-size:11px" title="Avvis alle timer over 100 % fram til nå på denne linja">🗑 Avvis alle over 100 % og start på nytt</button>
+    </div>
     <div id="cal-hist" style="margin-top:1rem"></div>
   </div>
 </div>
@@ -1323,18 +1326,47 @@ function peakHourEff(line){
   const key=lk(line);
   const now=new Date(); const todK=dateKeyOf(now); const curH=pad(now.getHours());
   const excl=CAL_EXCLUDED[key]||{};
+  // «Start på nytt»: timer før nullstillingspunktet (settings/calIgnoreBefore/{lk}) ignoreres
+  const cutoff=(SETTINGS.calIgnoreBefore||{})[key]||0;
   let bestDpk=0,bestDk=null,bestH=null;
   Object.keys(PROD_HOURLY).forEach(dk=>{
     const hrs=PROD_HOURLY[dk]?.[key]; if(!hrs)return;
     Object.keys(hrs).forEach(h=>{
       if(dk===todK && h===curH)return;          // hopp over inneværende ufullstendige time
       if(excl[dk+'_'+h])return;                  // hopp over avviste timer
+      if(cutoff&&hourTsOf(dk,h)<cutoff)return;   // hopp over alt før nullstillingen
       const dpk=hrs[h]||0;
       if(dpk>bestDpk){bestDpk=dpk;bestDk=dk;bestH=h;}
     });
   });
   if(bestDpk<=0)return null;
   return {pct:bestDpk/maxRate*100, dpk:bestDpk, maxRate, p, dateKey:bestDk, hour:bestH};
+}
+/* Absolutt tidspunkt for en timebøtte: dk er produksjonsdagen (resetTime), så timer før
+   resetTime hører til neste kalenderdag. */
+function hourTsOf(dk,hh){
+  const p=dk.split('-');const h=parseInt(hh,10);
+  const d=new Date(+p[0],+p[1]-1,+p[2],h,0,0);
+  if(h<_resetHour())d.setDate(d.getDate()+1);
+  return d.getTime();
+}
+/* Batch: avvis alle timer over 100 % for linja fram til nå, og start på nytt.
+   Én verdi i settings i stedet for én avvisning per time; loggen får én post. */
+async function resetCalQueue(){
+  if(!calCtx)return;
+  const line=calCtx.line;
+  const comment=document.getElementById('cal-comment').value.trim();
+  if(!confirm('Avvise ALLE timer over 100 % på '+line+' fram til nå, og starte på nytt?\n\nTimene beholdes i loggen og produksjonstallene, men blir ikke foreslått for kalibrering igjen. Kapasiteten på produktet endres ikke.'))return;
+  const entry={ts:Date.now(),by:(auth.currentUser&&auth.currentUser.email)||(myProfile&&myProfile.email)||'',
+    byName:(myProfile&&myProfile.name)||'',line,product:calCtx.product||'',dateKey:null,hour:null,
+    dpk:null,impliedRateDpk:null,impliedCap:null,currentCap:calCtx.curCap,pct:Math.round(calCtx.pct),
+    decision:'reset',newCap:null,comment:comment||'Nullstilt — alle timer over 100 % avvist samlet'};
+  try{
+    await db.ref('settings/calIgnoreBefore/'+lk(line)).set(Date.now());
+    await db.ref('calibrationReviews/'+lk(line)).push(entry);
+    showToast('Nullstilt — kalibreringskøen for '+line+' starter på nytt');
+    closeCalModal();
+  }catch(e){showToast('Klarte ikke å nullstille',true);}
 }
 // ── BEHANDLE EFFEKTIVITET OVER 100% (master) ──
 function openCalModal(line){

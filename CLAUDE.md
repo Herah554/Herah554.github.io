@@ -33,6 +33,7 @@ Siemens S7-1500 PLS → bridge.py (OPC-UA, fabrikk-PC) → Firebase RTDB → Git
 - `opc_status/` — `{connected, last_seen, url}`
 - `plan/production/{YYYY-MM-DD}/{lk}` — array av `{product, artNr, antall, timer, importedAt, importedBy}` (fra import.html). Er en **logg**: import fletter per dato (`update`), bare datoene i fila erstattes. «Plan mot faktisk» i index.html blar dag for dag (`PVA_OFF`), regner tempo/«ferdig ca.»/«målet nådd kl.» fra `production/{dag}/{lk}/hourly` i produksjonsdag-rekkefølge fra `resetTime` (`_dayHours`, `_reachedAt`, `_paceNow`). Antall antas å være samme enhet som tellingen (dpack).
 - `plan/shift/{YYYY-MM-DD}/{lk}` — `{skift, bemanning, product, importedAt, importedBy}`
+- `settings/calIgnoreBefore/{lk}` — tidsstempel; timer før dette foreslås ikke for kalibrering («Avvis alle over 100 % og start på nytt» i kalibreringsmodalen, 24.09.2026). Loggen får én post med `decision:"reset"`.
 - `calibrationReviews/{lk}/{pushId}` — logg over kapasitetskalibrering: `{ts, by, byName, line, product, dateKey, hour, dpk, impliedRateDpk, impliedCap, currentCap, pct, decision:"accept"|"reject", newCap, comment}`
 - `pwResets/` — **fjernet.** Lagret passord i klartekst; erstattet av Firebase sin e-postflyt og stengt i reglene.
 - `settings/dashboards/{id}` — **delte** dashboard-maler (master): `{name, widgets{key:{on,order,w}}, createdAt, createdBy, updatedAt, updatedBy}`
