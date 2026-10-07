@@ -106,7 +106,7 @@ td.ln{font-weight:700;white-space:nowrap}
 <link rel="stylesheet" href="theme.css?v=20260924b"/>
 <script src="theme.js?v=20260924b"></script>
 <script src="time24.js?v=20260924b"></script>
-<script src="nav.js?v=20260924b"></script>
+<script src="nav.js?v=20261007a"></script>
 </head>
 <body>
 <nav>
@@ -179,6 +179,8 @@ td.ln{font-weight:700;white-space:nowrap}
       <div class="card"><div class="ct"><div class="ca" style="background:var(--amber)"></div>Ubehandlede stopp <span class="sub" id="t-unh"></span></div><div id="unhandled"></div></div>
       <div class="card"><div class="ct"><div class="ca" style="background:var(--red)"></div>Slettesøknader som venter <span class="sub" id="t-dreq"></span></div><div id="dreq"></div></div>
     </div>
+    <h2>Tavle-logg</h2>
+    <div id="boardlog"></div>
   </div>
 </main>
 
@@ -523,6 +525,15 @@ function planProducts(line,dk){const raw=(PLAN[dk]||{})[lk(line)];if(!raw)return
 function bdDay(dk,line,f){const v=((BD.day||{})[dk]||{})[lk(line)];return v&&v[f]!=null&&v[f]!==''?v[f]:null;}
 function bdNum(dk,line,f){const v=bdDay(dk,line,f);if(v==null)return null;const n=parseFloat(String(v).replace(/\s/g,'').replace(',','.'));return isNaN(n)?null:n;}
 function bdNote(key){return ((BD.notes||{})[BOARD]||{})[key]||'';}
+function normTxt(t){return String(t||'').toLowerCase().replace(/\s+/g,' ').trim();}
+/* Finn samme punkt (lik tekst) i andre scopes — så Hovedtavle og Teknisk kan ha samme tiltak uten at det blir to */
+function twins(scope,id,text){
+  const n=normTxt(text);if(n.length<4)return [];
+  const out=[];Object.keys(BD.items||{}).forEach(sc=>{Object.keys(BD.items[sc]||{}).forEach(i=>{if(sc===scope&&i===id)return;const x=BD.items[sc][i];if(x&&normTxt(x.text)===n)out.push({scope:sc,id:i,item:x});});});
+  return out;
+}
+const SCOPE_NAME={menneske:'Menneske',kvalitet:'Kvalitet',effektivitet:'Effektivitet',annet:'Annet'};
+function scopeName(sc){return SCOPE_NAME[sc]||lineName(sc);}
 function bdItems(scope){const o=(BD.items||{})[scope]||{};return Object.keys(o).map(id=>Object.assign({id},o[id])).filter(x=>x&&x.text!=null||x.ansvar).sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));}
 /* Mål og faktisk for en linje en dag: mål = plan (kan overstyres), faktisk = telling for PLS-linjer, ellers innskrevet */
 function dayVals(line,dateObj){
@@ -582,7 +593,10 @@ function addItem(scope){
 }
 function toggleItem(scope,id,done){
   const it=(((BD.items||{})[scope]||{})[id])||{};
-  db.ref('board/items/'+scope+'/'+id).update({done:!!done,doneAt:done?Date.now():null,doneBy:done?((USER&&USER.name)||''):null});
+  const upd={done:!!done,doneAt:done?Date.now():null,doneBy:done?((USER&&USER.name)||''):null};
+  db.ref('board/items/'+scope+'/'+id).update(upd);
+  // samme punkt andre steder følger med
+  twins(scope,id,it.text).forEach(t=>db.ref('board/items/'+t.scope+'/'+t.id).update(upd));
   logBoard(done?'done':'undone',{scope,id,text:(it.text||'').slice(0,80)});
 }
 function delItem(scope,id){
@@ -615,7 +629,9 @@ function itemsHTML(scope,opts){
       +cell('board/items/'+scope+'/'+x.id+'/frist',x.frist,{ph:'Frist',single:true})
       +(canEdit()?'<button class="del" title="Slett">✕</button>':'<span></span>')
       +'</div>';
-    h+='<div class="who">'+(x.createdAt?fmtDM(x.createdAt)+' ':'')+esc(x.createdBy||'')+(x.done?' · <b>✓ haket av '+esc(x.doneBy||'ukjent')+(x.doneAt?' '+fmtDM(x.doneAt)+' '+fmtT(x.doneAt):'')+'</b>':'')+'</div>';
+    const tw=twins(scope,x.id,x.text);
+    h+='<div class="who">'+(x.createdAt?fmtDM(x.createdAt)+' ':'')+esc(x.createdBy||'')+(x.done?' · <b>✓ haket av '+esc(x.doneBy||'ukjent')+(x.doneAt?' '+fmtDM(x.doneAt)+' '+fmtT(x.doneAt):'')+'</b>':'')
+      +(tw.length?' · <span class="tag" title="Samme tekst finnes der — haking følger med">samme punkt på '+tw.map(t=>esc(scopeName(t.scope))).join(', ')+'</span>':'')+'</div>';
   });
   h+='</div>'+(canEdit()?'<button class="add" data-scope="'+esc(scope)+'">+ Nytt punkt</button>':'');
   return h;
@@ -634,9 +650,15 @@ function maaltallHTML(day,lines,withComment){
     +'<tr><th></th><th>Mål</th><th>Faktisk</th><th>%</th>'+(withComment?'<th>Kommentar</th>':'')+'<th>%</th><th>Mål</th><th>Faktisk</th><th>%</th></tr></thead><tbody>';
   // HMS-reg
   const nm=v=>{const n=parseFloat(String(v==null?'':v).replace(/\s/g,'').replace(',','.'));return isNaN(n)?null:n;};
-  h+='<tr><td class="ln"><span class="lbl">HMS-reg</span></td><td>'+cell('board/day/'+sk+'/hms/maal',hms.maal,{num:true,ph:'mål',single:true})+'</td><td>'+cell('board/day/'+sk+'/hms/faktisk',hms.faktisk,{num:true,ph:'—',single:true})+'</td>'+pctCell(nm(hms.faktisk),nm(hms.maal))
+  // Sum av linjenes HMS-registreringer (fra linjetavlene) når feltet ikke er fylt ut for hånd
+  const sumLines=(node,f)=>{let s=0,any=false;lines.forEach(l=>{const v=nm(((node||{})[lk(l)]||{})[f]);if(v!=null){s+=v;any=true;}});return any?s:null;};
+  const hmsFaktAuto=sumLines((BD.day||{})[sk],'hms_fakt'), hmsMaalAuto=sumLines((BD.day||{})[sk],'hms_maal');
+  const hmsWFaktAuto=sumLines((BD.week||{})[weekKey(day)],'hms_fakt'), hmsWMaalAuto=sumLines((BD.week||{})[weekKey(day)],'hms_maal');
+  const hF=nm(hms.faktisk)!=null?nm(hms.faktisk):hmsFaktAuto, hM=nm(hms.maal)!=null?nm(hms.maal):hmsMaalAuto;
+  const hWF=nm(hmsW.faktisk)!=null?nm(hmsW.faktisk):hmsWFaktAuto, hWM=nm(hmsW.maal)!=null?nm(hmsW.maal):hmsWMaalAuto;
+  h+='<tr><td class="ln"><span class="lbl">HMS-reg</span></td><td>'+cell('board/day/'+sk+'/hms/maal',hms.maal!=null?hms.maal:fmtVal(hmsMaalAuto),{num:true,auto:hms.maal==null&&hmsMaalAuto!=null,ph:'mål',single:true})+'</td><td>'+cell('board/day/'+sk+'/hms/faktisk',hms.faktisk!=null?hms.faktisk:fmtVal(hmsFaktAuto),{num:true,auto:hms.faktisk==null&&hmsFaktAuto!=null,ph:'—',single:true})+'</td>'+pctCell(hF,hM)
     +(withComment?'<td>'+cell('board/day/'+sk+'/hms/kommentar',hms.kommentar,{ph:''})+'</td>':'')+'<td></td>'
-    +'<td>'+cell('board/week/'+weekKey(day)+'/hms/maal',hmsW.maal,{num:true,ph:'mål',single:true})+'</td><td>'+cell('board/week/'+weekKey(day)+'/hms/faktisk',hmsW.faktisk,{num:true,ph:'—',single:true})+'</td>'+pctCell(nm(hmsW.faktisk),nm(hmsW.maal))+'</tr>';
+    +'<td>'+cell('board/week/'+weekKey(day)+'/hms/maal',hmsW.maal!=null?hmsW.maal:fmtVal(hmsWMaalAuto),{num:true,auto:hmsW.maal==null&&hmsWMaalAuto!=null,ph:'mål',single:true})+'</td><td>'+cell('board/week/'+weekKey(day)+'/hms/faktisk',hmsW.faktisk!=null?hmsW.faktisk:fmtVal(hmsWFaktAuto),{num:true,auto:hmsW.faktisk==null&&hmsWFaktAuto!=null,ph:'—',single:true})+'</td>'+pctCell(hWF,hWM)+'</tr>';
   lines.forEach(line=>{
     const v=dayVals(line,sel), w=weekVals(line,sel), k=lk(line);
     const fc=clsVs(v.faktisk,v.maal), wc=clsVs(w.faktisk,w.maal);
@@ -649,7 +671,7 @@ function maaltallHTML(day,lines,withComment){
       +'<td>'+cell('board/week/'+w.wk+'/'+k+'/maal',fmtVal(w.maal),{num:true,auto:w.maalIsAuto,ph:'—',single:true})+'</td>'
       +'<td>'+cell('board/week/'+w.wk+'/'+k+'/faktisk',fmtVal(w.faktisk),{num:true,auto:w.faktIsAuto,ph:'—',single:true,cls:wc})+'</td>'+pctCell(w.faktisk,w.maal)+'</tr>';
   });
-  h+='</tbody></table><div class="sub" style="margin-top:6px">Mål hentes fra importert plan, faktisk fra tellingen på Glacier (merket <i>auto</i>). Klikk i et felt for å skrive inn eller overstyre; tøm feltet for å gå tilbake til automatisk. Uke-faktisk summerer dagene. HMS-reg her gjelder hele fabrikken; per linje føres det på linjetavla.</div>';
+  h+='</tbody></table><div class="sub" style="margin-top:6px">Mål hentes fra importert plan, faktisk fra tellingen på Glacier (merket <i>auto</i>). Klikk i et felt for å skrive inn eller overstyre; tøm feltet for å gå tilbake til automatisk. Uke-faktisk summerer dagene. HMS-reg summerer linjetavlene automatisk, eller skrives inn her. Tallene er de samme på alle tavler — notater og tiltak er per tavle.</div>';
   return h;
 }
 function omstillingHTML(lines){
@@ -674,12 +696,23 @@ function hmsKpi(line,sk,wk){
 }
 /* Siste endringer på tavlene — hvem gjorde hva, når */
 function logHTML(){
-  const all=Object.values(BD.log||{}).filter(Boolean).sort((a,b)=>(b.at||0)-(a.at||0)).slice(0,12);
+  const all=Object.values(BD.log||{}).filter(Boolean).sort((a,b)=>(b.at||0)-(a.at||0)).slice(0,40);
   if(!all.length)return '';
   const T={add:'nytt punkt',done:'✓ haket av',undone:'hake fjernet',delete:'slettet punkt',edit:'endret'};
-  return '<div class="card" style="margin-top:12px"><div class="hdr" style="background:var(--text3)">Logg — siste endringer</div><table><tbody>'
+  return '<div class="card"><table><tbody>'
     +all.map(x=>'<tr><td class="num sub">'+fmtDM(x.at)+' '+fmtT(x.at)+'</td><td><b>'+esc(x.by||'ukjent')+'</b></td><td>'+(T[x.type]||esc(x.type))+(x.scope?' <span class="tag">'+esc(lineName(x.scope))+'</span>':'')+'</td><td class="sub">'+esc(x.text||'')+(x.type==='edit'&&x.path?' <span class="sub">('+esc(x.path.replace(/^board\//,'').replace(/\//g,' › '))+')</span>':'')+'</td></tr>').join('')
     +'</tbody></table></div>';
+}
+/* Største stopp for dagen på tvers av linjene (Teknisk) */
+function stopsHTML(day){
+  const dk=dateKeyOf(day);
+  const ev=EVENTS.filter(e=>dateKeyOf(new Date(e.ts))===dk).sort((a,b)=>(b.duration||0)-(a.duration||0));
+  const tot=ev.reduce((s,e)=>s+(e.duration||0),0);
+  let h='<div class="hdr" style="background:var(--red)">Største stopp '+(OFF===-1?'i går':OFF===0?'i dag':fmtDM(day))+'</div>';
+  if(!ev.length)return h+'<div class="empty">Ingen stopp registrert.</div>';
+  h+='<table><tbody>'+ev.slice(0,8).map(e=>'<tr><td class="ln" style="font-size:12px">'+esc(e.line)+'</td><td class="num sub">'+fmtSpan(e)+'</td><td style="font-size:12px">'+esc(e.cause||'')+(e.unhandled?'<span class="tag amber">ubeh.</span>':'')+'</td><td class="num"><b>'+fmtD(e.duration)+'</b></td></tr>').join('')+'</tbody></table>';
+  h+='<div class="sub" style="margin-top:4px">'+ev.length+' stopp · '+fmtD(tot)+' totalt</div>';
+  return h;
 }
 /* ── De tre tavletypene ── */
 function renderBoard(day){
@@ -707,6 +740,7 @@ function renderBoard(day){
       +'<div style="display:grid;grid-template-columns:90px 1fr;gap:8px;align-items:start;padding:4px 0"><span class="lbl" style="margin-top:4px;background:var(--text3)">Annet</span><div>'+itemsHTML('annet')+'</div></div>'
       +'</div>'
       +'<div style="display:flex;flex-direction:column;gap:12px">'
+      +'<div class="card">'+stopsHTML(day)+'</div>'
       +'<div class="card"><div class="hdr">Linje prio</div>'+noteRows('prio',3,'linje')+'</div>'
       +'<div class="card"><div class="hdr">Ukentlig fokus</div>'+noteRows('fokus',3,'')+'</div>'
       +'<div class="card"><div class="hdr">Info</div>'+noteRows('info',3,'')+'</div>'
@@ -743,7 +777,6 @@ function renderBoard(day){
       +'<div class="card"><div class="hdr">Info</div>'+noteRows('info',3,'')+'</div>'
       +'</div></div>';
   }
-  h+=logHTML();
   if(!canEdit())h='<div class="sub" style="margin-bottom:8px">Du kan se tavla, men ikke redigere. Master gir «Tavle-tilgang» under Brukere.</div>'+h;
   // Ikke tegn over et felt noen skriver i
   if(document.activeElement&&el.contains(document.activeElement)&&document.activeElement.classList.contains('cell'))return;
@@ -874,7 +907,7 @@ function render(){
   document.getElementById('d-label').textContent=DAGER[day.getDay()]+' '+pad(day.getDate())+'.'+pad(day.getMonth()+1)+'.'+day.getFullYear()+(OFF===-1?' (i går)':isToday?' (i dag)':'');
   document.getElementById('wk-label').textContent='Uke '+isoWeek(day);
   renderBoard(day);
-  if(document.getElementById('details').classList.contains('on'))renderDetails(day,dk,isToday);
+  if(document.getElementById('details').classList.contains('on')){renderDetails(day,dk,isToday);document.getElementById('boardlog').innerHTML=logHTML()||'<div class="empty">Ingen endringer logget ennå.</div>';}
   setTimeout(fitScreen,0);
 }
 </script>
