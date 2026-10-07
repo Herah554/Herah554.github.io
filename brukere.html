@@ -116,6 +116,7 @@ input:focus,select:focus{border-color:var(--accent)}
       <div class="lchecks" id="n-lchecks"></div>
     </div>
     <div class="fr"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="n-shift" style="width:auto;margin:0">Skiftrapport-tilgang (kan levere/se skiftrapporter)</label></div>
+    <div class="fr"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="n-board" style="width:auto;margin:0">Tavle-tilgang (kan redigere tavlene og hake av tiltak — master og leder har det alltid)</label></div>
     <div class="fr"><label>Dashboard</label><select id="n-dash"><option value="std">Standard</option></select></div>
     <button class="btn" onclick="createUser()">Opprett bruker</button>
   </div>
@@ -138,6 +139,7 @@ input:focus,select:focus{border-color:var(--accent)}
     </div>
     <div id="e-lsec" class="fr"><label id="e-lsec-lbl">Linjetilgang</label><div class="lchecks" id="e-lchecks"></div></div>
     <div class="fr"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="e-shift" style="width:auto;margin:0">Skiftrapport-tilgang</label></div>
+    <div class="fr"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="e-board" style="width:auto;margin:0">Tavle-tilgang</label></div>
     <div class="fr"><label>Dashboard</label><select id="e-dash"><option value="std">Standard</option></select></div>
     <span class="pw-toggle" onclick="sendPwReset()">🔑 Send passord-tilbakestilling på e-post</span>
     <div style="font-size:11px;color:var(--text3);margin-top:4px;line-height:1.5">
@@ -323,6 +325,7 @@ async function createUser(){
   const role=MY_ROLE==='leder'?'linjeoperator':document.getElementById('n-role').value;
   const lines=role==='master'?[]:getChecked('n-lchecks');
   const shiftAccess=document.getElementById('n-shift').checked;
+  const boardAccess=document.getElementById('n-board').checked;
   const dashboardId=document.getElementById('n-dash').value||'std';
   document.getElementById('cerr').style.display='none';
   document.getElementById('cok').style.display='none';
@@ -334,8 +337,8 @@ async function createUser(){
     const sec=firebase.initializeApp(FB,'tmp-'+Date.now());
     const cred=await sec.auth().createUserWithEmailAndPassword(email,pass);
     await sec.auth().signOut();await sec.delete();
-    await db.ref('users/'+cred.user.uid).set({name,email,role,lines,shiftAccess,dashboardId,createdAt:Date.now()});
-    document.getElementById('n-name').value='';document.getElementById('n-email').value='';document.getElementById('n-pass').value='';document.getElementById('n-shift').checked=false;
+    await db.ref('users/'+cred.user.uid).set({name,email,role,lines,shiftAccess,boardAccess,dashboardId,createdAt:Date.now()});
+    document.getElementById('n-name').value='';document.getElementById('n-email').value='';document.getElementById('n-pass').value='';document.getElementById('n-shift').checked=false;document.getElementById('n-board').checked=false;
     showMsg('cok','✓ Bruker "'+name+'" er opprettet.');
     showToast('Bruker opprettet');
   }catch(e){
@@ -353,6 +356,7 @@ function openEdit(uid){
     document.getElementById('e-role').value=u.role||'linjeoperator';
     buildChecks('e-lchecks',u.lines||[]);
     document.getElementById('e-shift').checked=u.shiftAccess===true;
+    document.getElementById('e-board').checked=u.boardAccess===true;
     setDashSelect(u.dashboardId||'std');
     toggleSec('e-role','e-lsec');
     document.getElementById('emodal').classList.add('on');
@@ -378,11 +382,12 @@ async function saveEdit(){
   const role=MY_ROLE==='leder'?'linjeoperator':document.getElementById('e-role').value;
   const lines=role==='master'?[]:getChecked('e-lchecks');
   const shiftAccess=document.getElementById('e-shift').checked;
+  const boardAccess=document.getElementById('e-board').checked;
   const dashboardId=document.getElementById('e-dash').value||'std';
 
   if(!name){showToast('Skriv inn navn',true);return;}
   if(role!=='master'&&!lines.length){showToast('Velg minst én linje',true);return;}
-  await db.ref('users/'+editUid).update({name,role,lines,shiftAccess,dashboardId});
+  await db.ref('users/'+editUid).update({name,role,lines,shiftAccess,boardAccess,dashboardId});
 
   showToast('Lagret');closeEdit();
 }
