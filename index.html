@@ -74,6 +74,11 @@ h2:first-child{margin-top:0}
 .fbar{display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-bottom:.9rem}
 .fb{padding:4px 12px;border-radius:99px;font-size:12px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:var(--bg2);color:var(--text2);white-space:nowrap}
 .fb.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.dnav{display:inline-flex;align-items:center;gap:3px;margin-left:10px;padding-left:10px;border-left:1px solid var(--border);font-size:12px}
+.dnav b{min-width:120px;text-align:center;font-variant-numeric:tabular-nums}
+.dnb{padding:3px 8px;border:1px solid var(--border);background:var(--bg2);border-radius:var(--r);cursor:pointer;color:var(--text2);font-family:inherit;font-size:12px}
+.dnb:hover{color:var(--text)}.dnb-today{background:var(--accent);color:#fff;border-color:var(--accent)}
+.dnav.off b{color:var(--accent)}
 .btn-da{background:#fff;border:1px solid var(--red);color:var(--red);border-radius:var(--r);font-size:11px;font-weight:600;padding:4px 10px;cursor:pointer;margin-left:auto;white-space:nowrap}
 .btn-da:hover{background:var(--red);color:#fff}
 /* KPI */
@@ -356,6 +361,14 @@ table,#eff-kpi-eff,#eff-kpi-nd,.klbl,.ksub{font-variant-numeric:tabular-nums;fon
     <button class="fb" onclick="setFilter('Koba',this)">Koba</button>
     <button class="fb" onclick="setFilter('Glacier',this)">Glacier</button>
     <button class="fb" onclick="setFilter('Krokan',this)">Krokan</button>
+    <span class="dnav" title="Bla i dag/uke/måned for hele dashbordet">
+      <button class="dnb" onclick="dayNav(-7)" title="En uke tilbake">«</button>
+      <button class="dnb" onclick="dayNav(-1)" title="En dag tilbake">‹</button>
+      <b id="dnav-label">I dag</b>
+      <button class="dnb" onclick="dayNav(1)" title="En dag fram">›</button>
+      <button class="dnb" onclick="dayNav(7)" title="En uke fram">»</button>
+      <button class="dnb dnb-today" onclick="dayNav(0)" id="dnav-today" style="display:none">I dag</button>
+    </span>
     <button class="btn-da" onclick="openDreqModal()">Be om sletting</button>
   </div>
 
@@ -611,9 +624,27 @@ function fmtSpan(e){
   const nextDay=b.toDateString()!==a.toDateString()&&(e.duration||0)>0;
   return pad(a.getDate())+'.'+pad(a.getMonth()+1)+' '+hm(a)+'–'+hm(b)+(nextDay?' (+1)':'');
 }
-function isToday(ts){return new Date(ts).toDateString()===new Date().toDateString();}
-function isWTD(ts){const d=new Date(ts),n=new Date(),s=new Date(n);s.setDate(n.getDate()-((n.getDay()+6)%7));s.setHours(0,0,0,0);return d>=s;}
-function isMTD(ts){const d=new Date(ts),n=new Date();return d.getMonth()===n.getMonth()&&d.getFullYear()===n.getFullYear();}
+/* ── DATO-NAVIGASJON ──
+   DAY_OFF = dager fra i dag (≤0). viewNow() erstatter new Date() i alt som tegner
+   dashbordet, så «i dag», «denne uken» og «denne måneden» følger valgt dag.
+   Live-ting beholder ekte klokke: linjestatus, timestempling, produktbytte, klokka. */
+let DAY_OFF=0;
+function viewNow(){const d=new Date();d.setDate(d.getDate()+DAY_OFF);return d;}
+function dayNav(n){DAY_OFF=n===0?0:Math.min(0,DAY_OFF+n);updateDayNav();renderAll(true);}
+function dayWord(){if(!DAY_OFF)return 'i dag';const d=viewNow();return pad(d.getDate())+'.'+pad(d.getMonth()+1);}
+function updateDayNav(){
+  const el=document.getElementById('dnav-label'), b=document.getElementById('dnav-today'), w=document.querySelector('.dnav');
+  if(!el)return;
+  const d=viewNow();
+  const DAGER=['Søn','Man','Tir','Ons','Tor','Fre','Lør'];
+  const t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));const dd=t.getUTCDay()||7;t.setUTCDate(t.getUTCDate()+4-dd);const wk=Math.ceil(((t-Date.UTC(t.getUTCFullYear(),0,1))/86400000+1)/7);
+  el.textContent=DAY_OFF===0?'I dag · uke '+wk:DAGER[d.getDay()]+' '+pad(d.getDate())+'.'+pad(d.getMonth()+1)+' · uke '+wk;
+  if(b)b.style.display=DAY_OFF===0?'none':'';
+  if(w)w.classList.toggle('off',DAY_OFF!==0);
+}
+function isToday(ts){return new Date(ts).toDateString()===viewNow().toDateString();}
+function isWTD(ts){const d=new Date(ts),n=viewNow(),s=new Date(n);s.setDate(n.getDate()-((n.getDay()+6)%7));s.setHours(0,0,0,0);return d>=s;}
+function isMTD(ts){const d=new Date(ts),n=viewNow();return d.getMonth()===n.getMonth()&&d.getFullYear()===n.getFullYear();}
 function parseDur(s){
   if(!s||!s.trim())return null;
   s=s.trim().toLowerCase().replace(',','.');
@@ -1085,8 +1116,8 @@ function oeeBreakdownAvg(lines,dateObjs){
   const avg=k=>items.reduce((s,x)=>s+x[k],0)/items.length;
   return {oee:avg('oee'),avail:avg('avail'),perf:avg('perf')};
 }
-function daysThisWeek(){const n=new Date();const mon=new Date(n);mon.setDate(n.getDate()-((n.getDay()+6)%7));mon.setHours(12,0,0,0);const a=[];for(let i=0;i<7;i++){const d=new Date(mon);d.setDate(mon.getDate()+i);a.push(d);}return a;}
-function daysThisMonth(){const n=new Date();const dim=new Date(n.getFullYear(),n.getMonth()+1,0).getDate();const a=[];for(let i=1;i<=dim;i++)a.push(new Date(n.getFullYear(),n.getMonth(),i,12,0,0));return a;}
+function daysThisWeek(){const n=viewNow();const mon=new Date(n);mon.setDate(n.getDate()-((n.getDay()+6)%7));mon.setHours(12,0,0,0);const a=[];for(let i=0;i<7;i++){const d=new Date(mon);d.setDate(mon.getDate()+i);a.push(d);}return a;}
+function daysThisMonth(){const n=viewNow();const dim=new Date(n.getFullYear(),n.getMonth()+1,0).getDate();const a=[];for(let i=1;i<=dim;i++)a.push(new Date(n.getFullYear(),n.getMonth(),i,12,0,0));return a;}
 
 // ── NEDETID-FORDELING (klippet mot planlagt produksjonstid) ──
 /* ── Arbeidsvinduer for en dato ──────────────────────────────
@@ -1206,13 +1237,13 @@ function _doRenderAll(){
   const todayE=fil.filter(e=>isToday(e.ts));
   const wtdE=fil.filter(e=>isWTD(e.ts));
   const mtdE=fil.filter(e=>isMTD(e.ts));
-  const todayMin=downtimeForDates(line,[new Date()]);
+  const todayMin=downtimeForDates(line,[viewNow()]);
   const goal=getGoal(line);
   const oeeGoal=getOEEGoal(line);
 
   // OEE — output-based: builds from 0 through the day
   const LINES_ALL=['Løp 1','Løp 2','Løp 3','Rollo','Koba','Glacier','Krokan'];
-  const wkDays=daysThisWeek(), moDays=daysThisMonth(), tdy=[new Date()];
+  const wkDays=daysThisWeek(), moDays=daysThisMonth(), tdy=[viewNow()];
   let oeeDay,oeeWTD,oeeMTD;
   if(!line){
     oeeDay=oeeOutputAvg(LINES_ALL,tdy);
@@ -1471,7 +1502,7 @@ const goalLinePlugin={
 // ── OEE CHART ──
 function renderOEE(fil){
   const RED='#dc2626',AMBER='#d97706',GREEN='#16a34a',GRID='rgba(0,0,0,0.05)';
-  const n=new Date();
+  const n=viewNow();
   const line=filterLine==='Alle'?null:filterLine;
   const oeeGoal=getOEEGoal(line);
   const LINES_ALL=['Løp 1','Løp 2','Løp 3','Rollo','Koba','Glacier','Krokan'];
@@ -1532,7 +1563,7 @@ function renderOEE(fil){
 function renderCharts(fil){
   const RED='#dc2626',AMBER='#d97706',BLUE='#2563eb',GREEN='#16a34a',PURPLE='#7c3aed',TEAL='#0d9488';
   const PAL=[AMBER,RED,BLUE,GREEN,PURPLE,TEAL];const GRID='rgba(0,0,0,0.05)';
-  const n=new Date();
+  const n=viewNow();
   const hD=Array.from({length:24},(_,i)=>fil.filter(e=>isToday(e.ts)&&new Date(e.ts).getHours()===i).reduce((s,e)=>s+e.duration,0));
   const hL=Array.from({length:24},(_,i)=>pad(i)+':00');
   const sw=new Date(n);sw.setDate(n.getDate()-((n.getDay()+6)%7));sw.setHours(0,0,0,0);
@@ -1807,7 +1838,7 @@ function renderProdView(){
   const LINES_ALL=['Løp 1','Løp 2','Løp 3','Rollo','Koba','Glacier','Krokan'];
   const VIEW_LINES=filterLine==='Alle'?LINES_ALL:[filterLine];
   const lineLabel=filterLine==='Alle'?'alle linjer':filterLine;
-  const now=new Date();
+  const now=viewNow();
   const pad2=n=>String(n).padStart(2,'0');
 
   // Build date keys to fetch
@@ -1819,7 +1850,7 @@ function renderProdView(){
     const resetToday=new Date(now);resetToday.setHours(rh,rm,0,0);
     const d=now<resetToday?new Date(now.getTime()-86400000):now;
     dateKeys=[d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate())];
-    if(titleEl)titleEl.textContent='Produksjon i dag — '+lineLabel;
+    if(titleEl)titleEl.textContent='Produksjon '+dayWord()+' — '+lineLabel;
   }else if(prodMode==='week'){
     const s=new Date(now);s.setDate(now.getDate()-((now.getDay()+6)%7));s.setHours(0,0,0,0);
     for(let i=0;i<7;i++){const d=new Date(s);d.setDate(s.getDate()+i);dateKeys.push(d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()));}
@@ -1892,7 +1923,7 @@ function renderProdChart(prodData, dateKeys, LINES_ALL){
   const PAL=['#e63329','#2563eb','#16a34a','#d97706','#7c3aed','#0d9488','#db2777'];
   const GRID='rgba(0,0,0,0.05)';
   const pad2=n=>String(n).padStart(2,'0');
-  const now=new Date();
+  const now=viewNow();
 
   let datasets=[];
   let labels=[];
@@ -1946,7 +1977,7 @@ function renderProdChart(prodData, dateKeys, LINES_ALL){
       const goalRate=G*maxRate;                            // jevn fart for å nå mål
       paceLines.push({value:goalRate,color:'rgba(100,116,139,0.8)',label:'Mål-snitt '+Math.round(goalRate)+' dpk/t',dash:[3,3],width:1,align:'left'});
       const dkey=dateKeys[0];
-      if(dkey===dateKeyOf(now)){
+      if(dkey===dateKeyOf(new Date())){
         const dObj=new Date(now.getFullYear(),now.getMonth(),now.getDate(),12,0,0);
         const fullMin=plannedMinFullDay(dayLine,dObj);
         const elapsedMin=plannedMinForDate(dayLine,dObj);
@@ -2147,7 +2178,7 @@ function effDowntimeHour(lines,day,hour){
 }
 function renderEffTrend(){
   if(!document.getElementById('ch-eff-trend'))return;
-  const sel=filterLine, lines=(sel&&sel!=='Alle')?[sel]:LINES_ALL, now=new Date();
+  const sel=filterLine, lines=(sel&&sel!=='Alle')?[sel]:LINES_ALL, now=viewNow();
   let labels=[],effData=[],ndData=[];
   if(effPeriod==='day'){
     const dk=dateKeyOf(now), upto=now.getHours();
