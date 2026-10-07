@@ -2498,6 +2498,15 @@ function dashList(){
 /* Bygges én gang: flytter eksisterende elementer inn i rutenettet.
    Widgetene lager ikke ny markup, så id-er, lyttere og Chart.js-instanser
    overlever flyttingen. */
+/* Finner elementet en widget skal adoptere: '#id' eller '#id^.klasse' (nærmeste forelder).
+   Forsvant ved en opprydding 22.09 (e1a28d9) — uten den feilet buildWidgets stille, og
+   alle så standardoppsettet uansett mal. */
+function resolveEl(spec){
+  const cut=spec.indexOf('^');
+  if(cut<0)return document.querySelector(spec);
+  const base=document.querySelector(spec.slice(0,cut));
+  return base?base.closest(spec.slice(cut+1)):null;
+}
 function buildWidgets(){
   if(BUILT)return;
   const grid=document.getElementById('wgrid');
