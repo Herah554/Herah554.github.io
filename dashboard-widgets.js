@@ -10,6 +10,9 @@
 const GRID_COLS=12;
 const WSTEPS=[2,3,4,6,8,12];
 const MIN_H=90;   // laveste widget-høyde i piksler
+/* Standardbredder (w): 12 = full bredde. Widgets med svært ulik høyde skal IKKE stå
+   side om side i standardoppsettet — det gir store hull i rutenettet (07.10.2026).
+   Egne maler kan selvsagt sette det slik de vil. */
 const WIDGETS=[
   {key:'filter',       name:'Filtrer',                 group:'Status', w:12, els:['#fbar']},
   {key:'linjestatus',  name:'Linjestatus',             group:'Status', w:12, els:['#line-status-card']},
@@ -19,14 +22,14 @@ const WIDGETS=[
   {key:'kpi-oee-wtd',  name:'OEE denne uken',          group:'Nøkkeltall', w:2,  els:['#k-oee-wtd^.kpi']},
   {key:'kpi-oee-mtd',  name:'OEE denne måneden',       group:'Nøkkeltall', w:2,  els:['#k-oee-mtd^.kpi']},
   {key:'kpi-hendelser',name:'Hendelser denne uke',     group:'Nøkkeltall', w:2,  els:['#k-week^.kpi']},
-  {key:'oee-utvikling',name:'OEE-utvikling',           group:'Grafer', w:6,  els:['#oee-tabs','#oee-card']},
-  {key:'produksjon',   name:'Produksjon',              group:'Grafer', w:6,  els:['#prod-tabs','#pv-main']},
+  {key:'oee-utvikling',name:'OEE-utvikling',           group:'Grafer', w:12,  els:['#oee-tabs','#oee-card']},
+  {key:'produksjon',   name:'Produksjon',              group:'Grafer', w:12,  els:['#prod-tabs','#pv-main']},
   {key:'nd-daily',     name:'Nedetid per time i dag',  group:'Nedetid', w:12, els:['#cp-daily']},
-  {key:'nd-weekly',    name:'Nedetid per dag i uken',  group:'Nedetid', w:6,  els:['#cp-weekly']},
+  {key:'nd-weekly',    name:'Nedetid per dag i uken',  group:'Nedetid', w:12,  els:['#cp-weekly']},
   {key:'nd-causes',    name:'Årsaker og maskinfordeling',group:'Nedetid', w:12,els:['#cp-causes']},
-  {key:'nd-maskiner',  name:'Maskinliste',             group:'Nedetid', w:6,  els:['#cp-maskiner']},
+  {key:'nd-maskiner',  name:'Maskinliste',             group:'Nedetid', w:12,  els:['#cp-maskiner']},
   {key:'nd-heatmap',   name:'Heatmap',                 group:'Nedetid', w:12, els:['#cp-heatmap']},
-  {key:'plan',         name:'Plan mot faktisk',        group:'Grafer', w:6,  els:['#pva-body^.card']},
+  {key:'plan',         name:'Plan mot faktisk',        group:'Grafer', w:12,  els:['#pva-body^.card']},
   {key:'effektivitet', name:'Effektivitet over tid',   group:'Grafer', w:12, els:['#ch-eff-trend^.card']},
   {key:'registrer',    name:'Registrer hendelse',      group:'Hendelser', w:6,  els:['#f-line^.card']},
   {key:'siste',        name:'Siste hendelser',         group:'Hendelser', w:6,  els:['#hist^.card']},

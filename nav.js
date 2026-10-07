@@ -45,6 +45,7 @@
   }
   function build(nav){
     if(nav.dataset.built)return;nav.dataset.built='1';
+    nav.style.zIndex='160';   // over det faste ubehandlet-banneret (150), under modaler (200)
     var st=document.createElement('style');st.textContent=CSS;document.head.appendChild(st);
     var old=nav.querySelectorAll(':scope > a.nl');old.forEach(function(a){a.remove();});
     var ml=nav.querySelector('.ml');

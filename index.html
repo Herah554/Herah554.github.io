@@ -13,7 +13,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-<script src="dashboard-widgets.js?v=20260924b"></script>
+<script src="dashboard-widgets.js?v=20261007b"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -268,7 +268,7 @@ table,#eff-kpi-eff,#eff-kpi-nd,.klbl,.ksub{font-variant-numeric:tabular-nums;fon
 <link rel="stylesheet" href="theme.css?v=20260924b"/>
 <script src="theme.js?v=20260924b"></script>
 <script src="time24.js?v=20260924b"></script>
-<script src="nav.js?v=20261007a"></script>
+<script src="nav.js?v=20261007b"></script>
 </head>
 <body>
 <nav>
@@ -3188,8 +3188,10 @@ function chatKey(e){if(e.key==='Enter'){e.preventDefault();chatSend();}}
 .wgt[data-h] .tw{flex:1 1 auto;min-height:0;overflow:auto}
 .wgt[data-h] .hist,
 .wgt[data-h] #mach-list{flex:1 1 auto;min-height:0;overflow:auto}
-@media(max-width:1200px){.wgt{grid-column:span 6!important}}
-@media(max-width:640px){.wgt{grid-column:span 12!important}}
+/* Smalere skjermer: brede widgets (grafer, lister) går i full bredde, små nøkkeltall-kort
+   legges 3 i bredden — ikke alt i to kolonner, det ga halve grafer og hull (07.10.2026). */
+@media(max-width:1200px){.wgt{grid-column:span 12!important}.wgt[data-w="2"],.wgt[data-w="3"],.wgt[data-w="4"]{grid-column:span 4!important}}
+@media(max-width:640px){.wgt{grid-column:span 12!important}.wgt[data-w="2"],.wgt[data-w="3"]{grid-column:span 6!important}}
 
 /* ── Slettesøknader ── */
 .dreq-badge{font-size:10px;font-family:var(--mono);background:#fffbeb;border:1px solid #fde68a;color:var(--amber);border-radius:99px;padding:1px 8px}
