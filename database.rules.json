@@ -64,6 +64,11 @@
       ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'master' || root.child('users').child(auth.uid).child('role').val() === 'leder')"
     },
 
+    "board": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+
     "shiftReports": {
       ".read": "auth != null",
       ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'master' || root.child('users').child(auth.uid).child('role').val() === 'leder' || root.child('users').child(auth.uid).child('shiftAccess').val() === true)"
