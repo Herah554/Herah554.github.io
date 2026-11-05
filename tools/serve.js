@@ -7,6 +7,7 @@ http.createServer((req,res)=>{
   const rel=decodeURIComponent(req.url.split("?")[0]).replace(/^\/+/,"")||"rotarsak-test.html";
   fs.readFile(path.join(root,rel),(e,b)=>{
     if(e){res.writeHead(404);res.end("nope");return;}
-    res.writeHead(200,{"content-type":mime[path.extname(rel)]||"application/octet-stream"});res.end(b);
+    // Samme cache-hoder som GitHub Pages, så cache-oppførselen kan testes lokalt
+    res.writeHead(200,{"content-type":mime[path.extname(rel)]||"application/octet-stream","cache-control":"max-age=600","last-modified":fs.statSync(path.join(root,rel)).mtime.toUTCString()});res.end(req.method==="HEAD"?undefined:b);
   });
 }).listen(8765,()=>console.log("serving "+root+" on 8765"));

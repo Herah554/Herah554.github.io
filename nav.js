@@ -99,3 +99,29 @@
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
 })();
+
+/* Fersk side (05.11.2026)
+   GitHub Pages sender Cache-Control: max-age=600 også på HTML-en, og no-cache-metataggene i
+   sidene styrer ikke nettleserens HTTP-cache. Har du nettopp vært på en side, viser nettleseren
+   derfor den gamle kopien i opptil ti minutter etter en push — med gamle ?v=-lenker til
+   theme.css osv. Det så ut som «Saker fikk ikke ny profil, resten fikk».
+   Her spør vi serveren (HEAD, utenom cache) når siden sist ble endret. Er den nyere enn kopien
+   vi viser, lastes siden på nytt — en reload henter hoveddokumentet friskt. sessionStorage
+   hindrer løkke: maks én reload per side per serverversjon. */
+(function(){
+  try{
+    if(!window.fetch||!/^https?:$/.test(location.protocol))return;
+    var path=location.pathname, mine=Date.parse(document.lastModified);
+    if(!mine)return;
+    fetch(path+'?_='+Date.now(),{method:'HEAD',cache:'no-store'}).then(function(r){
+      var lm=r.ok&&r.headers.get('Last-Modified');
+      if(!lm)return;
+      var srv=Date.parse(lm);
+      if(!(srv>mine+2000))return;
+      var k='diplomis.fresh:'+path;
+      if(sessionStorage.getItem(k)===String(srv))return;
+      sessionStorage.setItem(k,String(srv));
+      location.reload();
+    }).catch(function(){});
+  }catch(e){}
+})();
