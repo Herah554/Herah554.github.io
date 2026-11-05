@@ -37,6 +37,8 @@
     });
     ml.insertBefore(b, ml.firstChild);
     apply(stored()); // Chart er lastet nå — sett tekstfargen på nytt
+    // Profilfonten også i grafene (sidene setter IBM Plex i sine egne skript før dette)
+    if (window.Chart && Chart.defaults && Chart.defaults.font) Chart.defaults.font.family = "Dazzed, Arial, sans-serif";
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', inject);
   else inject();

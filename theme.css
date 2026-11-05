@@ -104,7 +104,7 @@ html[data-theme="dark"] .unhandled-banner { background: #2a1f0a; box-shadow: 0 4
 
 /* Grønt */
 html[data-theme="dark"] .bg2c, html[data-theme="dark"] .ban-g, html[data-theme="dark"] .he-done,
-html[data-theme="dark"] .bg, html[data-theme="dark"] .b-ok,
+html[data-theme="dark"] .b-ok,
 html[data-theme="dark"] [style*="background:#f0fdf4"] {
   background: rgba(22,163,74,.14) !important; border-color: rgba(22,163,74,.45) !important; color: #86efac !important;
 }
@@ -145,3 +145,59 @@ html[data-theme="dark"] .tab.on {
 }
 html[data-theme="dark"] .effp-btn.on { background: #0d9488; border-color: #0d9488; color: #fff; }
 html[data-theme="dark"] .date-preset.on { background: var(--blue); border-color: var(--blue); color: #fff; }
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DIPLOM-IS PROFIL (05.11.2026)
+   Primær: Mango 300 #ffd100 · Cream 50 #fffaf0 · Strawberry 500 #e4003a · Chocolate 700 #330000
+   Støtte: Cream 100 #fcf1da · Chocolate 100 #f0dfd1 / 200 #e1bd9c · Mango 100 #ffefa1 / 200 #ffe980 /
+           400 #fac800 · Strawberry 100 #ffe0e3 / 200 #f9bdc3 · Blueberry 100 #dbecf6 / 200 #cae3f2 ·
+           Pistachio 100 #e4ebd0 / 200 #d1dfaf · Orange 100 #f9e2c3 / 200 #f3c88e
+   Font: Dazzed, med Arial som reserve. Dazzed er en lisensiert font og ligger IKKE i repoet —
+   den vises der den er installert på maskinen. Legges webfont-filene i fonts/, skru på
+   @font-face-blokken under.
+
+   Sidene definerer sine egne tokens i :root; denne fila lastes etterpå og vinner. Mørk modus
+   (html[data-theme="dark"]) har høyere spesifisitet og beholder sine flater, men arver
+   aksentfarge og font herfra. Statusfarger for tall (grønn/gul/rød tekst, grafer) er IKKE
+   byttet: profilen har ingen mørk grønn eller blå som er lesbar som tekst. */
+/* @font-face{font-family:'Dazzed';src:url('fonts/Dazzed-Regular.woff2') format('woff2');font-weight:400;font-display:swap}
+   @font-face{font-family:'Dazzed';src:url('fonts/Dazzed-SemiBold.woff2') format('woff2');font-weight:600;font-display:swap}
+   @font-face{font-family:'Dazzed';src:url('fonts/Dazzed-Bold.woff2') format('woff2');font-weight:700;font-display:swap} */
+:root{
+  --bg:#fffaf0; --bg2:#ffffff; --bg3:#fcf1da; --border:#f0dfd1;
+  --text:#330000; --text2:#6b4a3f; --text3:#a38b7d;
+  --accent:#e4003a; --red:#e4003a; --navy:#330000;
+  --font:'Dazzed',Arial,sans-serif; --mono:'Dazzed',Arial,sans-serif;
+}
+body, button, input, select, textarea { font-family: 'Dazzed', Arial, sans-serif; }
+
+/* Toppmenyen: gul med brun tekst og rød logo */
+html:not([data-theme="dark"]) nav{background:#ffd100;border-bottom-color:#fac800}
+html:not([data-theme="dark"]) nav > .nl, html:not([data-theme="dark"]) nav .nav-grp > .nl{color:#330000}
+html:not([data-theme="dark"]) nav > .nl:hover, html:not([data-theme="dark"]) nav .nav-grp > .nl:hover{background:rgba(51,0,0,.08)}
+html:not([data-theme="dark"]) nav > .nl.on, html:not([data-theme="dark"]) nav .nav-grp > .nl.on{background:#fffaf0;color:#e4003a}
+html:not([data-theme="dark"]) nav .logo span{color:#330000;opacity:.7}
+html:not([data-theme="dark"]) nav .ubadge{background:rgba(51,0,0,.08);color:#330000}
+html:not([data-theme="dark"]) nav .lout, html:not([data-theme="dark"]) nav .theme-btn{border-color:rgba(51,0,0,.25);color:#330000;background:transparent}
+html:not([data-theme="dark"]) nav .clk{color:#330000}
+html[data-theme="dark"] nav .logo{color:#ffd100}
+
+/* Ubehandlet-banneret */
+html:not([data-theme="dark"]) .unhandled-banner{background:#ffefa1;border-bottom-color:#fac800}
+html:not([data-theme="dark"]) .ub-text{color:#330000}html:not([data-theme="dark"]) .ub-sub{color:#6b4a3f}
+html:not([data-theme="dark"]) .ub-btn{background:#e4003a}
+
+/* Statusflater i profilens støttefarger (lys modus) */
+html:not([data-theme="dark"]) .line-bar-card.sel, html:not([data-theme="dark"]) .br, html:not([data-theme="dark"]) .cal-tag.r, html:not([data-theme="dark"]) .err, html:not([data-theme="dark"]) .msg-e, html:not([data-theme="dark"]) .rb-m,
+html:not([data-theme="dark"]) .dreq-st.rejected, html:not([data-theme="dark"]) .cal-red, html:not([data-theme="dark"]) .tpl.on, html:not([data-theme="dark"]) .effcal:hover, html:not([data-theme="dark"]) .dbtn:hover,
+html:not([data-theme="dark"]) .rdel:hover, html:not([data-theme="dark"]) .pi-del:hover, html:not([data-theme="dark"]) .del:hover{background:#ffe0e3;border-color:#f9bdc3}
+html:not([data-theme="dark"]) .ba, html:not([data-theme="dark"]) .b-un, html:not([data-theme="dark"]) .note, html:not([data-theme="dark"]) #preview-bar, html:not([data-theme="dark"]) .dreq-badge, html:not([data-theme="dark"]) .dreq-row.pending,
+html:not([data-theme="dark"]) .dreq-st.pending, html:not([data-theme="dark"]) .cal-soft, html:not([data-theme="dark"]) .hcell.late, html:not([data-theme="dark"]) .rdel-ask:hover,
+html:not([data-theme="dark"]) [style*="background:#fffbeb"]{background:#ffefa1 !important;border-color:#ffe980 !important;color:#7a4a00 !important}
+html:not([data-theme="dark"]) .bg2c, html:not([data-theme="dark"]) .ban-g, html:not([data-theme="dark"]) .he-done, html:not([data-theme="dark"]) .b-ok, html:not([data-theme="dark"]) .msg-ok, html:not([data-theme="dark"]) .rb-o, html:not([data-theme="dark"]) .dreq-st.approved,
+html:not([data-theme="dark"]) .tpl-inuse, html:not([data-theme="dark"]) .ok, html:not([data-theme="dark"]) .hcell.done,
+html:not([data-theme="dark"]) [style*="background:#f0fdf4"]{background:#e4ebd0 !important;border-color:#d1dfaf !important;color:#3f5b12 !important}
+html:not([data-theme="dark"]) .bb, html:not([data-theme="dark"]) .tk-banner, html:not([data-theme="dark"]) .cb, html:not([data-theme="dark"]) .lchk.on, html:not([data-theme="dark"]) .b-opc, html:not([data-theme="dark"]) input.auto, html:not([data-theme="dark"]) .rb-l,
+html:not([data-theme="dark"]) .hcell.sugg{background:#dbecf6;border-color:#cae3f2;color:#1d5a82}
+html:not([data-theme="dark"]) .tk-text{color:#1d5a82}

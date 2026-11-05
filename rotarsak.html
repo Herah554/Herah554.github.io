@@ -107,8 +107,8 @@ table.t{width:100%;border-collapse:collapse;font-size:12.5px}table.t td,table.t 
 @media(max-width:1150px){.case{grid-template-columns:1fr}.side{position:static}.kb3,.kb4,.cats,.g3{grid-template-columns:1fr}.act{grid-template-columns:1fr}}
 @media print{nav,.sub-nav,.noprint,.side,.x,.b,.flag{display:none!important}.case{display:block}.page{padding:0}body{background:#fff}.card{box-shadow:none;break-inside:avoid}}
 </style>
-<link rel="stylesheet" href="theme.css?v=20260924b"/>
-<script src="theme.js?v=20260924b"></script>
+<link rel="stylesheet" href="theme.css?v=20261105c"/>
+<script src="theme.js?v=20261105c"></script>
 <script src="time24.js?v=20260924b"></script>
 <script src="nav.js?v=20261105b"></script>
 </head>
@@ -231,7 +231,7 @@ function render(){
 }
 function caseCard(c){
   const nrep=reports().filter(r=>r.caseId===c.id).length;
-  return '<div class="kc'+(c.ownerName?'':' noown')+'" data-go="sak" data-id="'+c.id+'"><div class="top"><span class="nr">#'+c.nr+'</span><span>'+fmtDay(c.createdAt)+'</span></div>'
+  return '<div class="kc'+(c.ownerName?'':' noown')+'" data-go="sak" data-id="'+c.id+'"><div class="top"><span class="nr">#'+c.nr+(c.demo?' <span class="tag">demo</span>':'')+'</span><span>'+fmtDay(c.createdAt)+'</span></div>'
     +'<div class="tt">'+esc(c.title||'Uten tittel')+'</div><span class="pri-dot '+(c.priority||'medium')+'">'+PRI[c.priority||'medium']+'</span> <span class="tag">'+nrep+' rapport'+(nrep===1?'':'er')+'</span>'
     +'<div class="ft"><span'+(c.ownerName?'':' class="warn"')+'>'+esc(c.ownerName||'Mangler ansvarlig')+'</span><span>📍 '+esc(c.where||c.line||'—')+'</span></div></div>';
 }
@@ -247,7 +247,7 @@ function vHjem(){
   return '<h1>Hei, '+esc(me().split(' ')[0])+' 👋</h1><div class="lead">Her er det du har ansvar for akkurat nå.</div><div class="g3">'
     +box('📁 Mine saker',mineS.length,mineS.map(caseCard).join(''),'Du står ikke som analyseansvarlig på noen aktive saker.',['saker','Se alle saker'])
     +box('📋 Mine tiltak',mineT.length,mineT.map(actCard).join(''),'Ingen åpne tiltak tildelt deg.',['tiltak','Se alle tiltak'])
-    +box('👥 Saker jeg deltar i',mineD.length,mineD.map(caseCard).join(''),'Du er ikke deltaker i andre åpne saker.')+'</div>';
+    +box('👥 Saker jeg deltar i',mineD.length,mineD.map(caseCard).join(''),'Du er ikke deltaker i andre åpne saker.')+'</div>'+demoCard();
 }
 function vFolger(){
   const f=cases().filter(c=>(c.followers||{})[UID]).sort((a,b)=>lastChange(b)-lastChange(a));
@@ -455,6 +455,94 @@ function vSak(){
   return h+'</div>';
 }
 
+/* ═════════ DEMO-DATA ═════════
+   Eksempel-saker for å vise fram løsningen. Alt merkes demo:true og kan fjernes igjen
+   med ett klikk uten å røre ekte saker. Bare master ser knappene. */
+function demoCard(){
+  if(!USER||USER.role!=='master')return '';
+  const n=cases().filter(c=>c.demo).length+reports().filter(r=>r.demo).length;
+  return '<div class="card" style="margin-top:14px;max-width:640px"><div class="ct" style="font-size:13px">🎬 Demo-saker <span class="r sub">'+(n?n+' demo-elementer ligger inne':'ingen lastet')+'</span></div>'
+    +'<div class="sub" style="margin-bottom:8px">Laster inn fem eksempel-saker i ulike stadier, tre rapporter i mottaket og to gjentagende problemer, så du kan vise fram hele flyten. Ekte saker røres ikke.</div>'
+    +'<button class="b dark sm" data-act="demoinn">Last inn demo-saker</button> '+(n?'<button class="b sm" data-act="demout">Fjern demo-saker</button>':'')+'</div>';
+}
+async function loadDemo(){
+  if(cases().some(c=>c.demo)&&!confirm('Demo-saker ligger allerede inne. Laste inn et sett til?'))return;
+  const tr=await db.ref('rca/counter').transaction(n=>(n||0)+5).catch(()=>null);
+  if(!tr||!tr.committed){fail();return;}
+  const base=tr.snapshot.val()-5, now=Date.now(), D=86400000;
+  const others=USERS.filter(u=>u.uid!==UID), A={uid:UID,name:me()}, B=others[0]||A, C=others[1]||B;
+  const day=n=>{const d=new Date(now+n*D);return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());};
+  const k=()=>db.ref('rca').push().key;
+  const upd={}, g1=k(), g2=k();
+  upd['recurring/'+g1]={demo:true,name:'Folieproblemer på Løp 3',description:'Gjentatte stopp og underkjenninger knyttet til folie og oblat på 0,9 L-linja.',createdAt:now-30*D,createdBy:A.name};
+  upd['recurring/'+g2]={demo:true,name:'Herdetunnel Glacier',description:'Smuss og sot fra herdetunnelen som havner på produkt.',createdAt:now-70*D,createdBy:A.name};
+  const mk=(i,c)=>{const id=k();upd['cases/'+id]=Object.assign({demo:true,nr:base+i,status:'open',createdBy:A.uid,createdByName:A.name,log:{l1:{at:c.createdAt,by:A.name,text:'opprettet saken fra rapport'}}},c);return id;};
+  const rp=(caseId,r)=>{upd['reports/'+k()]=Object.assign({demo:true,createdBy:A.uid,createdByName:r.by||A.name},r,caseId?{caseId}:{});};
+  const why=(...t)=>{const o={};t.forEach((x,i)=>{o['w'+i]={text:x,at:i+1};});return o;};
+
+  const c1=mk(1,{title:'Manglende folie på 0,9 L-bokser',priority:'high',stage:'undersoker',owner:A.uid,ownerName:A.name,participants:{[B.uid]:B.name,[C.uid]:C.name},line:'Løp 3',where:'Løp 3 foliedispenser',createdAt:now-16*D,recurringId:g1,followers:{[A.uid]:true},
+    problem:'Bokser kommer ut uten folie. Det fører til sperring av produkt, underkjenninger og mye nedetid på linja. Gjelder flere produkter på 0,9 L.',
+    facts:{f1:{text:'3 sperringer de siste to ukene'},f2:{text:'Skjer oftest første time etter vask'}},
+    comments:{m1:{text:'Så det igjen på nattskiftet i går, rett etter oppstart.',by:B.uid,byName:B.name,at:now-3*D},m2:{text:'Tar med luftmåling til neste møte.',by:A.uid,byName:A.name,at:now-2*D}},
+    causes:{
+      a1:{cat:'metode',text:'Vanskelig å rengjøre varmeelement',flag:'mulig',klass:'medv',whys:why('Rester brenner seg fast på elementet','Det finnes ingen fast rengjøringsmetode')},
+      a2:{cat:'metode',text:'Vann i vakuumslanger etter vask',flag:'mulig',klass:'rot',whys:why('Åpningen dekkes ikke til under vask','Mangler metode for åpne kritiske punkter under vask')},
+      a3:{cat:'maskin',text:'For lite luft på foliedispenser',flag:'mulig',klass:'rot',whys:why('Feil fordeling av lufta','Koblet på samme tilførsel som naboenheten')},
+      a4:{cat:'maskin',text:'Slitte sugekopper',flag:'ikke'},
+      a5:{cat:'kontroll',text:'Ingen kontroll av vakuum ved oppstart',flag:'mulig',klass:'symptom',whys:why('Står ikke i oppstartssjekken')},
+      a6:{cat:'ravare',text:'Folie fra ny leverandør',flag:'ikke'}},
+    actions:{
+      t1:{type:'korr',text:'Dekk til åpninger under vask',owner:A.uid,ownerName:A.name,due:day(5),pdca:'do',createdAt:1},
+      t2:{type:'korr',text:'Kontroller luftfordeling fra hovedtilførsel',owner:B.uid,ownerName:B.name,due:day(-3),pdca:'plan',createdAt:2},
+      t3:{type:'foreb',text:'Lag fast rengjøringsmetode for varmeelement',owner:C.uid,ownerName:C.name,due:day(14),pdca:'plan',createdAt:3},
+      t4:{type:'foreb',text:'Legg vakuumkontroll inn i oppstartssjekken',owner:A.uid,ownerName:A.name,due:day(7),pdca:'check',effect:'Testet på to skift, ingen bokser uten folie',createdAt:4}},
+    meetings:{mt1:{when:now+2*D,text:'Gjennomgang av luftmåling og tiltak'}}});
+  rp(c1,{text:'Manglende folie på boks 0,9 L. Fører til sperring av produkter, deretter underkjenninger og mye nedetid på linja.',line:'Løp 3',where:'foliedispenser',when:now-16*D,done:'Slangene er blåst, sugekopper byttet, vakuum justert',createdAt:now-16*D,by:B.name});
+  rp(c1,{text:'Samme feil igjen i dag, fire bokser uten folie på rad etter oppstart.',line:'Løp 3',where:'foliedispenser',when:now-3*D,done:'Stoppet og startet på nytt',createdAt:now-3*D,by:C.name});
+
+  const c2=mk(2,{title:'Doble is i pakkemaskin gir svinn',priority:'medium',stage:'opprettet',line:'Glacier',where:'Glacier pakkemaskin',createdAt:now-2*D});
+  rp(c2,{text:'Det kommer doble is inn i pakkemaskinen, som gir mye svinn. Skjer på alle produkter, men mest på de minste.',line:'Glacier',where:'pakkemaskin',when:now-2*D,done:'Nei',createdAt:now-2*D,by:B.name});
+
+  const c3=mk(3,{title:'Eskereiser lager skjeve esker',priority:'medium',stage:'bekreftet',owner:B.uid,ownerName:B.name,participants:{[A.uid]:A.name},line:'Glacier',where:'Glacier eskereiser',createdAt:now-24*D,rcaDone:{by:B.name,at:now-10*D},
+    problem:'Eskereiseren lager skjeve esker og må justeres nesten hvert skift.',
+    causes:{
+      a1:{cat:'maskin',text:'Slitt føring på magasinet',flag:'mulig',klass:'rot',whys:why('Kartongen ligger skjevt inn i maskinen','Føringen har slark','Den er aldri byttet og står ikke i vedlikeholdsplanen')},
+      a2:{cat:'ravare',text:'Ujevn kartongkvalitet',flag:'mulig',klass:'medv',whys:why('Enkelte paller er fuktige')},
+      a3:{cat:'folk',text:'Ulike justeringer fra skift til skift',flag:'mulig',klass:'symptom'}},
+    actions:{
+      t1:{type:'korr',text:'Bytt føring på magasinet',owner:B.uid,ownerName:B.name,due:day(-8),pdca:'lukket',effect:'Ingen skjeve esker den første uka etter bytte',closedAt:now-7*D,closedBy:B.name,createdAt:1},
+      t2:{type:'foreb',text:'Legg føringen inn i forebyggende vedlikehold hver 6. måned',owner:A.uid,ownerName:A.name,due:day(10),pdca:'act',createdAt:2},
+      t3:{type:'foreb',text:'Lag standard innstillingsark ved maskinen',owner:C.uid,ownerName:C.name,due:day(20),pdca:'plan',createdAt:3}},
+    std:'Innstillingsarket henges ved maskinen og tas inn i opplæringen av nye operatører.'});
+  rp(c3,{text:'Eskereiser lager dårlige esker, må justeres nesten hvert skift.',line:'Glacier',where:'eskereiser',when:now-24*D,done:'Justert for hånd',createdAt:now-24*D,by:C.name});
+
+  const c4=mk(4,{title:'Pakkerobot hopper over produkter',priority:'high',stage:'undersoker',owner:A.uid,ownerName:A.name,line:'Rollo',where:'Rollo pakkerobot',createdAt:now-6*D,
+    problem:'Roboten lar enkelte produkter gå forbi uten å plukke dem. Det mangler ikke produkter i eskene, men de som går forbi blir svinn.',
+    causes:{a1:{cat:'kontroll',text:'Kamera mister produktet ved høy hastighet',flag:'mulig',whys:why('Eksponeringstiden er for lang')},a2:{cat:'maskin',text:'Sugekopp tetter seg',flag:'mulig'},a3:{cat:'miljo',text:'Kondens på linsa',flag:''}},
+    actions:{t1:{type:'korr',text:'Rens linse og sugekopper ved skiftstart',owner:C.uid,ownerName:C.name,due:day(-1),pdca:'do',createdAt:1}}});
+  rp(c4,{text:'Pakkerobot pakker ikke alle produkter. Den unngår et produkt av og til, men det mangler ingen produkter i eskene.',line:'Rollo',where:'pakkerobot',when:now-6*D,done:'Nei',createdAt:now-6*D,by:B.name});
+
+  const c5=mk(5,{title:'Sot fra herdetunnel på produkt',priority:'medium',stage:'bekreftet',status:'archived',owner:A.uid,ownerName:A.name,line:'Glacier',where:'Glacier herdetunnel',createdAt:now-60*D,recurringId:g2,rcaDone:{by:A.name,at:now-45*D},archivedAt:now-40*D,archivedBy:A.name,archiveComment:'Tunnel rengjort og rutine innført. Ingen nye funn på fire uker.',
+    problem:'Sorte partikler på produkt. Sot fra herdetunnelen faller ned på brettene.',
+    causes:{a1:{cat:'metode',text:'Tunnelen rengjøres for sjelden',flag:'mulig',klass:'rot',whys:why('Rengjøring står ikke i vaskeplanen','Tunnelen ble regnet som lukket sone')}},
+    actions:{t1:{type:'korr',text:'Full rengjøring av herdetunnel',owner:A.uid,ownerName:A.name,due:day(-50),pdca:'lukket',effect:'Ingen partikler funnet etter rengjøring',closedAt:now-48*D,closedBy:A.name,createdAt:1},t2:{type:'foreb',text:'Legg tunnelen inn i månedlig vaskeplan',owner:B.uid,ownerName:B.name,due:day(-42),pdca:'lukket',effect:'Gjennomført to ganger uten avvik',closedAt:now-41*D,closedBy:B.name,createdAt:2}},
+    conclusion:'Rotårsaken var manglende rengjøring av tunnelen. Tiltakene er gjennomført og har virket.'});
+  rp(c5,{text:'Produkt underkjent på grunn av sorte partikler. Ser ut som sot fra herdetunnelen.',line:'Glacier',where:'herdetunnel',when:now-60*D,done:'Linja stoppet og brett byttet',createdAt:now-60*D,by:C.name});
+
+  rp(null,{text:'Feilmelding på pakkemaskinen hver gang vi starter den opp. Tar alltid 30 min med feilsøking før vi får kjørt.',line:'Rollo',where:'pakkemaskin',when:now-1*D,done:'Startet på nytt flere ganger',createdAt:now-1*D,by:B.name});
+  rp(null,{text:'Pinnemaskinen stopper stadig. Først stopper den korte banen, og så må vi bytte pinner for hånd.',line:'Rollo',where:'pinnemaskin',when:now-1*D,done:'Nei',createdAt:now-20*3600000,by:C.name});
+  rp(null,{text:'Etiketten sitter skjevt på annenhver boks.',line:'Koba',where:'etikettmaskin',when:now-5*3600000,done:'Justert sensoren litt',createdAt:now-5*3600000,by:B.name});
+  db.ref('rca').update(upd).then(()=>go('saker')).catch(fail);
+}
+function removeDemo(){
+  if(!confirm('Fjerne alle demo-saker, demo-rapporter og demo-problemer? Ekte saker røres ikke.'))return;
+  const upd={};
+  cases().filter(c=>c.demo).forEach(c=>upd['cases/'+c.id]=null);
+  reports().filter(r=>r.demo).forEach(r=>upd['reports/'+r.id]=null);
+  arr(RECUR).filter(r=>r.demo).forEach(r=>upd['recurring/'+r.id]=null);
+  db.ref('rca').update(upd).then(()=>render()).catch(fail);
+}
+
 /* ═════════ HANDLINGER ═════════ */
 function modal(html){document.getElementById('modal-body').innerHTML=html;document.getElementById('modal').classList.add('on');}
 function closeModal(){document.getElementById('modal').classList.remove('on');}
@@ -519,6 +607,8 @@ document.addEventListener('click',async ev=>{
     if(a==='koble'){pick('Koble rapporten til en sak',openCases().map(c=>[c.id,'#'+c.nr+' '+(c.title||'')]),id=>{db.ref('rca/reports/'+d.id+'/caseId').set(id).catch(fail);logCase(id,'koblet til en ny rapport');});return;}
     if(a==='arkrep'){upd('rca/reports/'+d.id+'/archived',true);return;}
     if(a==='gjenrep'){upd('rca/reports/'+d.id+'/archived',null);return;}
+    if(a==='demoinn'){loadDemo();return;}
+    if(a==='demout'){removeDemo();return;}
     if(a==='mesrap'){const id=await createCase({text:d.cause+' — '+(d.machine||d.line)+' ('+d.n+' ganger, '+fmtD(+d.min)+' siste 30 dager)',line:d.line,where:d.machine,machine:d.machine,cause:d.cause},{problem:'Stoppen «'+d.cause+'» på '+d.line+(d.machine?' / '+d.machine:'')+' har gjentatt seg '+d.n+' ganger de siste 30 dagene, til sammen '+fmtD(+d.min)+' nedetid.'});if(id)go('sak',id);return;}
     if(a==='flag'){const c=(CASES[CASE].causes||{})[d.id]||{};upd(P+'causes/'+d.id+'/flag',!c.flag?'mulig':c.flag==='mulig'?'ikke':null);return;}
     if(a==='klass'){const c=(CASES[CASE].causes||{})[d.id]||{};upd(P+'causes/'+d.id+'/klass',c.klass===d.v?null:d.v);if(d.v==='rot'&&c.klass!=='rot')logCase(CASE,'klassifiserte «'+(c.text||'')+'» som rotårsak');return;}
