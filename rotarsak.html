@@ -4,7 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
-<title>Rotårsaksanalyse — Diplom-is</title>
+<title>Saker og rotårsak — Diplom-is</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet"/>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
@@ -27,55 +27,90 @@ nav{background:var(--bg2);border-bottom:1px solid var(--border);height:54px;disp
 .ml{margin-left:auto;display:flex;align-items:center;gap:8px}
 .ubadge{font-size:11px;font-family:var(--mono);background:var(--bg3);padding:3px 9px;border-radius:99px;color:var(--text2)}
 .lout{font-size:12px;background:none;border:1px solid var(--border);border-radius:var(--r);padding:4px 9px;cursor:pointer;color:var(--text3)}
-.page{max-width:1500px;margin:0 auto;padding:1rem 1.5rem 3rem;display:grid;grid-template-columns:340px 1fr;gap:14px;align-items:start}
-h2{font-size:11px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin:1rem 0 .5rem}
+/* undermeny */
+.sub-nav{background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:4px;padding:8px 1.5rem;flex-wrap:wrap;position:sticky;top:54px;z-index:40}
+.sn{font-size:13px;padding:6px 11px;border-radius:var(--r);cursor:pointer;color:var(--text2);border:none;background:none;font-family:inherit;font-weight:500;border-bottom:2px solid transparent}
+.sn:hover{background:var(--bg3)}.sn.on{color:var(--text);border-bottom-color:var(--navy);border-radius:var(--r) var(--r) 0 0;font-weight:700}
+.sn .bdg{background:var(--navy);color:#fff;font-size:10px;font-weight:700;border-radius:99px;padding:1px 7px;margin-left:4px}
+.page{max-width:1560px;margin:0 auto;padding:1rem 1.5rem 3rem}
+h1{font-size:20px;font-weight:700;margin-bottom:2px}
+.lead{color:var(--text3);font-size:13px;margin-bottom:12px}
 .card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:.9rem 1.1rem;box-shadow:var(--sh);margin-bottom:12px}
-.hdr{background:var(--navy);color:#fff;font-weight:700;font-size:12px;padding:5px 10px;border-radius:4px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;display:flex;align-items:center;gap:8px}
-.hdr .n{background:rgba(255,255,255,.25);border-radius:99px;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;font-size:11px}
+.ct{font-size:15px;font-weight:700;margin-bottom:.6rem;display:flex;align-items:center;gap:8px}
+.ct .r{margin-left:auto;font-weight:400}
+.lblx{font-size:10px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin:10px 0 3px;display:block}
 input,select,textarea{width:100%;padding:7px 9px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;font-family:inherit;background:var(--bg2);color:var(--text)}
-textarea{resize:vertical;min-height:54px;line-height:1.4}
+textarea{resize:vertical;min-height:52px;line-height:1.45}
 input:focus,select:focus,textarea:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.12)}
-label{font-size:11px;color:var(--text3);display:block;margin:8px 0 3px;font-weight:600}
-.b{padding:7px 12px;border:1px solid var(--border);background:var(--bg2);border-radius:var(--r);cursor:pointer;font-size:13px;color:var(--text2);font-family:inherit}
-.b:hover{color:var(--text)}.b.pri{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600}
-.b.sm{padding:3px 8px;font-size:12px}
-.chip{font-size:12px;padding:4px 10px;border:1px solid var(--border);background:var(--bg2);border-radius:99px;cursor:pointer;color:var(--text2);font-family:inherit}
-.chip.on{background:var(--navy);color:#fff;border-color:var(--navy)}
-.li{padding:9px 10px;border:1px solid var(--border);border-radius:var(--r);margin-bottom:6px;cursor:pointer;background:var(--bg2)}
-.li:hover{border-color:var(--text3)}.li.sel{border-color:var(--accent);box-shadow:0 0 0 2px rgba(230,51,41,.15)}
-.li .t{font-weight:600;font-size:13px}.sub{font-size:11px;color:var(--text3)}
-.st{display:inline-block;font-size:10px;font-weight:700;padding:1px 7px;border-radius:99px;text-transform:uppercase;letter-spacing:.04em}
-.st.open{background:rgba(220,38,38,.12);color:var(--red)}.st.action{background:rgba(217,119,6,.14);color:var(--amber)}.st.closed{background:rgba(22,163,74,.14);color:var(--green)}
-.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
-.why{display:grid;grid-template-columns:86px 1fr 26px;gap:8px;align-items:start;margin-bottom:6px}
-.why .q{font-weight:700;font-size:12px;color:var(--navy);padding-top:8px;white-space:nowrap}
-.x{background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:6px 2px}.x:hover{color:var(--red)}
-.fish{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-.fb{border:1px solid var(--border);border-radius:var(--r);padding:8px;background:var(--bg3)}
-.fb h4{font-size:12px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center}
-.fb .c{display:grid;grid-template-columns:1fr 22px;gap:4px;margin-bottom:4px}
-.fb .c input{padding:5px 7px;font-size:12px}
-.act{display:grid;grid-template-columns:22px 1fr 130px 120px 24px;gap:6px;align-items:start;padding:4px 0;border-bottom:1px dashed var(--border)}
-.act input[type=checkbox]{width:17px;height:17px;margin-top:8px;accent-color:var(--green)}
-.act.done input[type=text],.act.done textarea{text-decoration:line-through;color:var(--text3)}
-.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}
-.kpi{background:var(--bg3);border-radius:var(--r);padding:.6rem .8rem}
-.kl{font-size:10px;font-family:var(--mono);text-transform:uppercase;color:var(--text3)}.kv{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
-table{width:100%;border-collapse:collapse;font-size:12px}
-td,th{padding:5px 6px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top}
-th{font-size:10px;font-family:var(--mono);text-transform:uppercase;color:var(--text3)}
+.b{padding:6px 11px;border:1px solid var(--border);background:var(--bg2);border-radius:var(--r);cursor:pointer;font-size:12.5px;color:var(--text2);font-family:inherit;white-space:nowrap}
+.b:hover{color:var(--text);border-color:var(--text3)}
+.b.pri{background:var(--navy);color:#fff;border-color:var(--navy);font-weight:600}
+.b.dark{background:var(--text);color:var(--bg2);border-color:var(--text);font-weight:600}
+.b.sm{padding:3px 8px;font-size:11.5px}.b.ghost{border-style:dashed;color:var(--text3)}
+.chip{font-size:12.5px;padding:5px 12px;border:1px solid var(--border);background:var(--bg2);border-radius:99px;cursor:pointer;color:var(--text2);font-family:inherit}
+.chip.on{background:var(--text);color:var(--bg2);border-color:var(--text);font-weight:600}
+.chip.warn{color:var(--red);border-color:rgba(220,38,38,.4)}
+.bar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.sub{font-size:11.5px;color:var(--text3)}
+.x{background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px;padding:3px 4px}.x:hover{color:var(--red)}
+/* kanban */
+.kb{display:grid;gap:12px;align-items:start}
+.kb3{grid-template-columns:repeat(3,1fr)}.kb4{grid-template-columns:repeat(4,1fr)}
+.col{background:var(--bg3);border-radius:var(--rl);padding:10px;min-height:120px}
+.col h3{font-size:13px;font-weight:600;margin:2px 4px 10px;display:flex;justify-content:space-between;color:var(--text2)}
+.kc{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;margin-bottom:8px;cursor:pointer;box-shadow:var(--sh)}
+.kc:hover{border-color:var(--text3)}
+.kc.noown{border-left:3px solid var(--amber)}.kc.over{border-color:rgba(220,38,38,.45)}
+.kc .top{display:flex;justify-content:space-between;font-size:11.5px;color:var(--text3)}
+.kc .nr{font-weight:700;color:var(--text)}
+.kc .tt{font-size:13px;margin:4px 0 6px;line-height:1.35}
+.kc .ft{display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-top:6px;gap:6px}
+.pri-dot{display:inline-flex;align-items:center;gap:5px;font-size:12px}.pri-dot::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--amber)}
+.pri-dot.high::before{background:var(--red)}.pri-dot.low::before{background:var(--green)}
+.tag{display:inline-block;font-size:10.5px;padding:1px 7px;border-radius:99px;border:1px solid var(--border);background:var(--bg3);color:var(--text2)}
+.tag.dark{background:var(--text);color:var(--bg2);border-color:var(--text);font-weight:600}
+.tag.red{background:rgba(220,38,38,.1);color:var(--red);border-color:rgba(220,38,38,.35)}
+/* sak */
+.case{display:grid;grid-template-columns:250px 1fr 250px;gap:14px;align-items:start}
+.side{position:sticky;top:112px;display:flex;flex-direction:column;gap:10px}
+.cats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.cat{border:1px solid var(--border);border-left:3px solid var(--text3);border-radius:var(--r);padding:9px 10px;background:var(--bg2);min-height:110px}
+.cat h4{font-size:13px;margin-bottom:2px}.cat .hint{font-size:11px;color:var(--text3);font-style:italic;line-height:1.35;margin-bottom:6px}
+.cause{display:grid;grid-template-columns:1fr 24px 22px;gap:4px;align-items:center;margin-bottom:3px}
+.cause input{padding:4px 7px;font-size:12.5px;border-color:transparent;background:var(--bg3)}
+.flag{background:none;border:none;cursor:pointer;font-size:13px;opacity:.3;padding:2px}.flag.on{opacity:1}
+.cause.ikke input{color:var(--text3);text-decoration:line-through}
+.why-card{border:1px solid var(--border);border-left:3px solid var(--navy);border-radius:var(--r);padding:10px 12px;margin-bottom:10px}
+.why-row{display:grid;grid-template-columns:26px 1fr 22px;gap:6px;align-items:start;margin:6px 0}
+.why-row .n{width:20px;height:20px;border:1px solid var(--border);border-radius:50%;font-size:10px;display:flex;align-items:center;justify-content:center;color:var(--text3);margin-top:6px}
+.klass{display:flex;gap:5px;flex-wrap:wrap;margin-top:4px}
+.rot{border:1px solid var(--border);border-radius:var(--r);padding:9px 12px;margin-bottom:8px}
+.rot.is{border:2px solid var(--text)}
+.act{border:1px solid var(--border);border-radius:var(--r);padding:8px 10px;margin-bottom:6px;display:grid;grid-template-columns:1fr 150px 130px 130px 22px;gap:6px;align-items:start}
+.act.closed textarea{text-decoration:line-through;color:var(--text3)}
+.cmt{font-size:12.5px;padding:6px 0;border-bottom:1px dashed var(--border)}.cmt b{font-size:12px}
+.rep{border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;margin-bottom:8px}
+.rep .g{display:grid;grid-template-columns:1fr 1fr;gap:4px 14px}
+.report h3{font-size:15px;margin:14px 0 4px}.report p,.report li{font-size:13px;line-height:1.55;color:var(--text2)}.report ul{margin-left:18px}
+.report table{width:100%;border-collapse:collapse;font-size:12.5px;margin:6px 0}.report th{text-align:left;font-size:10px;font-family:var(--mono);text-transform:uppercase;color:var(--text3);padding:4px 6px;border-bottom:1px solid var(--border)}.report td{padding:5px 6px;border-bottom:1px solid var(--border)}
+table.t{width:100%;border-collapse:collapse;font-size:12.5px}table.t td,table.t th{padding:5px 6px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top}table.t th{font-size:10px;font-family:var(--mono);text-transform:uppercase;color:var(--text3)}
 .num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
+.kpi{background:var(--bg3);border-radius:var(--r);padding:.55rem .75rem}.kl{font-size:10px;font-family:var(--mono);text-transform:uppercase;color:var(--text3)}.kv{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}
 .good{color:var(--green)}.bad{color:var(--red)}.warn{color:var(--amber)}
-.empty{color:var(--text3);font-size:12px;padding:.4rem 0}
-.gate{max-width:440px;margin:16vh auto;text-align:center;padding:2rem}
-.ro input,.ro textarea,.ro select{pointer-events:none;background:var(--bg3)}
-@media(max-width:1000px){.page{grid-template-columns:1fr}.g2,.g3,.g4,.fish{grid-template-columns:1fr}}
-@media print{nav,#side,.noprint,.x,.b{display:none!important}.page{display:block;padding:0}body{background:#fff}.card{box-shadow:none;break-inside:avoid}textarea,input,select{border-color:#ccc}}
+.empty{color:var(--text3);font-size:12.5px;padding:.5rem 0;text-align:center}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.mover{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:center;justify-content:center;padding:1rem}
+.mover.on{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:1.25rem;width:560px;max-width:100%;max-height:90vh;overflow-y:auto;box-shadow:var(--shm)}
+.ro .cause input,.ro textarea,.ro .act input,.ro .act select{pointer-events:none}
+@media(max-width:1150px){.case{grid-template-columns:1fr}.side{position:static}.kb3,.kb4,.cats,.g3{grid-template-columns:1fr}.act{grid-template-columns:1fr}}
+@media print{nav,.sub-nav,.noprint,.side,.x,.b,.flag{display:none!important}.case{display:block}.page{padding:0}body{background:#fff}.card{box-shadow:none;break-inside:avoid}}
 </style>
 <link rel="stylesheet" href="theme.css?v=20260924b"/>
 <script src="theme.js?v=20260924b"></script>
 <script src="time24.js?v=20260924b"></script>
-<script src="nav.js?v=20261105a"></script>
+<script src="nav.js?v=20261105b"></script>
 </head>
 <body>
 <nav>
@@ -86,34 +121,10 @@ th{font-size:10px;font-family:var(--mono);text-transform:uppercase;color:var(--t
     <button class="lout" onclick="auth.signOut().then(()=>location.href='login.html')">Logg ut</button>
   </div>
 </nav>
+<div class="sub-nav" id="subnav" style="display:none"></div>
+<main class="page" id="app" style="display:none"><div id="main"></div></main>
 
-<main class="page" id="app" style="display:none">
-  <aside id="side">
-    <div class="card">
-      <div style="display:flex;gap:6px;margin-bottom:8px">
-        <input id="q" placeholder="Søk i analyser…">
-        <button class="b pri" id="b-new" onclick="newRca()" style="white-space:nowrap">+ Ny</button>
-      </div>
-      <div id="stf" style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px"></div>
-      <div id="list"></div>
-    </div>
-    <div class="card">
-      <div class="hdr" style="background:var(--amber)">Forslag fra dataene</div>
-      <div class="sub" style="margin-bottom:6px">Stopp som gjentar seg de siste 30 dagene og ikke har en åpen analyse.</div>
-      <div id="sugg"></div>
-    </div>
-  </aside>
-
-  <section id="main">
-    <div class="card" id="intro">
-      <div class="hdr">Rotårsaksanalyse</div>
-      <p style="line-height:1.6;color:var(--text2)">Velg en analyse til venstre, start en ny, eller ta utgangspunkt i et forslag. En analyse går gjennom fem steg:
-      <b>1</b> beskriv problemet · <b>2</b> spør «hvorfor» til du er ved roten · <b>3</b> sorter mulige årsaker i fiskebeinet ·
-      <b>4</b> bestem tiltak med ansvar og frist · <b>5</b> kontroller at stoppene faktisk forsvant.</p>
-    </div>
-    <div id="editor" style="display:none"></div>
-  </section>
-</main>
+<div class="mover" id="modal"><div class="modal" id="modal-body"></div></div>
 
 <script>
 const LINES=['Løp 1','Løp 2','Løp 3','Rollo','Koba','Glacier','Krokan'];
@@ -122,199 +133,430 @@ if(!firebase.apps.length)firebase.initializeApp(FB);
 localStorage.setItem('firebaseConfig',JSON.stringify(FB));
 const db=firebase.database(),auth=firebase.auth();
 
-/* ── ROTÅRSAKSANALYSE ──
-   rca/{id} = {title, line, machine, cause, product, status:open|action|closed,
-               problem, konsekvens, eventIds{evId:true},
-               whys{pid:{text,at}}, fish{menneske|maskin|metode|materiale|maling|miljo:{pid:{text}}},
-               rootCause, actions{pid:{text,ansvar,frist,done,doneBy,doneAt,createdAt}},
-               verify{text,by,at}, createdAt, createdBy, updatedAt, updatedBy, closedAt, closedBy}
-   Gjentakelser og effekt regnes fra events/: samme linje + maskin + årsak. */
-let USER=null, RCA={}, EVENTS=[], SETTINGS={}, SEL=null, STF='alle';
-const FISH=[['menneske','Menneske'],['maskin','Maskin'],['metode','Metode'],['materiale','Materiale'],['maling','Måling'],['miljo','Miljø']];
-const ST={open:'Åpen',action:'Tiltak pågår',closed:'Lukket'};
+/* ═══════════════════════════════════════════════════════════════════════════
+   SAKER OG ROTÅRSAK — hendelsesrapport → rapportmottak → sak → rotårsak → tiltak → arkiv
+   Arbeidsflyten følger verktøyet fabrikken bruker fra før (OlavaTech), bygget inn i
+   MES-et så stoppene fra linjene kan mates rett inn og effekt måles på hendelsene.
+
+   rca/reports/{id}   {text, line, where, when, done, createdAt, createdBy, createdByName,
+                       caseId|null, archived, mesEventId?}          ← alle innloggede kan opprette
+   rca/cases/{id}     {nr, title, priority:low|medium|high, stage:opprettet|undersoker|bekreftet,
+                       status:open|archived, owner, ownerName, participants{uid:navn},
+                       line, where, machine, cause, problem, facts{}, comments{}, followers{uid:true},
+                       causes{id:{cat,text,flag:mulig|ikke|'',klass:rot|medv|symptom|ikke,whys{id:{text,at}}}},
+                       rcaDone{by,at}, actions{id:{type:korr|foreb,text,owner,ownerName,due,
+                       pdca:ikke|plan|do|check|act|lukket|na,effect,createdAt,closedAt,closedBy}},
+                       meetings{}, std, conclusion, recurringId, log{}, archiveComment, archivedAt, archivedBy}
+   rca/recurring/{id} {name, description, createdAt, createdBy}
+   rca/counter        løpenummer for saker (transaksjon)
+   ═══════════════════════════════════════════════════════════════════════════ */
+let USER=null, UID='', REPORTS={}, CASES={}, RECUR={}, USERS=[], EVENTS=[], SETTINGS={};
+let VIEW='hjem', CASE=null, FILT='alle', AFILT='alle', Q='', OPEN_REP={};
+const CATS=[
+ ['folk','Folk (ansatte og ledelse)','Manglende opplæring, feilkommunikasjon, lite erfaring, feil bemanning, uklare beslutninger'],
+ ['metode','Arbeidsmåte (prosesser og metoder)','Manglende prosedyrer, feil rekkefølge i arbeidssteg, avvik fra standard, uklare instrukser'],
+ ['kontroll','Kontroll og data','Feil på måleinstrumenter, manglende kalibrering, feilregistreringer, manglende prøver eller rapporter'],
+ ['miljo','Omgivelser (miljø og forhold rundt)','Feil temperatur eller fuktighet, dårlig lys, mye støy, dårlig renhold, for lite plass'],
+ ['ravare','Råvarer og emballasje','Dårlig råvarekvalitet, feil i leveransen, feil lagring, skadet emballasje, blanding av batcher'],
+ ['maskin','Maskiner og utstyr','Maskinstopp, feil innstillinger, manglende vedlikehold, slitte deler, feil på verktøy eller hjelpemidler']];
+const CATN={folk:'Folk',metode:'Arbeidsmåte',kontroll:'Kontroll og data',miljo:'Omgivelser',ravare:'Råvarer og emballasje',maskin:'Maskiner'};
+const STAGES=[['opprettet','Opprettet sak'],['undersoker','Undersøker rotårsak'],['bekreftet','Rotårsak bekreftet']];
+const PRI={low:'Lav',medium:'Middels',high:'Høy'};
+const KLASS=[['rot','Rotårsak'],['medv','Medvirkende faktor'],['symptom','Symptom'],['ikke','Ikke relevant']];
+const PDCA=[['ikke','Ikke påbegynt'],['plan','Plan'],['do','Do'],['check','Check'],['act','Act'],['lukket','Lukket'],['na','Ikke aktuelt']];
+const PDCA_COL={ikke:'#94a3b8',plan:'#4f46e5',do:'#2563eb',check:'#0d9488',act:'#d97706',lukket:'#16a34a',na:'#cbd5e1'};
 const pad=n=>String(n).padStart(2,'0');
 const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
 function fmtD(m){m=Math.round(m||0);if(m<60)return m+' min';const h=Math.floor(m/60),r=m%60;return r?h+' t '+r+' min':h+' t';}
-function fmtT(ts){const d=new Date(ts);return pad(d.getDate())+'.'+pad(d.getMonth()+1)+'.'+String(d.getFullYear()).slice(2)+' '+pad(d.getHours())+':'+pad(d.getMinutes());}
-function fmtDay(ts){const d=new Date(ts);return pad(d.getDate())+'.'+pad(d.getMonth()+1)+'.'+d.getFullYear();}
+function fmtT(ts){if(!ts)return '—';const d=new Date(ts);return pad(d.getDate())+'.'+pad(d.getMonth()+1)+'.'+d.getFullYear()+' '+pad(d.getHours())+':'+pad(d.getMinutes());}
+function fmtDay(ts){if(!ts)return '—';const d=new Date(ts);return pad(d.getDate())+'.'+pad(d.getMonth()+1)+'.'+d.getFullYear();}
+function arr(o){return Object.keys(o||{}).map(k=>Object.assign({id:k},o[k])).filter(x=>x&&typeof x==='object');}
 function canEdit(){return !!(USER&&(USER.role==='master'||USER.role==='leder'||USER.boardAccess===true));}
+function me(){return (USER&&USER.name)||'';}
 function isPlanned(c){return (SETTINGS.plannedStops||[]).includes(c)||/omstilling/i.test(c||'');}
+function fail(){alert('Kunne ikke lagre. Sjekk at reglene for «rca» er publisert i Firebase, og at du har tilgang (master, leder eller Tavle-tilgang).');}
 
+/* ── AUTH + DATA ── */
 auth.onAuthStateChanged(async user=>{
   if(!user){location.href='login.html';return;}
+  UID=user.uid;
   const s=await db.ref('users/'+user.uid).once('value');USER=s.val();
   if(!USER){auth.signOut();location.href='login.html';return;}
   document.getElementById('ubadge').textContent=USER.name+' · '+(USER.role==='master'?'Master':USER.role==='leder'?'Leder':'Operatør');
-  document.getElementById('app').style.display='grid';
-  if(!canEdit())document.getElementById('b-new').style.display='none';
-  start();
+  document.getElementById('app').style.display='block';document.getElementById('subnav').style.display='flex';
+  readHash();start();
 });
 let started=false;
 function start(){
   if(started)return;started=true;
+  db.ref('users').on('value',s=>{USERS=arr(s.val()).filter(u=>u.name&&u.role!=='bridge').map(u=>({uid:u.id,name:u.name})).sort((a,b)=>a.name.localeCompare(b.name,'no'));sched();});
   db.ref('settings').on('value',s=>{SETTINGS=s.val()||{};sched();});
-  db.ref('events').on('value',s=>{const a=[];if(s.exists())s.forEach(c=>{const v=c.val();if(v&&v.ts&&v.line)a.push(Object.assign({id:c.key},v));});EVENTS=a.sort((x,y)=>y.ts-x.ts);sched();maybeFromEvent();});
-  db.ref('rca').on('value',s=>{RCA=s.val()||{};sched();});
+  db.ref('events').on('value',s=>{const a=[];if(s.exists())s.forEach(c=>{const v=c.val();if(v&&v.ts&&v.line)a.push(Object.assign({id:c.key},v));});EVENTS=a.sort((x,y)=>y.ts-x.ts);sched();fromEvent();});
+  db.ref('rca/reports').on('value',s=>{REPORTS=s.val()||{};sched();});
+  db.ref('rca/cases').on('value',s=>{CASES=s.val()||{};sched();});
+  db.ref('rca/recurring').on('value',s=>{RECUR=s.val()||{};sched();});
 }
-let _t=null;function sched(){if(_t)return;_t=setTimeout(()=>{_t=null;renderSide();if(SEL&&!editing())renderEditor();},150);}
-function editing(){const a=document.activeElement;return !!(a&&document.getElementById('editor').contains(a)&&/INPUT|TEXTAREA|SELECT/.test(a.tagName));}
+let _t=null,_dirty=false;
+function typing(){const a=document.activeElement;return !!(a&&/INPUT|TEXTAREA|SELECT/.test(a.tagName)&&document.getElementById('main').contains(a));}
+function sched(){if(_t)return;_t=setTimeout(()=>{_t=null;if(typing()){_dirty=true;return;}render();},150);}
+document.addEventListener('focusout',()=>{if(_dirty)setTimeout(()=>{if(!typing()){_dirty=false;render();}},120);});
 
-/* Hendelser som hører til en analyse: samme linje, og maskin/årsak når de er satt */
-function matching(r,sinceTs,untilTs){
-  return EVENTS.filter(e=>e.line===r.line&&(!r.machine||e.machine===r.machine)&&(!r.cause||e.cause===r.cause)
-    &&(!sinceTs||e.ts>=sinceTs)&&(!untilTs||e.ts<untilTs));
+/* ── Navigasjon ── */
+function go(v,id){VIEW=v;CASE=id||null;location.hash=v==='sak'?'sak='+id:v;window.scrollTo(0,0);render();}
+function readHash(){const h=(location.hash||'').slice(1);if(h.indexOf('sak=')===0){VIEW='sak';CASE=h.slice(4);}else if(h)VIEW=h;}
+window.addEventListener('hashchange',()=>{readHash();render();});
+
+/* ── Hjelpere på data ── */
+function cases(){return arr(CASES).sort((a,b)=>(b.nr||0)-(a.nr||0));}
+function openCases(){return cases().filter(c=>c.status!=='archived');}
+function reports(){return arr(REPORTS).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));}
+function inbox(){return reports().filter(r=>!r.caseId&&!r.archived);}
+function allActions(){const out=[];cases().forEach(c=>arr(c.actions).forEach(a=>out.push(Object.assign({caseId:c.id,caseNr:c.nr,caseTitle:c.title,caseArch:c.status==='archived'},a))));return out;}
+function actOpen(a){return a.pdca!=='lukket'&&a.pdca!=='na';}
+function overdue(a){return actOpen(a)&&a.due&&new Date(a.due).getTime()<Date.now()-86400000;}
+function logCase(id,text){db.ref('rca/cases/'+id+'/log').push({at:Date.now(),by:me(),text});}
+function upd(path,val){return db.ref(path).set(val===''||val==null?null:val).catch(fail);}
+/* MES: stopp som hører til saken (samme linje, og maskin/årsak når de er satt) */
+function mesFor(c,since,until){if(!c.line||!LINES.includes(c.line))return [];return EVENTS.filter(e=>e.line===c.line&&(!c.machine||e.machine===c.machine)&&(!c.cause||e.cause===c.cause)&&(!since||e.ts>=since)&&(!until||e.ts<until));}
+
+/* ═════════ RENDER ═════════ */
+function render(){
+  if(!USER)return;
+  const nb=inbox().length;
+  const tabs=[['hjem','Mine oppgaver'],['folger','Følger'],['mottak','Rapportmottak'],['saker','Saker'],['tiltak','Tiltak'],['gjentagende','Gjentagende'],['arkiv','Arkivert']];
+  document.getElementById('subnav').innerHTML='<button class="b pri" data-act="nyhendelse">+ Ny hendelse</button>'
+    +tabs.map(t=>'<button class="sn'+((VIEW===t[0]||(VIEW==='sak'&&t[0]==='saker'))?' on':'')+'" data-go="'+t[0]+'">'+t[1]+(t[0]==='mottak'&&nb?'<span class="bdg">'+nb+'</span>':'')+'</button>').join('');
+  const m=document.getElementById('main');
+  m.innerHTML=({hjem:vHjem,folger:vFolger,mottak:vMottak,saker:vSaker,tiltak:vTiltak,gjentagende:vGjent,arkiv:vArkiv,sak:vSak}[VIEW]||vHjem)();
+}
+function caseCard(c){
+  const nrep=reports().filter(r=>r.caseId===c.id).length;
+  return '<div class="kc'+(c.ownerName?'':' noown')+'" data-go="sak" data-id="'+c.id+'"><div class="top"><span class="nr">#'+c.nr+'</span><span>'+fmtDay(c.createdAt)+'</span></div>'
+    +'<div class="tt">'+esc(c.title||'Uten tittel')+'</div><span class="pri-dot '+(c.priority||'medium')+'">'+PRI[c.priority||'medium']+'</span> <span class="tag">'+nrep+' rapport'+(nrep===1?'':'er')+'</span>'
+    +'<div class="ft"><span'+(c.ownerName?'':' class="warn"')+'>'+esc(c.ownerName||'Mangler ansvarlig')+'</span><span>📍 '+esc(c.where||c.line||'—')+'</span></div></div>';
+}
+function actCard(a){
+  return '<div class="kc'+(overdue(a)?' over':'')+'" data-go="sak" data-id="'+a.caseId+'"><div class="top"><span>#'+a.caseNr+' '+esc((a.caseTitle||'').slice(0,60))+'</span><span title="'+esc((PDCA.find(p=>p[0]===a.pdca)||['',''])[1])+'" style="color:'+PDCA_COL[a.pdca||'ikke']+'">●</span></div>'
+    +'<div class="tt"><b>'+esc(a.text||'(uten tekst)')+'</b></div><div class="ft"><span>👤 '+esc(a.ownerName||'—')+'</span><span>📅 '+(a.due?fmtDay(a.due):'—')+(overdue(a)?' <b class="bad">Forfalt</b>':'')+'</span></div></div>';
 }
 
-/* ── VENSTRE: liste, statusfilter, forslag ── */
-function renderSide(){
-  const stf=document.getElementById('stf');stf.innerHTML='';
-  [['alle','Alle'],['open','Åpne'],['action','Tiltak pågår'],['closed','Lukket']].forEach(([k,l])=>{const b=document.createElement('button');b.className='chip'+(STF===k?' on':'');b.textContent=l;b.onclick=()=>{STF=k;renderSide();};stf.appendChild(b);});
-  const q=(document.getElementById('q').value||'').toLowerCase();
-  const all=Object.keys(RCA).map(id=>Object.assign({id},RCA[id])).sort((a,b)=>(b.updatedAt||b.createdAt||0)-(a.updatedAt||a.createdAt||0));
-  const list=all.filter(r=>(STF==='alle'||r.status===STF)&&(!q||((r.title||'')+' '+(r.line||'')+' '+(r.machine||'')+' '+(r.cause||'')+' '+(r.rootCause||'')).toLowerCase().includes(q)));
-  const el=document.getElementById('list');
-  el.innerHTML=list.length?'':'<div class="empty">Ingen analyser'+(q||STF!=='alle'?' som passer.':' ennå.')+'</div>';
-  list.forEach(r=>{
-    const d=document.createElement('div');d.className='li'+(SEL===r.id?' sel':'');
-    const acts=Object.values(r.actions||{}).filter(Boolean), done=acts.filter(a=>a.done).length;
-    d.innerHTML='<div style="display:flex;justify-content:space-between;gap:6px"><span class="t">'+esc(r.title||'Uten tittel')+'</span><span class="st '+(r.status||'open')+'">'+ST[r.status||'open']+'</span></div>'
-      +'<div class="sub">'+esc(r.line||'')+(r.machine?' · '+esc(r.machine):'')+(r.cause?' · '+esc(r.cause):'')+'</div>'
-      +'<div class="sub">'+(acts.length?done+'/'+acts.length+' tiltak · ':'')+fmtDay(r.createdAt||Date.now())+' · '+esc(r.createdBy||'')+'</div>';
-    d.onclick=()=>{SEL=r.id;renderSide();renderEditor();};
-    el.appendChild(d);
-  });
-  // Forslag: gjentakende reelle stopp siste 30 dager uten åpen analyse
+/* ── Mine oppgaver ── */
+function vHjem(){
+  const mineS=openCases().filter(c=>c.owner===UID), mineT=allActions().filter(a=>a.owner===UID&&actOpen(a)&&!a.caseArch), mineD=openCases().filter(c=>c.owner!==UID&&(c.participants||{})[UID]);
+  const box=(t,n,body,empty,link)=>'<div class="card"><div class="ct">'+t+'<span class="r tag">'+n+'</span></div>'+(body||'<div class="empty">'+empty+'</div>')+(link?'<button class="b sm" data-go="'+link[0]+'" style="margin-top:6px">'+link[1]+' →</button>':'')+'</div>';
+  return '<h1>Hei, '+esc(me().split(' ')[0])+' 👋</h1><div class="lead">Her er det du har ansvar for akkurat nå.</div><div class="g3">'
+    +box('📁 Mine saker',mineS.length,mineS.map(caseCard).join(''),'Du står ikke som analyseansvarlig på noen aktive saker.',['saker','Se alle saker'])
+    +box('📋 Mine tiltak',mineT.length,mineT.map(actCard).join(''),'Ingen åpne tiltak tildelt deg.',['tiltak','Se alle tiltak'])
+    +box('👥 Saker jeg deltar i',mineD.length,mineD.map(caseCard).join(''),'Du er ikke deltaker i andre åpne saker.')+'</div>';
+}
+function vFolger(){
+  const f=cases().filter(c=>(c.followers||{})[UID]).sort((a,b)=>lastChange(b)-lastChange(a));
+  return '<h1>🔔 Følger</h1><div class="lead">Saker du følger — sortert etter sist endret.</div>'+(f.length?'<div class="g3">'+f.map(caseCard).join('')+'</div>':'<div class="card"><div class="empty">Du følger ingen saker ennå. Åpne en sak og trykk «Følg sak».</div></div>');
+}
+function lastChange(c){const l=arr(c.log).map(x=>x.at||0);return Math.max.apply(null,l.concat([c.createdAt||0]));}
+
+/* ── Rapportmottak ── */
+function repHTML(r,inCase){
+  const open=OPEN_REP[r.id]||inCase;
+  return '<div class="rep"><div style="display:flex;justify-content:space-between;gap:8px;cursor:pointer" data-act="toggrep" data-id="'+r.id+'"><div><div style="font-weight:600">'+esc((r.text||'').slice(0,open?400:110))+((r.text||'').length>110&&!open?' …':'')+'</div>'
+    +'<div class="sub">'+fmtT(r.createdAt)+' · '+esc(r.createdByName||'')+' · '+esc([r.line,r.where].filter(Boolean).join(' '))+(r.mesEventId?' · <span class="tag">fra MES</span>':'')+'</div></div>'+(inCase?'':'<span class="sub">'+(open?'▴':'▾')+'</span>')+'</div>'
+    +(open?'<div class="g" style="margin-top:8px"><div><span class="lblx">Hvor?</span>'+esc([r.line,r.where].filter(Boolean).join(' · ')||'—')+'</div><div><span class="lblx">Når?</span>'+fmtT(r.when)+'</div></div><span class="lblx">Er noe gjort for å løse det?</span>'+esc(r.done||'—'):'')
+    +(inCase||!canEdit()?'':'<div style="display:flex;gap:6px;margin-top:9px;flex-wrap:wrap"><button class="b dark sm" data-act="nysak" data-id="'+r.id+'">Opprett sak fra rapport</button><button class="b sm" data-act="koble" data-id="'+r.id+'">🔗 Koble til eksisterende sak</button><button class="b sm" data-act="arkrep" data-id="'+r.id+'" style="margin-left:auto">Arkiver</button></div>')+'</div>';
+}
+function vMottak(){
+  const inb=inbox();
+  // Forslag fra MES: reelle stopp som gjentar seg siste 30 dager, uten åpen sak på samme linje/maskin/årsak
   const since=Date.now()-30*86400000, agg={};
-  EVENTS.filter(e=>e.ts>=since&&!isPlanned(e.cause)&&!e.unhandled&&e.cause&&!/automatisk/i.test(e.cause)).forEach(e=>{
-    const k=e.line+'|'+(e.machine||'')+'|'+e.cause;const a=agg[k]=agg[k]||{line:e.line,machine:e.machine||'',cause:e.cause,n:0,min:0};a.n++;a.min+=e.duration||0;});
-  const open=all.filter(r=>r.status!=='closed');
-  const sg=Object.values(agg).filter(a=>(a.n>=2||a.min>=60)&&!open.some(r=>r.line===a.line&&(r.machine||'')===a.machine&&(r.cause||'')===a.cause)).sort((a,b)=>b.min-a.min).slice(0,8);
-  const se=document.getElementById('sugg');
-  se.innerHTML=sg.length?'':'<div class="empty">Ingen gjentakende stopp uten analyse. 👍</div>';
-  sg.forEach(a=>{
-    const d=document.createElement('div');d.className='li';
-    d.innerHTML='<div class="t">'+esc(a.cause)+'</div><div class="sub">'+esc(a.line)+(a.machine?' · '+esc(a.machine):'')+'</div><div class="sub"><b class="bad">'+a.n+' ganger · '+fmtD(a.min)+'</b>'+(canEdit()?' · start analyse →':'')+'</div>';
-    if(canEdit())d.onclick=()=>newRca({line:a.line,machine:a.machine,cause:a.cause,title:a.cause+' — '+(a.machine||a.line)});
-    se.appendChild(d);
+  EVENTS.filter(e=>e.ts>=since&&!isPlanned(e.cause)&&!e.unhandled&&e.cause&&!/automatisk/i.test(e.cause)).forEach(e=>{const k=e.line+'|'+(e.machine||'')+'|'+e.cause;const a=agg[k]=agg[k]||{line:e.line,machine:e.machine||'',cause:e.cause,n:0,min:0,last:e};a.n++;a.min+=e.duration||0;});
+  const oc=openCases();
+  const sg=Object.values(agg).filter(a=>(a.n>=2||a.min>=60)&&!oc.some(c=>c.line===a.line&&(c.machine||'')===a.machine&&(c.cause||'')===a.cause)).sort((a,b)=>b.min-a.min).slice(0,6);
+  return '<div style="max-width:900px;margin:0 auto"><h1>📥 Rapportmottak</h1><div class="lead">Hendelsesrapporter som ennå ikke er koblet til en sak. Opprett en ny sak fra rapporten, eller koble den til en pågående sak.</div>'
+    +(inb.length?inb.map(r=>repHTML(r)).join(''):'<div class="card"><div class="empty">Ingen rapporter venter. 👍</div></div>')
+    +(sg.length?'<h1 style="font-size:15px;margin-top:20px">⚙ Forslag fra MES</h1><div class="lead">Stopp som har gjentatt seg de siste 30 dagene og ikke har en åpen sak.</div>'+sg.map(a=>'<div class="rep"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><div><b>'+esc(a.cause)+'</b><div class="sub">'+esc(a.line)+(a.machine?' · '+esc(a.machine):'')+' · <b class="bad">'+a.n+' ganger · '+fmtD(a.min)+'</b></div></div>'+(canEdit()?'<button class="b dark sm" data-act="mesrap" data-line="'+esc(a.line)+'" data-machine="'+esc(a.machine)+'" data-cause="'+esc(a.cause)+'" data-n="'+a.n+'" data-min="'+a.min+'">Opprett sak</button>':'')+'</div></div>').join(''):'')+'</div>';
+}
+
+/* ── Saker (tavle) ── */
+function vSaker(){
+  let cs=openCases();const q=Q.toLowerCase();
+  if(FILT==='mine')cs=cs.filter(c=>c.owner===UID);
+  if(FILT==='reg')cs=cs.filter(c=>c.createdBy===UID);
+  if(FILT==='hoy')cs=cs.filter(c=>c.priority==='high');
+  if(FILT==='uten')cs=cs.filter(c=>!c.ownerName);
+  if(q)cs=cs.filter(c=>('#'+c.nr+' '+(c.title||'')+' '+(c.line||'')+' '+(c.where||'')+' '+(c.ownerName||'')).toLowerCase().includes(q));
+  const chips=[['alle','Alle saker'],['mine','Mine saker'],['reg','Mine registrerte'],['hoy','Høy prioritet'],['uten','Uten ansvarlig']];
+  return '<div class="bar">'+chips.map(c=>'<button class="chip'+(FILT===c[0]?' on':'')+'" data-act="filt" data-v="'+c[0]+'">'+c[1]+'</button>').join('')+'<input id="q" placeholder="Søk…" value="'+esc(Q)+'" style="max-width:220px"><span class="sub">'+cs.length+' av '+openCases().length+' åpne saker</span></div>'
+    +'<div class="kb kb3">'+STAGES.map(s=>{const l=cs.filter(c=>(c.stage||'opprettet')===s[0]);return '<div class="col"><h3>'+s[1]+'<span>('+l.length+')</span></h3>'+(l.map(caseCard).join('')||'<div class="empty">Ingen</div>')+'</div>';}).join('')+'</div>';
+}
+
+/* ── Tiltak (tavle) ── */
+function vTiltak(){
+  let as=allActions().filter(a=>!a.caseArch||!actOpen(a));const q=Q.toLowerCase();
+  const tot=as.length, mine=as.filter(a=>a.owner===UID&&actOpen(a)).length, od=as.filter(overdue).length;
+  if(AFILT==='mine')as=as.filter(a=>a.owner===UID);
+  if(AFILT==='over')as=as.filter(overdue);
+  if(q)as=as.filter(a=>((a.text||'')+' '+(a.ownerName||'')+' '+(a.caseTitle||'')+' #'+a.caseNr).toLowerCase().includes(q));
+  const cnt=PDCA.map(p=>as.filter(a=>(a.pdca||'ikke')===p[0]).length+' '+p[1].toLowerCase()).join(' · ');
+  const col=(t,l)=>'<div class="col"><h3>'+t+'<span>('+l.length+')</span></h3>'+(l.sort((a,b)=>String(a.due||'9').localeCompare(String(b.due||'9'))).map(actCard).join('')||'<div class="empty">Ingen</div>')+'</div>';
+  return '<div class="bar"><button class="chip'+(AFILT==='alle'?' on':'')+'" data-act="afilt" data-v="alle">'+tot+' totalt</button><button class="chip'+(AFILT==='mine'?' on':'')+'" data-act="afilt" data-v="mine">'+mine+' mine tiltak</button><button class="chip warn'+(AFILT==='over'?' on':'')+'" data-act="afilt" data-v="over">'+od+' over frist</button><input id="q" placeholder="Søk…" value="'+esc(Q)+'" style="max-width:220px"><span class="sub" style="margin-left:auto">'+cnt+'</span></div>'
+    +'<div class="kb kb4">'+col('🔧 Korrigerende tiltak',as.filter(a=>a.type!=='foreb'&&actOpen(a)))+col('🛡 Forebyggende tiltak',as.filter(a=>a.type==='foreb'&&actOpen(a)))+col('🗄 Lukkede tiltak',as.filter(a=>a.pdca==='lukket'))+col('○ Ikke aktuelt',as.filter(a=>a.pdca==='na'))+'</div>';
+}
+
+/* ── Gjentagende ── */
+function vGjent(){
+  const rs=arr(RECUR).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+  return '<div class="bar"><div><h1>🔁 Gjentagende</h1><div class="lead" style="margin:0">Samle saker som hører til samme underliggende problem, og følg den totale belastningen problemet skaper over tid — ikke bare konsekvensen av én enkelt hendelse.</div></div>'+(canEdit()?'<button class="b dark" data-act="nygjent" style="margin-left:auto">+ Nytt gjentagende problem</button>':'')+'</div>'
+    +(rs.length?rs.map(r=>{
+      const cs=cases().filter(c=>c.recurringId===r.id);
+      let n=0,min=0;cs.forEach(c=>{const m=mesFor(c,Date.now()-365*86400000);n+=m.length;min+=m.reduce((s,e)=>s+(e.duration||0),0);});
+      return '<div class="card" style="max-width:1000px"><div class="ct">'+esc(r.name)+'<span class="r sub">'+cs.length+' saker inngår'+(n?' · '+n+' stopp · '+fmtD(min)+' siste år (MES)':'')+'</span>'+(canEdit()?'<button class="x" data-act="redgjent" data-id="'+r.id+'" title="Endre">✎</button><button class="x" data-act="slettgjent" data-id="'+r.id+'" title="Slett">🗑</button>':'')+'</div>'
+        +(r.description?'<div class="sub" style="margin-bottom:8px;line-height:1.5">'+esc(r.description)+'</div>':'')
+        +(cs.length?'<table class="t"><tbody>'+cs.map(c=>'<tr style="cursor:pointer" data-go="sak" data-id="'+c.id+'"><td class="sub">#'+c.nr+'</td><td>'+esc(c.title||'')+'</td><td class="sub">'+(c.status==='archived'?'Arkivert':'Åpen')+'</td><td class="sub">'+fmtDay(c.createdAt)+'</td></tr>').join('')+'</tbody></table>':'<div class="empty">Ingen saker koblet ennå.</div>')
+        +(canEdit()?'<button class="b ghost sm" data-act="koblegjent" data-id="'+r.id+'" style="margin-top:8px;width:100%">🔗 Koble sak</button>':'')+'</div>';}).join(''):'<div class="card"><div class="empty">Ingen gjentagende problemer registrert ennå.</div></div>');
+}
+
+/* ── Arkivert ── */
+function vArkiv(){
+  const q=Q.toLowerCase();
+  let cs=cases().filter(c=>c.status==='archived');if(q)cs=cs.filter(c=>('#'+c.nr+' '+(c.title||'')).toLowerCase().includes(q));
+  const reps=reports().filter(r=>r.archived&&!r.caseId);
+  return '<div class="bar"><div><h1>🗄 Arkivert</h1><div class="lead" style="margin:0">Avsluttede og arkiverte saker, samt arkiverte rapporter. Åpne en sak for å hente den tilbake.</div></div><input id="q" placeholder="Søk…" value="'+esc(Q)+'" style="max-width:220px;margin-left:auto"></div>'
+    +'<div class="kb kb3"><div class="col"><h3>Arkivert med rotårsaksanalyse<span>('+cs.filter(c=>c.rcaDone).length+')</span></h3>'+(cs.filter(c=>c.rcaDone).map(caseCard).join('')||'<div class="empty">Ingen</div>')+'</div>'
+    +'<div class="col"><h3>Arkivert uten rotårsaksanalyse<span>('+cs.filter(c=>!c.rcaDone).length+')</span></h3>'+(cs.filter(c=>!c.rcaDone).map(caseCard).join('')||'<div class="empty">Ingen</div>')+'</div>'
+    +'<div class="col"><h3>Arkiverte rapporter<span>('+reps.length+')</span></h3>'+(reps.map(r=>'<div class="kc" style="cursor:default"><div class="tt">'+esc((r.text||'').slice(0,140))+'</div><div class="ft"><span>'+fmtDay(r.createdAt)+' · '+esc(r.createdByName||'')+'</span>'+(canEdit()?'<button class="b sm" data-act="gjenrep" data-id="'+r.id+'">Gjenopprett</button>':'')+'</div></div>').join('')||'<div class="empty">Ingen</div>')+'</div></div>';
+}
+
+/* ═════════ SAK ═════════ */
+function userSel(path,cur,ph){return '<select data-save="'+path+'" data-user="1"><option value="">'+(ph||'— velg —')+'</option>'+USERS.map(u=>'<option value="'+u.uid+'"'+(u.uid===cur?' selected':'')+'>'+esc(u.name)+'</option>').join('')+'</select>';}
+function fishSVG(c){
+  const W=1000,H=440,mid=220,cs=arr(c.causes);
+  const pos=[['folk',260,1],['metode',520,1],['kontroll',780,1],['miljo',260,-1],['ravare',520,-1],['maskin',780,-1]];
+  let s='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;font-family:inherit"><line x1="30" y1="'+mid+'" x2="850" y2="'+mid+'" stroke="currentColor" stroke-width="2"/><polygon points="850,'+(mid-7)+' 866,'+mid+' 850,'+(mid+7)+'" fill="currentColor"/>'
+    +'<foreignObject x="872" y="'+(mid-36)+'" width="122" height="72"><div xmlns="http://www.w3.org/1999/xhtml" style="font-size:12px;font-weight:600;text-align:center;border:1px solid var(--border);border-radius:6px;padding:6px;background:var(--bg3);height:72px;display:flex;align-items:center;justify-content:center;overflow:hidden">'+esc((c.title||'').slice(0,60))+'</div></foreignObject>';
+  pos.forEach(([k,x,up])=>{
+    const y2=up>0?28:H-28, x2=x-110;
+    s+='<line x1="'+x+'" y1="'+mid+'" x2="'+x2+'" y2="'+y2+'" stroke="currentColor" stroke-width="1.5"/><text x="'+x2+'" y="'+(up>0?18:H-8)+'" text-anchor="middle" font-size="14" font-weight="700" fill="currentColor">'+esc(CATN[k])+'</text>';
+    const l=cs.filter(a=>a.cat===k&&a.text).slice(0,6);
+    l.forEach((a,i)=>{
+      const t=(i+1)/(l.length+1), px=x+(x2-x)*t, py=mid+(y2-mid)*t, red=a.flag==='mulig', gone=a.flag==='ikke';
+      s+='<line x1="'+px+'" y1="'+py+'" x2="'+(px-34)+'" y2="'+py+'" stroke="'+(red?'#dc2626':'#94a3b8')+'" stroke-width="1"/><circle cx="'+px+'" cy="'+py+'" r="3" fill="'+(red?'#dc2626':'#94a3b8')+'"/>'
+        +'<text x="'+(px-38)+'" y="'+(py+4)+'" text-anchor="end" font-size="11.5" font-weight="'+(red?700:400)+'" fill="'+(red?'#dc2626':gone?'#94a3b8':'currentColor')+'"'+(gone?' text-decoration="line-through"':'')+'>'+esc(a.text.slice(0,34))+(a.text.length>34?'…':'')+'</text>';
+    });
   });
+  return s+'</svg><div class="sub" style="margin-top:4px"><b class="bad">● Mulig årsak</b> &nbsp; ○ Trolig ikke årsak</div>';
 }
-document.getElementById('q').addEventListener('input',renderSide);
-
-/* ── Opprett ── */
-async function newRca(pre){
-  if(!canEdit()){alert('Du har ikke tilgang til å opprette analyser. Master gir «Tavle-tilgang» under Brukere.');return;}
-  pre=pre||{};
-  const ref=db.ref('rca').push();
-  const now=Date.now();
-  await ref.set(Object.assign({title:pre.title||'Ny rotårsaksanalyse',line:pre.line||LINES[0],machine:pre.machine||'',cause:pre.cause||'',product:pre.product||'',status:'open',
-    problem:pre.problem||'',createdAt:now,createdBy:USER.name||'',updatedAt:now,updatedBy:USER.name||''},pre.eventIds?{eventIds:pre.eventIds}:{}))
-    .catch(()=>alert('Kunne ikke lagre — sjekk at reglene for «rca» er publisert i Firebase.'));
-  SEL=ref.key;renderSide();renderEditor();
+function donut(as){
+  const tot=as.length||1;let acc=0;const R=34,C=2*Math.PI*R;
+  const segs=PDCA.map(p=>{const n=as.filter(a=>(a.pdca||'ikke')===p[0]).length;if(!n)return '';const len=n/tot*C;const el='<circle r="'+R+'" cx="45" cy="45" fill="none" stroke="'+PDCA_COL[p[0]]+'" stroke-width="16" stroke-dasharray="'+len+' '+(C-len)+'" stroke-dashoffset="'+(-acc)+'" transform="rotate(-90 45 45)"/>';acc+=len;return el;}).join('');
+  return '<div style="display:flex;gap:14px;align-items:center;margin-bottom:10px"><svg width="90" height="90" viewBox="0 0 90 90">'+(as.length?segs:'<circle r="'+R+'" cx="45" cy="45" fill="none" stroke="var(--bg3)" stroke-width="16"/>')+'</svg><div class="sub" style="line-height:1.8">'+PDCA.map(p=>{const n=as.filter(a=>(a.pdca||'ikke')===p[0]).length;return n?'<span style="color:'+PDCA_COL[p[0]]+'">●</span> '+p[1]+' · '+n+' ('+Math.round(n/tot*100)+' %)<br>':'';}).join('')+'</div></div>';
 }
-/* rotarsak.html?event=<id> — fra «🔍» på en hendelse i dashbordet */
-let _fromEvtDone=false;
-function maybeFromEvent(){
-  if(_fromEvtDone)return;
-  const id=new URLSearchParams(location.search).get('event');if(!id){_fromEvtDone=true;return;}
-  const e=EVENTS.find(x=>x.id===id);if(!e)return;
-  _fromEvtDone=true;
-  const ex=Object.keys(RCA).find(k=>RCA[k]&&RCA[k].eventIds&&RCA[k].eventIds[id]);
-  if(ex){SEL=ex;renderSide();renderEditor();return;}
-  newRca({line:e.line,machine:e.machine||'',cause:e.cause||'',product:e.product||'',title:(e.cause||'Stopp')+' — '+(e.machine||e.line),
-    problem:'Stopp '+fmtT(e.ts)+', varighet '+fmtD(e.duration)+'.'+(e.comment?' '+e.comment:''),eventIds:{[id]:true}});
+function reportHTML(c){
+  const cs=arr(c.causes).filter(a=>a.text), as=arr(c.actions), reps=reports().filter(r=>r.caseId===c.id);
+  const m90=mesFor(c,Date.now()-90*86400000), tot=m90.reduce((s,e)=>s+(e.duration||0),0);
+  const lastWhy=a=>{const w=arr(a.whys).filter(x=>x.text).sort((x,y)=>(x.at||0)-(y.at||0));return w.length?w[w.length-1].text:'';};
+  const rel=cs.filter(a=>a.klass==='rot'||a.klass==='medv'||(!a.klass&&a.flag==='mulig'));
+  const tbl=l=>l.length?'<table><thead><tr><th>Tiltak</th><th>Ansvarlig</th><th>Frist</th><th>Status</th><th>Effektvurdering</th></tr></thead><tbody>'+l.map(a=>'<tr><td>'+esc(a.text||'')+'</td><td>'+esc(a.ownerName||'—')+'</td><td>'+(a.due?fmtDay(a.due):'—')+'</td><td>'+esc((PDCA.find(p=>p[0]===(a.pdca||'ikke'))||['',''])[1])+'</td><td>'+esc(a.effect||'Ikke vurdert ennå')+'</td></tr>').join('')+'</tbody></table>':'<p>Ingen registrert.</p>';
+  const open=as.filter(actOpen).length;
+  return '<div class="report"><h3 style="margin-top:0">Hendelse #'+c.nr+' – '+esc(c.title||'')+'</h3><p><b>Lokasjon:</b> '+esc(c.where||c.line||'—')+' | <b>Alvorlighet:</b> '+PRI[c.priority||'medium']+' | <b>Rapportert av:</b> '+esc(c.createdByName||'—')+' | <b>Analyseansvarlig:</b> '+esc(c.ownerName||'ikke satt')+'</p>'
+    +'<h3>Hendelsessammendrag</h3><p>'+esc(c.problem||reps.map(r=>r.text).join(' ')||'Ingen beskrivelse registrert.')+'</p>'
+    +'<h3>Omfang</h3><p>'+(m90.length?'MES har registrert <b>'+m90.length+' stopp</b> med til sammen <b>'+fmtD(tot)+'</b> nedetid de siste 90 dagene på '+esc(c.line)+(c.machine?' / '+esc(c.machine):'')+(c.cause?' med årsak «'+esc(c.cause)+'»':'')+'.':'Ingen omfang registrert'+(c.line&&LINES.includes(c.line)?' i MES for denne linja.':'.'))+'</p>'
+    +'<h3>Fakta</h3>'+(arr(c.facts).length?'<ul>'+arr(c.facts).map(f=>'<li>'+esc(f.text)+'</li>').join('')+'</ul>':'<p>Ingen fakta registrert.</p>')
+    +'<h3>Rotårsaker</h3>'+(rel.length?'<ul>'+rel.map(a=>'<li><b>'+esc(CATN[a.cat]||'')+' – '+esc(a.text)+':</b> '+(lastWhy(a)?esc(lastWhy(a)):'ikke undersøkt videre')+' <i>('+((KLASS.find(k=>k[0]===a.klass)||['','mulig årsak'])[1]).toLowerCase()+')</i></li>').join('')+'</ul>':'<p>Ingen rotårsaker identifisert ennå.</p>')
+    +'<h3>Tiltak</h3><p>Totalt er '+as.length+' tiltak registrert, '+open+' åpne.</p><p><b>Korrigerende tiltak</b></p>'+tbl(as.filter(a=>a.type!=='foreb'))+'<p><b>Forebyggende tiltak</b></p>'+tbl(as.filter(a=>a.type==='foreb'))
+    +'<h3>Møteplan</h3>'+(arr(c.meetings).length?'<ul>'+arr(c.meetings).map(x=>'<li>'+fmtT(x.when)+' — '+esc(x.text||'')+'</li>').join('')+'</ul>':'<p>Ingen møter registrert.</p>')
+    +'<h3>Standardisering og læring</h3><p>'+esc(c.std||'Ingen standardiseringsbeslutninger registrert.')+'</p>'
+    +'<h3>Konklusjon</h3><p>'+esc(c.conclusion||'Ikke skrevet ennå.')+'</p></div>';
+}
+function vSak(){
+  const c=CASES[CASE];if(!c)return '<div class="card"><div class="empty">Fant ikke saken.</div></div>';
+  c.id=CASE;const P='rca/cases/'+CASE+'/';const ed=canEdit();
+  const reps=reports().filter(r=>r.caseId===CASE), causes=arr(c.causes), acts=arr(c.actions).sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
+  const analysed=causes.filter(a=>a.text&&a.flag!=='ikke');
+  const follows=(c.followers||{})[UID];
+  const m90=mesFor(c,Date.now()-90*86400000), tot90=m90.reduce((s,e)=>s+(e.duration||0),0);
+  const lastDone=acts.filter(a=>a.pdca==='lukket'&&a.closedAt).map(a=>a.closedAt).sort((a,b)=>b-a)[0], ref=c.archivedAt||lastDone;
+  const days=ref?Math.max(1,(Date.now()-ref)/86400000):0, after=ref?mesFor(c,ref):[], before=ref?mesFor(c,ref-days*86400000,ref):[];
+  let h='<button class="b sm noprint" data-go="'+(c.status==='archived'?'arkiv':'saker')+'">← Tilbake</button>'
+    +'<div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;margin:10px 0 12px"><div style="flex:1;min-width:260px"><h1>#'+c.nr+'</h1><div class="sub">'+esc(c.createdByName||'')+' · Registrert: '+fmtT(c.createdAt)+(c.status==='archived'?' · <b>Arkivert '+fmtDay(c.archivedAt)+' av '+esc(c.archivedBy||'')+'</b>':'')+'</div></div>'
+    +'<select data-save="'+P+'priority" style="width:150px">'+Object.keys(PRI).map(k=>'<option value="'+k+'"'+((c.priority||'medium')===k?' selected':'')+'>Prioritet: '+PRI[k]+'</option>').join('')+'</select>'
+    +'<select data-save="'+P+'stage" style="width:190px">'+STAGES.map(s=>'<option value="'+s[0]+'"'+((c.stage||'opprettet')===s[0]?' selected':'')+'>'+s[1]+'</option>').join('')+'</select>'
+    +'<button class="b noprint" data-act="folg">'+(follows?'🔔 Følger':'🔕 Følg sak')+'</button>'
+    +(ed?'<select data-save="'+P+'recurringId" style="width:190px" class="noprint"><option value="">🔁 Ikke gjentagende</option>'+arr(RECUR).map(r=>'<option value="'+r.id+'"'+(c.recurringId===r.id?' selected':'')+'>🔁 '+esc(r.name)+'</option>').join('')+'</select>':'')
+    +'<button class="b noprint" onclick="window.print()">📄 Full rapport</button></div>'
+    +'<input type="text" data-save="'+P+'title" value="'+esc(c.title||'')+'" style="font-size:16px;font-weight:600;margin-bottom:12px">'
+    +'<div class="case'+(ed?'':' ro')+'">';
+
+  /* venstre: diskusjon + fakta */
+  h+='<div class="side"><div class="card" style="margin:0"><div class="ct" style="font-size:13px">💬 Diskusjon</div>'+(arr(c.comments).sort((a,b)=>(a.at||0)-(b.at||0)).map(x=>'<div class="cmt"><b>'+esc(x.byName||'')+'</b> <span class="sub">'+fmtT(x.at)+'</span><br>'+esc(x.text)+'</div>').join('')||'<div class="sub">Ingen kommentarer.</div>')
+    +(ed?'<textarea id="cmt" rows="2" placeholder="Skriv en kommentar…" style="margin-top:6px"></textarea><button class="b sm" data-act="cmt" style="margin-top:4px">Send</button>':'')+'</div>'
+    +'<div class="card" style="margin:0"><div class="ct" style="font-size:13px">🏷 Fakta</div>'+(arr(c.facts).map(f=>'<div class="cause" style="grid-template-columns:1fr 22px"><input data-save="'+P+'facts/'+f.id+'/text" value="'+esc(f.text||'')+'"><button class="x" data-del="'+P+'facts/'+f.id+'">✕</button></div>').join('')||'<div class="sub">Ingen fakta registrert.</div>')+(ed?'<button class="b ghost sm" data-add="facts" style="width:100%;margin-top:6px">+ Legg til</button>':'')+'</div>'
+    +(c.line&&LINES.includes(c.line)?'<div class="card" style="margin:0"><div class="ct" style="font-size:13px">⚙ MES — siste 90 dager</div><div class="kpis" style="grid-template-columns:1fr 1fr"><div class="kpi"><div class="kl">Stopp</div><div class="kv">'+m90.length+'</div></div><div class="kpi"><div class="kl">Nedetid</div><div class="kv" style="font-size:15px">'+fmtD(tot90)+'</div></div></div><div class="sub" style="margin-top:6px">Samme linje'+(c.machine?', maskin':'')+(c.cause?', årsak':'')+'.</div></div>':'')+'</div>';
+
+  /* midten */
+  h+='<div>';
+  h+='<div class="card"><div class="ct">👥 Analyseansvarlig og deltakere</div><span class="lblx">Analyseansvarlig</span>'+userSel(P+'owner',c.owner,'— ingen —')
+    +'<span class="lblx">Deltakere</span><div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">'+Object.keys(c.participants||{}).map(u=>'<span class="tag" style="padding:4px 9px">'+esc(c.participants[u])+(ed?' <button class="x" data-del="'+P+'participants/'+u+'" style="padding:0 0 0 4px">✕</button>':'')+'</span>').join('')
+    +(ed?'<select id="addpart" style="width:190px"><option value="">+ Legg til deltaker</option>'+USERS.filter(u=>!(c.participants||{})[u.uid]).map(u=>'<option value="'+u.uid+'">'+esc(u.name)+'</option>').join('')+'</select>':'')+'</div>'
+    +'<div class="g3" style="margin-top:8px"><div><span class="lblx">Linje</span><select data-save="'+P+'line"><option value="">—</option>'+LINES.concat(c.line&&!LINES.includes(c.line)?[c.line]:[]).map(l=>'<option'+(l===c.line?' selected':'')+'>'+esc(l)+'</option>').join('')+'</select></div>'
+    +'<div><span class="lblx">Maskin (for MES-kobling)</span><select data-save="'+P+'machine"><option value="">— alle —</option>'+((SETTINGS.machines||{})[(c.line||'').replace(/[\s\/]/g,'_')]||[]).concat(c.machine&&!((SETTINGS.machines||{})[(c.line||'').replace(/[\s\/]/g,'_')]||[]).includes(c.machine)?[c.machine]:[]).map(m=>'<option'+(m===c.machine?' selected':'')+'>'+esc(m)+'</option>').join('')+'</select></div>'
+    +'<div><span class="lblx">Årsak i MES (valgfri)</span><input data-save="'+P+'cause" value="'+esc(c.cause||'')+'" placeholder="f.eks. Mekanisk feil"></div></div></div>';
+
+  h+='<div class="card"><div class="ct">📄 Hendelsesrapport'+(reps.length>1?'er ('+reps.length+')':'')+'</div>'+(reps.map(r=>repHTML(r,true)).join('')||'<div class="empty">Ingen rapport koblet.</div>')+'<button class="b ghost sm noprint" data-act="nyhendelse" data-case="'+CASE+'" style="width:100%">+ Ny rapport</button></div>';
+
+  h+='<div class="card"><div class="ct">📝 Problembeskrivelse</div>'+(reps.length?'<span class="lblx">Fra hendelsesrapportene</span><div class="sub" style="font-size:12.5px;line-height:1.5;margin-bottom:6px">'+esc(reps.map(r=>r.text).join(' · '))+'</div>':'')+'<span class="lblx">Egen problembeskrivelse</span><textarea data-save="'+P+'problem" rows="3" placeholder="Hva skjer, hvor ofte, hva fører det til?">'+esc(c.problem||'')+'</textarea></div>';
+
+  h+='<div class="card"><div class="ct">🧩 Rotårsaksanalyse<span class="r sub">🚩 = mulig årsak · klikk igjen for «trolig ikke»</span></div><div class="cats">';
+  CATS.forEach(([k,n,hint])=>{const l=causes.filter(a=>a.cat===k);
+    h+='<div class="cat"><h4>'+n+'</h4><div class="hint">'+hint+'</div>'+l.map(a=>'<div class="cause'+(a.flag==='ikke'?' ikke':'')+'"><input data-save="'+P+'causes/'+a.id+'/text" value="'+esc(a.text||'')+'" placeholder="mulig årsak"><button class="flag'+(a.flag?' on':'')+'" data-act="flag" data-id="'+a.id+'" title="'+(a.flag==='mulig'?'Mulig årsak':a.flag==='ikke'?'Trolig ikke årsak':'Ikke vurdert')+'">'+(a.flag==='ikke'?'🏳':'🚩')+'</button><button class="x" data-del="'+P+'causes/'+a.id+'">✕</button></div>').join('')
+      +(ed?'<button class="b ghost sm" data-add="causes" data-cat="'+k+'" style="width:100%;margin-top:4px">+ Legg til</button>':'')+'</div>';});
+  h+='</div></div>';
+
+  h+='<div class="card"><div class="ct">🐟 Fiskebeinsdiagram (Ishikawa)</div>'+fishSVG(c)+'</div>';
+
+  h+='<div class="card"><div class="ct">❓ Hvorfor-analyse</div>'+(analysed.length?analysed.map(a=>{const ws=arr(a.whys).sort((x,y)=>(x.at||0)-(y.at||0));
+      return '<div class="why-card"><span class="tag dark">'+esc(CATN[a.cat]||'')+'</span><div style="font-weight:600;margin:5px 0">'+esc(a.text)+'</div>'
+        +ws.map((w,i)=>'<div class="why-row"><span class="n">'+(i+1)+'</span><div><div class="sub">'+(i?(i+1)+'. Hvorfor?':'1. Hvorfor skjedde dette?')+'</div><textarea data-save="'+P+'causes/'+a.id+'/whys/'+w.id+'/text" rows="1" placeholder="Svar…">'+esc(w.text||'')+'</textarea></div><button class="x" data-del="'+P+'causes/'+a.id+'/whys/'+w.id+'">✕</button></div>').join('')
+        +(ed?'<button class="b sm" data-add="whys" data-id="'+a.id+'">+ Legg til et nytt hvorfor</button>':'')
+        +'<span class="lblx">Klassifisering</span><div class="klass">'+KLASS.map(k=>'<button class="chip'+(a.klass===k[0]?' on':'')+'" data-act="klass" data-id="'+a.id+'" data-v="'+k[0]+'" style="font-size:11.5px;padding:3px 10px">'+k[1]+'</button>').join('')+'</div></div>';}).join(''):'<div class="empty">Legg inn mulige årsaker over, så dukker de opp her.</div>')+'</div>';
+
+  h+='<div class="card"><div class="ct">✅ Rotårsaksoversikt</div>'+(analysed.length?analysed.slice().sort((a,b)=>(a.klass==='rot'?0:1)-(b.klass==='rot'?0:1)).map(a=>{const ws=arr(a.whys).filter(w=>w.text).sort((x,y)=>(x.at||0)-(y.at||0));
+      return '<div class="rot'+(a.klass==='rot'?' is':'')+'"><b>'+esc(a.text)+'</b>'+(ws.length?'<div class="sub" style="margin:3px 0">Siste hvorfor:</div><i>'+esc(ws[ws.length-1].text)+'</i>':'')+'<div style="margin-top:5px"><span class="tag">'+esc(CATN[a.cat]||'')+'</span> <span class="tag'+(a.klass==='rot'?' dark':'')+'">'+((KLASS.find(k=>k[0]===a.klass)||['','Ikke klassifisert'])[1])+'</span></div></div>';}).join(''):'<div class="empty">Ingen årsaker ennå.</div>')
+    +(ed?'<div style="text-align:center;margin-top:8px" class="noprint"><button class="b'+(c.rcaDone?'':' dark')+'" data-act="rcadone">'+(c.rcaDone?'✓ RCA utført av '+esc(c.rcaDone.by)+' '+fmtDay(c.rcaDone.at)+' — angre':'☑ Marker RCA som utført')+'</button></div>':(c.rcaDone?'<div class="sub good" style="text-align:center">✓ RCA utført av '+esc(c.rcaDone.by)+' '+fmtDay(c.rcaDone.at)+'</div>':''))+'</div>';
+
+  const actRow=a=>'<div class="act'+(actOpen(a)?'':' closed')+'"><textarea data-save="'+P+'actions/'+a.id+'/text" rows="1" placeholder="Hva skal gjøres?">'+esc(a.text||'')+'</textarea>'+userSel(P+'actions/'+a.id+'/owner',a.owner,'Ansvarlig')
+    +'<input type="date" data-save="'+P+'actions/'+a.id+'/due" value="'+esc(a.due||'')+'"><select data-save="'+P+'actions/'+a.id+'/pdca" data-pdca="'+a.id+'">'+PDCA.map(p=>'<option value="'+p[0]+'"'+((a.pdca||'ikke')===p[0]?' selected':'')+'>'+p[1]+'</option>').join('')+'</select><button class="x" data-del="'+P+'actions/'+a.id+'">✕</button>'
+    +'<input data-save="'+P+'actions/'+a.id+'/effect" value="'+esc(a.effect||'')+'" placeholder="Effektvurdering — virket tiltaket?" style="grid-column:1/-1;font-size:12px">'
+    +(overdue(a)?'<div class="sub bad" style="grid-column:1/-1">Fristen er passert</div>':'')+(a.closedBy?'<div class="sub good" style="grid-column:1/-1">✓ lukket av '+esc(a.closedBy)+' '+fmtT(a.closedAt)+'</div>':'')+'</div>';
+  h+='<div class="card" id="tiltak"><div class="ct">📋 Tiltaksoversikt</div>'+donut(acts)
+    +'<div class="ct" style="font-size:13px">Korrigerende tiltak <span class="tag">'+acts.filter(a=>a.type!=='foreb').length+'</span></div>'+(acts.filter(a=>a.type!=='foreb').map(actRow).join('')||'<div class="sub">Ingen.</div>')+(ed?'<button class="b ghost sm" data-add="actions" data-type="korr" style="margin:4px 0 12px">+ Korrigerende tiltak</button>':'')
+    +'<div class="ct" style="font-size:13px">Forebyggende tiltak <span class="tag">'+acts.filter(a=>a.type==='foreb').length+'</span></div>'+(acts.filter(a=>a.type==='foreb').map(actRow).join('')||'<div class="sub">Ingen.</div>')+(ed?'<button class="b ghost sm" data-add="actions" data-type="foreb" style="margin-top:4px">+ Forebyggende tiltak</button>':'')+'</div>';
+
+  if(c.line&&LINES.includes(c.line)){
+    h+='<div class="card"><div class="ct">📈 Virket det? <span class="r sub">regnet fra stoppene i MES</span></div>';
+    if(ref){const ok=after.length<before.length||after.length===0;
+      h+='<div class="sub" style="margin-bottom:6px">'+Math.round(days)+' dager før og etter '+(c.archivedAt?'arkivering':'siste lukkede tiltak')+' ('+fmtDay(ref)+').</div><div class="kpis"><div class="kpi"><div class="kl">Stopp før</div><div class="kv">'+before.length+'</div><div class="sub">'+fmtD(before.reduce((s,e)=>s+(e.duration||0),0))+'</div></div><div class="kpi"><div class="kl">Stopp etter</div><div class="kv '+(ok?'good':'bad')+'">'+after.length+'</div><div class="sub">'+fmtD(after.reduce((s,e)=>s+(e.duration||0),0))+'</div></div><div class="kpi"><div class="kl">Vurdering</div><div class="kv '+(ok?'good':'bad')+'" style="font-size:14px">'+(after.length===0?'Ingen nye stopp':ok?'Færre stopp':'Ikke bedre')+'</div></div></div>';
+    }else h+='<div class="empty">Regnes automatisk når et tiltak er lukket eller saken er arkivert.</div>';
+    h+=(m90.length?'<table class="t" style="margin-top:8px"><thead><tr><th>Siste stopp</th><th>Maskin</th><th>Årsak</th><th class="num">Varighet</th><th>Kommentar</th></tr></thead><tbody>'+m90.slice(0,5).map(e=>'<tr><td>'+fmtT(e.ts)+'</td><td>'+esc(e.machine||'—')+'</td><td>'+esc(e.cause||'')+'</td><td class="num">'+fmtD(e.duration)+'</td><td class="sub">'+esc(e.comment||'')+'</td></tr>').join('')+'</tbody></table>':'')+'</div>';
+  }
+
+  h+='<div class="card"><div class="ct">🧾 Rapport <span class="r sub">settes sammen av det som er registrert</span></div>'+reportHTML(c)
+    +'<span class="lblx noprint">Standardisering og læring</span><textarea class="noprint" data-save="'+P+'std" rows="2" placeholder="Hva gjør vi til ny standard? Hvem andre bør lære av dette?">'+esc(c.std||'')+'</textarea>'
+    +'<span class="lblx noprint">Konklusjon</span><textarea class="noprint" data-save="'+P+'conclusion" rows="3" placeholder="Oppsummer hva som ble funnet og hva som gjenstår">'+esc(c.conclusion||'')+'</textarea></div>';
+
+  h+='<div class="card noprint"><div class="ct">🕘 Aktivitetslogg</div>'+(arr(c.log).sort((a,b)=>(b.at||0)-(a.at||0)).slice(0,30).map(l=>'<div class="sub" style="padding:2px 0">'+fmtT(l.at)+' · <b>'+esc(l.by||'')+'</b> — '+esc(l.text||'')+'</div>').join('')||'<div class="sub">Ingen aktivitet logget.</div>')+'</div>';
+
+  if(ed)h+='<div class="card noprint"><div class="ct">'+(c.status==='archived'?'↩ Gjenåpne sak':'✔ Ferdigstill sak')+'</div>'+(c.status==='archived'?'<div class="sub" style="margin-bottom:6px">Arkiveringskommentar: '+esc(c.archiveComment||'—')+'</div><button class="b" data-act="gjenapne">Gjenåpne saken</button>'
+    :'<div class="sub" style="margin-bottom:6px">'+(acts.filter(actOpen).length?'<b class="warn">'+acts.filter(actOpen).length+' tiltak er fortsatt åpne.</b> ':'')+(c.rcaDone?'':'RCA er ikke markert som utført — saken arkiveres da «uten rotårsaksanalyse». ')+'</div><textarea id="arkcom" rows="2" placeholder="Arkiveringskommentar — hva ble resultatet?"></textarea><button class="b dark" data-act="ferdig" style="margin-top:6px">Arkiver og ferdigstill</button>')+'</div>';
+  h+='</div>';
+
+  /* høyre: tiltak-hurtig + møter */
+  const side=(t,l,type)=>'<div class="card" style="margin:0"><div class="ct" style="font-size:12px;text-transform:uppercase;color:var(--text3)">'+t+'<span class="r tag">'+l.length+'</span></div>'+l.map(a=>'<div class="sub" style="padding:3px 0;border-bottom:1px dashed var(--border)"><span style="color:'+PDCA_COL[a.pdca||'ikke']+'">●</span> '+esc((a.text||'').slice(0,60))+'<br>'+esc(a.ownerName||'—')+(a.due?' · '+fmtDay(a.due):'')+'</div>').join('')+(ed?'<button class="b ghost sm" data-add="actions" data-type="'+type+'" style="width:100%;margin-top:6px">+ Legg til</button>':'')+'</div>';
+  h+='<div class="side noprint">'+side('Korrigerende tiltak',acts.filter(a=>a.type!=='foreb'),'korr')+side('Forebyggende tiltak',acts.filter(a=>a.type==='foreb'),'foreb')
+    +'<div class="card" style="margin:0"><div class="ct" style="font-size:12px;text-transform:uppercase;color:var(--text3)">Møter</div>'+(arr(c.meetings).sort((a,b)=>(a.when||0)-(b.when||0)).map(x=>'<div class="sub" style="padding:3px 0;display:flex;justify-content:space-between"><span>'+fmtT(x.when)+'<br>'+esc(x.text||'')+'</span>'+(ed?'<button class="x" data-del="'+P+'meetings/'+x.id+'">✕</button>':'')+'</div>').join('')||'<div class="sub">Ingen planlagte møter.</div>')+(ed?'<button class="b ghost sm" data-act="mote" style="width:100%;margin-top:6px">+ Legg til møte</button>':'')+'</div></div>';
+  return h+'</div>';
 }
 
-/* ── Lagring: ett felt om gangen ── */
-function save(path,val){
-  if(!SEL||!canEdit())return;
-  const upd={};upd[path]=(val===''||val==null)?null:val;upd.updatedAt=Date.now();upd.updatedBy=USER.name||'';
-  db.ref('rca/'+SEL).update(upd).catch(()=>alert('Kunne ikke lagre — sjekk at reglene for «rca» er publisert i Firebase.'));
+/* ═════════ HANDLINGER ═════════ */
+function modal(html){document.getElementById('modal-body').innerHTML=html;document.getElementById('modal').classList.add('on');}
+function closeModal(){document.getElementById('modal').classList.remove('on');}
+document.getElementById('modal').addEventListener('click',e=>{if(e.target.id==='modal')closeModal();});
+
+function openNyHendelse(pre){
+  pre=pre||{};const n=new Date(pre.when||Date.now());
+  modal('<div class="ct">+ Ny hendelse</div><div class="sub" style="margin-bottom:6px">Rapporten havner i Rapportmottak'+(pre.caseId?' og kobles til saken':'')+'.</div>'
+    +'<span class="lblx">Beskriv hendelsen *</span><textarea id="nh-text" rows="4" placeholder="Hva skjedde? Hva ser du?">'+esc(pre.text||'')+'</textarea>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div><span class="lblx">Hvor? — linje</span><select id="nh-line"><option value="">— annet —</option>'+LINES.map(l=>'<option'+(l===pre.line?' selected':'')+'>'+l+'</option>').join('')+'</select></div><div><span class="lblx">Sted / maskin</span><input id="nh-where" value="'+esc(pre.where||'')+'" placeholder="f.eks. pakkemaskin"></div></div>'
+    +'<span class="lblx">Når?</span><input type="datetime-local" id="nh-when" value="'+n.getFullYear()+'-'+pad(n.getMonth()+1)+'-'+pad(n.getDate())+'T'+pad(n.getHours())+':'+pad(n.getMinutes())+'">'
+    +'<span class="lblx">Er noe gjort for å løse det?</span><textarea id="nh-done" rows="2" placeholder="Nei / Ja — hva?">'+esc(pre.done||'')+'</textarea>'
+    +'<div style="display:flex;gap:8px;margin-top:12px"><button class="b pri" id="nh-save" style="flex:1">Send inn</button><button class="b" id="nh-cancel" style="flex:1">Avbryt</button></div>');
+  document.getElementById('nh-cancel').onclick=closeModal;
+  document.getElementById('nh-save').onclick=()=>{
+    const text=document.getElementById('nh-text').value.trim();if(text.length<5){alert('Beskriv hendelsen.');return;}
+    const wv=document.getElementById('nh-when').value;const when=wv?new Date(wv).getTime():Date.now();
+    const rep={text,line:document.getElementById('nh-line').value,where:document.getElementById('nh-where').value.trim(),when:isNaN(when)?Date.now():when,done:document.getElementById('nh-done').value.trim(),createdAt:Date.now(),createdBy:UID,createdByName:me()};
+    if(pre.caseId)rep.caseId=pre.caseId;if(pre.mesEventId)rep.mesEventId=pre.mesEventId;if(pre.machine)rep.machine=pre.machine;if(pre.cause)rep.cause=pre.cause;
+    db.ref('rca/reports').push(rep).then(()=>{closeModal();if(pre.caseId)logCase(pre.caseId,'la til ny rapport');else go('mottak');}).catch(fail);
+  };
 }
-function addChild(path,obj){if(!canEdit())return;const k=db.ref('rca/'+SEL+'/'+path).push().key;save(path+'/'+k,obj);setTimeout(()=>{const el=document.querySelector('[data-p="'+path+'/'+k+'/text"]');if(el)el.focus();},300);}
-function setStatus(s){
-  const upd={status:s,updatedAt:Date.now(),updatedBy:USER.name||''};
-  if(s==='closed'){upd.closedAt=Date.now();upd.closedBy=USER.name||'';}else{upd.closedAt=null;upd.closedBy=null;}
-  db.ref('rca/'+SEL).update(upd);
+/* rotarsak.html?event=<id> fra 🔍 i dashbordet → skjemaet forhåndsutfylt fra MES-stoppen */
+let _evDone=false;
+function fromEvent(){
+  if(_evDone)return;const id=new URLSearchParams(location.search).get('event');if(!id){_evDone=true;return;}
+  const e=EVENTS.find(x=>x.id===id);if(!e)return;_evDone=true;
+  const ex=reports().find(r=>r.mesEventId===id);
+  if(ex){if(ex.caseId)go('sak',ex.caseId);else go('mottak');return;}
+  openNyHendelse({text:(e.cause||'Stopp')+(e.comment?' — '+e.comment:'')+' (varighet '+fmtD(e.duration)+')',line:e.line,where:e.machine||'',when:e.ts,mesEventId:id,machine:e.machine||'',cause:e.cause||''});
 }
-function delRca(){if(!confirm('Slette hele analysen? Dette kan ikke angres.'))return;db.ref('rca/'+SEL).remove();SEL=null;document.getElementById('editor').style.display='none';document.getElementById('intro').style.display='';}
-
-/* ── HØYRE: editoren ── */
-function inp(path,val,ph,extra){return '<input type="text" data-p="'+path+'" value="'+esc(val||'')+'" placeholder="'+esc(ph||'')+'" '+(extra||'')+'>';}
-function ta(path,val,ph,rows){return '<textarea data-p="'+path+'" rows="'+(rows||2)+'" placeholder="'+esc(ph||'')+'">'+esc(val||'')+'</textarea>';}
-function renderEditor(){
-  const r=RCA[SEL];const ed=document.getElementById('editor');
-  if(!r){ed.style.display='none';document.getElementById('intro').style.display='';return;}
-  document.getElementById('intro').style.display='none';ed.style.display='';ed.className=canEdit()?'':'ro';
-  const machines=(SETTINGS.machines||{})[(r.line||'').replace(/[\s\/]/g,'_')]||[];
-  const whys=Object.keys(r.whys||{}).map(k=>Object.assign({k},r.whys[k])).sort((a,b)=>(a.at||0)-(b.at||0));
-  const acts=Object.keys(r.actions||{}).map(k=>Object.assign({k},r.actions[k])).sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
-  // Tall fra dataene
-  const d90=Date.now()-90*86400000;
-  const m90=matching(r,d90), tot90=m90.reduce((s,e)=>s+(e.duration||0),0);
-  const lastAct=acts.filter(a=>a.done&&a.doneAt).map(a=>a.doneAt).sort((a,b)=>b-a)[0];
-  const ref=r.closedAt||lastAct||null;
-  const after=ref?matching(r,ref):[], days=ref?Math.max(1,(Date.now()-ref)/86400000):0;
-  const before=ref?matching(r,ref-days*86400000,ref):[];
-  let h='<div class="card"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
-    +'<input type="text" data-p="title" value="'+esc(r.title||'')+'" style="flex:1;min-width:260px;font-size:17px;font-weight:700">'
-    +'<span class="st '+(r.status||'open')+'">'+ST[r.status||'open']+'</span>'
-    +(canEdit()?'<select id="st-sel" style="width:150px" class="noprint">'+Object.keys(ST).map(k=>'<option value="'+k+'"'+(r.status===k?' selected':'')+'>'+ST[k]+'</option>').join('')+'</select>':'')
-    +'<button class="b noprint" onclick="window.print()">🖨 Skriv ut</button>'
-    +(USER.role==='master'?'<button class="b noprint" onclick="delRca()" style="color:var(--red)">Slett</button>':'')
-    +'</div><div class="sub" style="margin-top:6px">Opprettet '+fmtT(r.createdAt||0)+' av '+esc(r.createdBy||'')+' · sist endret '+fmtT(r.updatedAt||r.createdAt||0)+' av '+esc(r.updatedBy||'')+(r.closedAt?' · lukket '+fmtT(r.closedAt)+' av '+esc(r.closedBy||''):'')+'</div></div>';
-
-  // 1 Problem
-  h+='<div class="card"><div class="hdr"><span class="n">1</span>Problemet</div><div class="g4">'
-    +'<div><label>Linje</label><select data-p="line">'+LINES.map(l=>'<option'+(l===r.line?' selected':'')+'>'+l+'</option>').join('')+'</select></div>'
-    +'<div><label>Maskin</label><select data-p="machine"><option value="">— alle / hele linja —</option>'+machines.concat(r.machine&&!machines.includes(r.machine)?[r.machine]:[]).map(m=>'<option'+(m===r.machine?' selected':'')+'>'+esc(m)+'</option>').join('')+'</select></div>'
-    +'<div><label>Årsak registrert i MES</label>'+inp('cause',r.cause,'f.eks. Mekanisk feil')+'</div>'
-    +'<div><label>Produkt</label>'+inp('product',r.product,'valgfritt')+'</div></div>'
-    +'<div class="g2"><div><label>Hva skjer? (fakta, ikke antakelser)</label>'+ta('problem',r.problem,'Hva ser vi, når, hvor ofte?',3)+'</div>'
-    +'<div><label>Konsekvens</label>'+ta('konsekvens',r.konsekvens,'Nedetid, svinn, kvalitet, sikkerhet …',3)+'</div></div>'
-    +'<label>Omfang siste 90 dager — hentet fra hendelsene (samme linje'+(r.machine?', maskin':'')+(r.cause?', årsak':'')+')</label>'
-    +'<div class="kpis"><div class="kpi"><div class="kl">Antall stopp</div><div class="kv">'+m90.length+'</div></div><div class="kpi"><div class="kl">Nedetid</div><div class="kv">'+fmtD(tot90)+'</div></div>'
-    +'<div class="kpi"><div class="kl">Snitt per stopp</div><div class="kv">'+(m90.length?fmtD(tot90/m90.length):'—')+'</div></div><div class="kpi"><div class="kl">Sist</div><div class="kv" style="font-size:15px">'+(m90[0]?fmtT(m90[0].ts):'—')+'</div></div></div>'
-    +(m90.length?'<table style="margin-top:8px"><thead><tr><th>Tid</th><th>Maskin</th><th>Årsak</th><th class="num">Varighet</th><th>Kommentar</th></tr></thead><tbody>'+m90.slice(0,6).map(e=>'<tr><td>'+fmtT(e.ts)+'</td><td>'+esc(e.machine||'—')+'</td><td>'+esc(e.cause||'')+'</td><td class="num">'+fmtD(e.duration)+'</td><td class="sub">'+esc(e.comment||'')+'</td></tr>').join('')+'</tbody></table>'+(m90.length>6?'<div class="sub">… og '+(m90.length-6)+' til</div>':''):'')
-    +'</div>';
-
-  // 2 5 hvorfor
-  h+='<div class="card"><div class="hdr"><span class="n">2</span>5 × hvorfor</div><div class="sub" style="margin-bottom:6px">Spør «hvorfor» på svaret over til du står ved noe dere kan gjøre noe med. Det trenger ikke bli akkurat fem.</div>';
-  whys.forEach((w,i)=>{h+='<div class="why"><div class="q">Hvorfor '+(i+1)+'?</div>'+ta('whys/'+w.k+'/text',w.text,i?'Hvorfor skjer det over?':'Hvorfor skjer problemet?',1)+'<button class="x" data-del="whys/'+w.k+'">✕</button></div>';});
-  h+=(canEdit()?'<button class="b sm noprint" data-add="whys">+ Hvorfor</button>':'')+'</div>';
-
-  // 3 Fiskebein
-  h+='<div class="card"><div class="hdr"><span class="n">3</span>Fiskebein — mulige årsaker</div><div class="fish">';
-  FISH.forEach(([k,l])=>{const cs=Object.keys((r.fish||{})[k]||{}).map(id=>({id,text:r.fish[k][id].text}));
-    h+='<div class="fb"><h4>'+l+(canEdit()?'<button class="b sm noprint" data-add="fish/'+k+'">+</button>':'')+'</h4>'+(cs.length?cs.map(c=>'<div class="c">'+inp('fish/'+k+'/'+c.id+'/text',c.text,'mulig årsak')+'<button class="x" data-del="fish/'+k+'/'+c.id+'">✕</button></div>').join(''):'<div class="sub">—</div>')+'</div>';});
-  h+='</div><label>Rotårsak — konklusjon</label>'+ta('rootCause',r.rootCause,'Den egentlige årsaken, slik dere har kommet fram til den',2)+'</div>';
-
-  // 4 Tiltak
-  h+='<div class="card"><div class="hdr"><span class="n">4</span>Tiltak</div>';
-  acts.forEach(a=>{h+='<div class="act'+(a.done?' done':'')+'"><input type="checkbox" data-chk="'+a.k+'"'+(a.done?' checked':'')+(canEdit()?'':' disabled')+'>'+ta('actions/'+a.k+'/text',a.text,'Hva skal gjøres?',1)+inp('actions/'+a.k+'/ansvar',a.ansvar,'Ansvar')+'<input type="date" data-p="actions/'+a.k+'/frist" value="'+esc(a.frist||'')+'">'+'<button class="x" data-del="actions/'+a.k+'">✕</button></div>'
-    +(a.done?'<div class="sub" style="margin:2px 0 4px 28px"><b class="good">✓ utført av '+esc(a.doneBy||'ukjent')+' '+fmtT(a.doneAt||0)+'</b></div>':(a.frist&&new Date(a.frist).getTime()<Date.now()-86400000?'<div class="sub bad" style="margin:2px 0 4px 28px">Fristen er passert</div>':''));});
-  h+=(canEdit()?'<button class="b sm noprint" data-add="actions" style="margin-top:6px">+ Tiltak</button>':'')+(acts.length?'':'<div class="empty">Ingen tiltak ennå.</div>')+'</div>';
-
-  // 5 Effekt
-  h+='<div class="card"><div class="hdr"><span class="n">5</span>Virket det?</div>';
-  if(ref){
-    const bm=before.reduce((s,e)=>s+(e.duration||0),0), am=after.reduce((s,e)=>s+(e.duration||0),0);
-    const ok=after.length<before.length||(after.length===0);
-    h+='<div class="sub" style="margin-bottom:6px">Sammenligner '+Math.round(days)+' dager før og etter '+(r.closedAt?'lukking':'siste utførte tiltak')+' ('+fmtDay(ref)+').</div>'
-      +'<div class="kpis"><div class="kpi"><div class="kl">Stopp før</div><div class="kv">'+before.length+'</div><div class="sub">'+fmtD(bm)+'</div></div>'
-      +'<div class="kpi"><div class="kl">Stopp etter</div><div class="kv '+(ok?'good':'bad')+'">'+after.length+'</div><div class="sub">'+fmtD(am)+'</div></div>'
-      +'<div class="kpi"><div class="kl">Vurdering</div><div class="kv '+(ok?'good':'bad')+'" style="font-size:16px">'+(after.length===0?'Ingen nye stopp':ok?'Færre stopp':'Ikke bedre — se på rotårsaken igjen')+'</div></div></div>'
-      +(after.length?'<table style="margin-top:8px"><tbody>'+after.slice(0,5).map(e=>'<tr><td>'+fmtT(e.ts)+'</td><td>'+esc(e.machine||'—')+'</td><td class="num">'+fmtD(e.duration)+'</td><td class="sub">'+esc(e.comment||'')+'</td></tr>').join('')+'</tbody></table>':'');
-  }else h+='<div class="empty">Regnes automatisk når et tiltak er haket av eller analysen er lukket.</div>';
-  h+='<label>Kommentar til effekten</label>'+ta('verify/text',(r.verify||{}).text,'Hva så dere etterpå? Skal noe standardiseres?',2)+'</div>';
-
-  ed.innerHTML=h;
-  // lyttere
-  ed.querySelectorAll('[data-p]').forEach(el=>el.addEventListener('change',()=>save(el.dataset.p,el.value.trim())));
-  ed.querySelectorAll('[data-add]').forEach(b=>b.addEventListener('click',()=>{const p=b.dataset.add;addChild(p,p==='actions'?{text:'',ansvar:'',frist:'',done:false,createdAt:Date.now()}:p==='whys'?{text:'',at:Date.now()}:{text:''});}));
-  ed.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',()=>{if(canEdit())save(b.dataset.del,null);}));
-  ed.querySelectorAll('[data-chk]').forEach(c=>c.addEventListener('change',()=>{const k=c.dataset.chk;const upd={};upd['actions/'+k+'/done']=c.checked;upd['actions/'+k+'/doneBy']=c.checked?(USER.name||''):null;upd['actions/'+k+'/doneAt']=c.checked?Date.now():null;upd.updatedAt=Date.now();upd.updatedBy=USER.name||'';if(c.checked&&r.status==='open')upd.status='action';db.ref('rca/'+SEL).update(upd);}));
-  const ss=document.getElementById('st-sel');if(ss)ss.addEventListener('change',()=>setStatus(ss.value));
+async function createCase(rep,extra){
+  const tr=await db.ref('rca/counter').transaction(n=>(n||0)+1).catch(()=>null);
+  if(!tr||!tr.committed){fail();return null;}
+  const nr=tr.snapshot.val(), ref=db.ref('rca/cases').push(), now=Date.now();
+  const c=Object.assign({nr,title:(rep.text||'Ny sak').slice(0,90),priority:'medium',stage:'opprettet',status:'open',line:rep.line||'',where:[rep.line,rep.where].filter(Boolean).join(' ')||'',machine:rep.machine||'',cause:rep.cause||'',createdAt:now,createdBy:rep.createdBy||UID,createdByName:rep.createdByName||me()},extra||{});
+  await ref.set(c).catch(fail);
+  if(rep.id)await db.ref('rca/reports/'+rep.id+'/caseId').set(ref.key);
+  logCase(ref.key,'opprettet saken'+(rep.id?' fra rapport':''));
+  return ref.key;
 }
+function pick(title,opts,cb){
+  modal('<div class="ct">'+title+'</div><select id="pk" size="10" style="height:260px">'+opts.map(o=>'<option value="'+o[0]+'">'+esc(o[1])+'</option>').join('')+'</select><div style="display:flex;gap:8px;margin-top:10px"><button class="b pri" id="pk-ok" style="flex:1">Velg</button><button class="b" id="pk-no" style="flex:1">Avbryt</button></div>');
+  document.getElementById('pk-no').onclick=closeModal;
+  document.getElementById('pk-ok').onclick=()=>{const v=document.getElementById('pk').value;if(!v)return;closeModal();cb(v);};
+}
+
+/* Delegerte lyttere — tåler at innholdet tegnes på nytt */
+document.addEventListener('click',async ev=>{
+  const t=ev.target.closest&&ev.target.closest('[data-go],[data-act],[data-add],[data-del]');if(!t)return;
+  if(ev.target.closest('button')&&ev.target.closest('button')!==t&&t.dataset.go)return;       // knapp inne i et klikkbart kort
+  const P=CASE?'rca/cases/'+CASE+'/':'', d=t.dataset;
+  if(d.act){
+    const a=d.act;
+    if(a==='nyhendelse'){openNyHendelse(d.case?{caseId:d.case,line:(CASES[d.case]||{}).line}:{});return;}
+    if(a==='toggrep'){OPEN_REP[d.id]=!OPEN_REP[d.id];render();return;}
+    if(a==='filt'){FILT=d.v;render();return;}
+    if(a==='afilt'){AFILT=d.v;render();return;}
+    if(a==='folg'){upd(P+'followers/'+UID,(CASES[CASE].followers||{})[UID]?null:true);return;}
+    if(!canEdit()){alert('Du har ikke tilgang til å behandle saker. Master gir «Tavle-tilgang» under Brukere.');return;}
+    if(a==='nysak'){const r=Object.assign({id:d.id},REPORTS[d.id]);const id=await createCase(r);if(id)go('sak',id);return;}
+    if(a==='koble'){pick('Koble rapporten til en sak',openCases().map(c=>[c.id,'#'+c.nr+' '+(c.title||'')]),id=>{db.ref('rca/reports/'+d.id+'/caseId').set(id).catch(fail);logCase(id,'koblet til en ny rapport');});return;}
+    if(a==='arkrep'){upd('rca/reports/'+d.id+'/archived',true);return;}
+    if(a==='gjenrep'){upd('rca/reports/'+d.id+'/archived',null);return;}
+    if(a==='mesrap'){const id=await createCase({text:d.cause+' — '+(d.machine||d.line)+' ('+d.n+' ganger, '+fmtD(+d.min)+' siste 30 dager)',line:d.line,where:d.machine,machine:d.machine,cause:d.cause},{problem:'Stoppen «'+d.cause+'» på '+d.line+(d.machine?' / '+d.machine:'')+' har gjentatt seg '+d.n+' ganger de siste 30 dagene, til sammen '+fmtD(+d.min)+' nedetid.'});if(id)go('sak',id);return;}
+    if(a==='flag'){const c=(CASES[CASE].causes||{})[d.id]||{};upd(P+'causes/'+d.id+'/flag',!c.flag?'mulig':c.flag==='mulig'?'ikke':null);return;}
+    if(a==='klass'){const c=(CASES[CASE].causes||{})[d.id]||{};upd(P+'causes/'+d.id+'/klass',c.klass===d.v?null:d.v);if(d.v==='rot'&&c.klass!=='rot')logCase(CASE,'klassifiserte «'+(c.text||'')+'» som rotårsak');return;}
+    if(a==='rcadone'){const c=CASES[CASE];if(c.rcaDone){db.ref(P+'rcaDone').remove();logCase(CASE,'angret «RCA utført»');}else{db.ref(P.slice(0,-1)).update({rcaDone:{by:me(),at:Date.now()},stage:'bekreftet'}).catch(fail);logCase(CASE,'markerte RCA som utført');}return;}
+    if(a==='cmt'){const el=document.getElementById('cmt');const v=el.value.trim();if(!v)return;el.value='';db.ref(P+'comments').push({text:v,by:UID,byName:me(),at:Date.now()}).catch(fail);return;}
+    if(a==='mote'){modal('<div class="ct">+ Møte</div><span class="lblx">Når</span><input type="datetime-local" id="mt-when"><span class="lblx">Hva</span><input id="mt-text" placeholder="f.eks. gjennomgang av tiltak"><div style="display:flex;gap:8px;margin-top:10px"><button class="b pri" id="mt-ok" style="flex:1">Lagre</button><button class="b" id="mt-no" style="flex:1">Avbryt</button></div>');
+      document.getElementById('mt-no').onclick=closeModal;document.getElementById('mt-ok').onclick=()=>{const w=new Date(document.getElementById('mt-when').value).getTime();if(isNaN(w)){alert('Velg tidspunkt');return;}db.ref(P+'meetings').push({when:w,text:document.getElementById('mt-text').value.trim()}).catch(fail);logCase(CASE,'la til møte '+fmtT(w));closeModal();};return;}
+    if(a==='ferdig'){const com=document.getElementById('arkcom').value.trim();if(com.length<5){alert('Skriv en arkiveringskommentar først.');return;}db.ref(P.slice(0,-1)).update({status:'archived',archiveComment:com,archivedAt:Date.now(),archivedBy:me()}).catch(fail);logCase(CASE,'arkiverte saken: '+com);go('arkiv');return;}
+    if(a==='gjenapne'){db.ref(P.slice(0,-1)).update({status:'open',archivedAt:null,archivedBy:null}).catch(fail);logCase(CASE,'gjenåpnet saken');return;}
+    if(a==='nygjent'||a==='redgjent'){const cur=a==='redgjent'?RECUR[d.id]:{};const name=prompt('Navn på det gjentagende problemet:',cur.name||'');if(!name)return;const desc=prompt('Beskrivelse (valgfritt):',cur.description||'');
+      if(a==='nygjent')db.ref('rca/recurring').push({name,description:desc||'',createdAt:Date.now(),createdBy:me()}).catch(fail);else db.ref('rca/recurring/'+d.id).update({name,description:desc||''}).catch(fail);return;}
+    if(a==='slettgjent'){if(!confirm('Slette det gjentagende problemet? Sakene beholdes.'))return;cases().filter(c=>c.recurringId===d.id).forEach(c=>db.ref('rca/cases/'+c.id+'/recurringId').remove());db.ref('rca/recurring/'+d.id).remove();return;}
+    if(a==='koblegjent'){pick('Koble sak til «'+RECUR[d.id].name+'»',cases().filter(c=>c.recurringId!==d.id).map(c=>[c.id,'#'+c.nr+' '+(c.title||'')+(c.status==='archived'?' (arkivert)':'')]),id=>{upd('rca/cases/'+id+'/recurringId',d.id);logCase(id,'koblet til gjentagende problem «'+RECUR[d.id].name+'»');});return;}
+    return;
+  }
+  if(d.add){
+    if(!canEdit())return;let path,obj;
+    if(d.add==='facts'){path=P+'facts';obj={text:'',by:me(),at:Date.now()};}
+    if(d.add==='causes'){path=P+'causes';obj={cat:d.cat,text:'',at:Date.now()};}
+    if(d.add==='whys'){path=P+'causes/'+d.id+'/whys';obj={text:'',at:Date.now()};}
+    if(d.add==='actions'){path=P+'actions';obj={type:d.type,text:'',pdca:'plan',createdAt:Date.now()};}
+    const ref=db.ref(path).push();ref.set(obj).then(()=>setTimeout(()=>{const el=document.querySelector('[data-save="'+path+'/'+ref.key+'/text"]');if(el){el.scrollIntoView({block:'center'});el.focus();}},350)).catch(fail);return;
+  }
+  if(d.del){if(!canEdit())return;if(/actions\/|causes\/[^/]+$/.test(d.del)&&!confirm('Slette?'))return;db.ref(d.del).remove().catch(fail);return;}
+  if(d.go){go(d.go,d.id);return;}
+});
+document.addEventListener('change',ev=>{
+  const el=ev.target;
+  if(el.id==='addpart'&&el.value){const u=USERS.find(x=>x.uid===el.value);if(u){upd('rca/cases/'+CASE+'/participants/'+u.uid,u.name);logCase(CASE,'la til deltaker '+u.name);}return;}
+  const p=el.dataset&&el.dataset.save;if(!p)return;
+  if(!canEdit()){alert('Du har ikke tilgang til å endre saker.');render();return;}
+  const v=el.value.trim();
+  if(el.dataset.user){const u=USERS.find(x=>x.uid===v);const base=p.replace(/\/owner$/,'');db.ref(base).update({owner:v||null,ownerName:u?u.name:null}).catch(fail);if(CASE)logCase(CASE,(/actions\//.test(p)?'satte ansvarlig for tiltak til ':'satte analyseansvarlig til ')+(u?u.name:'ingen'));return;}
+  if(el.dataset.pdca){const base=p.replace(/\/pdca$/,'');const closed=v==='lukket'||v==='na';db.ref(base).update({pdca:v,closedAt:closed?Date.now():null,closedBy:closed?me():null}).catch(fail);logCase(CASE,'endret tiltak til «'+(PDCA.find(x=>x[0]===v)||['',v])[1]+'»');return;}
+  upd(p,v);
+  if(/\/(stage|priority)$/.test(p)&&CASE)logCase(CASE,'endret '+(/stage$/.test(p)?'status til «'+(STAGES.find(s=>s[0]===v)||['',v])[1]+'»':'prioritet til '+PRI[v]));
+});
+document.addEventListener('input',ev=>{if(ev.target.id==='q'){Q=ev.target.value;const pos=ev.target.selectionStart;render();const n=document.getElementById('q');if(n){n.focus();n.setSelectionRange(pos,pos);}}});
 </script>
 </body>
 </html>

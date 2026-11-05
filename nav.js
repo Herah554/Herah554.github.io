@@ -3,7 +3,7 @@
    Sidene har hver sin <nav> i HTML. Ved DOMContentLoaded byttes lenkene ut med
    denne strukturen (logo og .ml med brukernavn/logg ut/temabryter beholdes):
 
-     Dashboard · Tavle · Rotårsak · Rapporter ▾ (Rapporter, Produkter) · Skiftrapport ·
+     Dashboard · Tavle · Saker · Rapporter ▾ (Rapporter, Produkter) · Skiftrapport ·
      Admin ▾ (Innstillinger, Brukere, Dashbord-oppsett, Import, Logg & data)
 
    Rollestyring: sist kjente rolle fra localStorage (diplomis.nav) brukes med én gang,
@@ -21,7 +21,7 @@
   var MENU=[
     {href:'index.html',label:'Dashboard'},
     {href:'tavle.html',label:'Tavle',id:'nav-tavle'},
-    {href:'rotarsak.html',label:'Rotårsak',id:'nav-rca'},
+    {href:'rotarsak.html',label:'Saker',id:'nav-rca'},
     {label:'Rapporter',items:[
       {href:'rapporter.html',label:'Rapporter',id:'nav-rap'},
       {href:'produkter.html',label:'Produkter',id:'nav-prod'}]},

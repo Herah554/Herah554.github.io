@@ -66,7 +66,21 @@
 
     "rca": {
       ".read": "auth != null",
-      ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'master' || root.child('users').child(auth.uid).child('role').val() === 'leder' || root.child('users').child(auth.uid).child('boardAccess').val() === true)"
+      ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'master' || root.child('users').child(auth.uid).child('role').val() === 'leder' || root.child('users').child(auth.uid).child('boardAccess').val() === true)",
+      "reports": {
+        "$id": {
+          ".write": "auth != null && !data.exists()"
+        }
+      },
+      "cases": {
+        "$cid": {
+          "followers": {
+            "$uid": {
+              ".write": "auth != null && $uid === auth.uid"
+            }
+          }
+        }
+      }
     },
 
     "board": {
