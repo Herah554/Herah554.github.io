@@ -1,6 +1,7 @@
 /* Lager tools/.out/rotarsak-test.html: rotarsak.html med en falsk Firebase i minnet, så siden
    kan lastes og feilsøkes i nettleseren uten innlogging. Kjør: node tools/make-rca-test.js,
    så node tools/serve.js og åpne http://localhost:8765/rotarsak-test.html. Les window.__errors.
+   ?as=u2 logger inn som en annen testbruker (u1 eier, u2 leder, u3 leder nivå 2, u4 operatør, u5 master uten Saker).
    Samme oppskrift virker for andre sider: bytt filnavn og DATA. */
 const fs=require("fs");
 const path=require("path");
@@ -14,7 +15,8 @@ for(let i=0;i<6;i++)events["a"+i]={line:"Glacier",machine:"GMW",cause:"Mekanisk 
 for(let i=0;i<3;i++)events["b"+i]={line:"Glacier",machine:"MLPH",cause:"Elektrisk feil",duration:35,ts:now-(i*6+2)*D,comment:"HMI"};
 events.c1={line:"Glacier",machine:"GMW",cause:"Vask",duration:45,ts:now-3*D};
 const DATA={
-  users:{u1:{name:"David Solbakken",role:"master"},u2:{name:"Sebastian Strøm",role:"leder"},u3:{name:"Nermala Mahmic",role:"leder"},u4:{name:"Operatør Ola",role:"linjeoperator"},b:{name:"bro",role:"bridge"}},
+  users:{u1:{name:"David Solbakken",role:"master"},u2:{name:"Sebastian Strøm",role:"leder"},u3:{name:"Nermala Mahmic",role:"leder",caseLevel:2},u4:{name:"Operatør Ola",role:"linjeoperator"},u5:{name:"Mona Master",role:"master",hide:{saker:true}},b:{name:"bro",role:"bridge"}},
+  system:{owner:"u1"},
   settings:{plannedStops:["Vask"],machines:{Glacier:["GMW","MLPH"],"Løp_3":["Fyller","Folie"]}},
   events,
   rca:{
@@ -65,7 +67,7 @@ const stub=`<script>
     child(k){return ref(path+'/'+k);}
   };return r;}
   window.DATA=${JSON.stringify(DATA)};
-  window.firebase={apps:[1],initializeApp(){return {};},database(){return {ref};},auth(){return {currentUser:{uid:'u1'},onAuthStateChanged(cb){setTimeout(()=>cb({uid:'u1'}),20);},signOut(){return Promise.resolve();}};}};
+  window.firebase={apps:[1],initializeApp(){return {};},database(){return {ref};},auth(){const AS=new URLSearchParams(location.search).get('as')||'u1';return {currentUser:{uid:AS},onAuthStateChanged(cb){setTimeout(()=>cb({uid:AS}),20);},signOut(){return Promise.resolve();}};}};
   window.__errors=[];window.addEventListener('error',e=>window.__errors.push(e.message+' @'+e.lineno));
 })();
 </script>`;

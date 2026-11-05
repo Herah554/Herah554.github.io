@@ -38,7 +38,8 @@
     +'.nav-grp.open>.nav-dd,.nav-grp:hover>.nav-dd{display:flex}.nav-dd .nl{display:block;padding:7px 12px}'
     +'@media(max-width:700px){.nav-dd{position:fixed;left:8px;right:8px;min-width:0}}';
 
-  function current(){return (location.pathname.split('/').pop()||'index.html').toLowerCase();}
+  // «-test» fjernes så testkopiene fra tools/ (rotarsak-test.html) oppfører seg som den ekte siden
+  function current(){return (location.pathname.split('/').pop()||'index.html').toLowerCase().replace('-test.html','.html');}
   function link(it){
     var a=document.createElement('a');a.href=it.href;a.className='nl'+(current()===it.href?' on':'');a.textContent=it.label;
     if(it.id){a.id=it.id;a.style.display='none';}
@@ -64,10 +65,37 @@
     });
     document.addEventListener('click',function(){document.querySelectorAll('.nav-grp.open').forEach(function(g){g.classList.remove('open');});});
   }
+  /* Sidetilgang per bruker (05.11.2026): users/{uid}.hide = {modul:true} settes i Brukere.
+     Skjulte sider fjernes fra menyen, og åpnes en skjult side direkte, sendes brukeren til
+     dashbordet. Eieren (system/owner) ser alltid alt. Dette styrer hva som VISES — hva som
+     faktisk kan leses i databasen bestemmes av reglene (database.rules.json). */
+  var MODS=[['tavle','Tavle','nav-tavle','tavle.html','alle'],['saker','Saker','nav-rca','rotarsak.html','alle'],
+    ['skiftrapport','Skiftrapport','nav-skift','skiftrapport.html','alle'],['rapporter','Rapporter','nav-rap','rapporter.html','leder'],
+    ['produkter','Produkter','nav-prod','produkter.html','leder'],['innstillinger','Innstillinger','nav-set','innstillinger.html','leder'],
+    ['brukere','Brukere','nav-usr','brukere.html','leder'],['dashbord','Dashbord-oppsett','nav-dash','dashbord.html','leder'],
+    ['import','Import','nav-import','import.html','master'],['logg','Logg & data','nav-logg','logg.html','master']];
+  window.navModules=MODS.map(function(m){return {key:m[0],label:m[1],min:m[4]};});
+  var HID={}, OWNER=false;
+  function hidden(p){return (p&&!p.owner&&p.hide)||{};}
+  function applyHide(p){
+    var h=hidden(p), css='';HID={};
+    MODS.forEach(function(m){if(h[m[0]]){HID[m[2]]=1;css+='#'+m[2]+'{display:none!important}';}});
+    var st=document.getElementById('nav-hidecss');
+    if(!st){st=document.createElement('style');st.id='nav-hidecss';document.head.appendChild(st);}
+    st.textContent=css;
+  }
+  /* confirmed=false: bare husket profil — skjul siden til profilen er bekreftet, så den ikke blinker */
+  function guard(p,confirmed){
+    var h=hidden(p), cur=current(), mod=null;
+    MODS.forEach(function(m){if(m[3]===cur)mod=m[0];});
+    var blocked=!!(mod&&h[mod]);
+    if(blocked&&confirmed){location.replace('index.html');return;}
+    document.documentElement.style.visibility=blocked?'hidden':'';
+  }
   function show(id,on){var el=document.getElementById(id);if(el)el.style.display=on?'':'none';}
   function syncGroups(){
     document.querySelectorAll('.nav-grp').forEach(function(g){
-      var any=Array.prototype.some.call(g.querySelectorAll('.nav-dd .nl'),function(a){return a.style.display!=='none';});
+      var any=Array.prototype.some.call(g.querySelectorAll('.nav-dd .nl'),function(a){return a.style.display!=='none'&&!HID[a.id];});
       g.style.display=any?'':'none';
     });
   }
@@ -78,22 +106,31 @@
     show('nav-skift',staff||p.shiftAccess===true);
     show('nav-dash',r!=='linjeoperator');
     show('nav-tavle',true);show('nav-rca',true);
+    applyHide(p);
     syncGroups();
   }
-  function remember(p){try{localStorage.setItem(KEY,JSON.stringify({role:p.role,shiftAccess:p.shiftAccess===true}));}catch(e){}apply(p);}
+  function remember(p){
+    if(p.owner===undefined)p=Object.assign({},p,{owner:OWNER});else OWNER=!!p.owner;
+    try{localStorage.setItem(KEY,JSON.stringify({role:p.role,shiftAccess:p.shiftAccess===true,hide:p.hide||null,owner:!!p.owner}));}catch(e){}
+    apply(p);guard(p,true);
+  }
   function forget(){try{localStorage.removeItem(KEY);}catch(e){}}
   window.navRemember=remember;
 
   function start(){
     var nav=document.querySelector('nav');if(!nav)return;
     build(nav);
-    try{var p=JSON.parse(localStorage.getItem(KEY)||'null');if(p&&p.role)apply(p);}catch(e){}
+    try{var p=JSON.parse(localStorage.getItem(KEY)||'null');if(p&&p.role){OWNER=!!p.owner;apply(p);guard(p,false);}}catch(e){}
     // Sidenes egen kode kan vise/skjule enkeltlenker etterpå — hold gruppene i takt
     new MutationObserver(syncGroups).observe(nav,{attributes:true,subtree:true,attributeFilter:['style']});
     if(window.firebase&&firebase.apps&&firebase.apps.length&&firebase.auth){
       firebase.auth().onAuthStateChanged(function(u){
-        if(!u){forget();return;}
-        firebase.database().ref('users/'+u.uid).once('value').then(function(s){var v=s.val();if(v&&v.role)remember(v);}).catch(function(){});
+        if(!u){forget();document.documentElement.style.visibility='';return;}
+        var dbn=firebase.database();
+        // system/owner kan være stengt til de nye reglene er publisert — da er ingen eier
+        Promise.all([dbn.ref('users/'+u.uid).once('value'),dbn.ref('system/owner').once('value').then(function(s){return s.val();}).catch(function(){return null;})])
+          .then(function(r){var v=r[0].val();if(v&&v.role)remember(Object.assign({},v,{owner:r[1]===u.uid}));else document.documentElement.style.visibility='';})
+          .catch(function(){document.documentElement.style.visibility='';});
       });
     }
   }

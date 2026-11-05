@@ -23,7 +23,7 @@ events.e3={line:"Glacier",machine:"",cause:"",duration:12,ts:t0.getTime()+360000
 events.e4={line:"Løp 1",machine:"Fyller",cause:"Vask",duration:45,ts:t0.getTime()-2*D};
 const shift={s1:{name:"Dag",start:"06:00",end:"14:00",bemanning:4,color:"#0d9488"}};
 const DATA={
-  users:{u1:{name:"David Solbakken",email:"david@example.com",role:"master",dashboardId:"std"},u2:{name:"Operatør Ola",role:"linjeoperator",lines:["Glacier"]}},
+  users:{u1:{name:"David Solbakken",email:"david@example.com",role:"master",dashboardId:"std"},u2:{name:"Operatør Ola",email:"ola@example.com",role:"linjeoperator",lines:["Glacier"]},u3:{name:"Lise Leder",email:"lise@example.com",role:"leder",lines:["Glacier"],hide:{rapporter:true}},u5:{name:"Mona Master",email:"mona@example.com",role:"master",hide:{import:true,logg:true},caseLevel:1}},
   settings:{globalGoal:3000,oeeGoal:60,defaultDayHours:8,resetTime:"06:00",lineGoals:{Glacier:500},oeeGoals:{Glacier:60},
     plannedStops:["Vask"],generalCauses:["Annet"],machines:{Glacier:["GMW","MLPH"],"Løp_1":["Fyller"]},causes:{Glacier__GMW:["Mekanisk feil"],Glacier__MLPH:["Elektrisk feil"]},
     products:{Glacier:[{name:"Krone-is Jordbær",artNr:"11001",teknKapasitet:6000,stkPerDpack:80,eskerPerDpack:1}]}},
@@ -34,7 +34,7 @@ const DATA={
   opc_status:{connected:true,last_seen:now.getTime(),url:"opc.tcp://192.168.10.1:4840"},
   shiftPlan:{[today]:{Glacier:shift},[yday]:{Glacier:shift}},
   plan:{production:{[today]:{Glacier:[{product:"Krone-is Jordbær",artNr:"11001",antall:480,timer:8}]}}},
-  shiftReports:{},deleteRequests:{},calibrationReviews:{},board:{},rca:{},userDashboards:{}
+  shiftReports:{},deleteRequests:{},calibrationReviews:{},board:{},rca:{},userDashboards:{},system:{}
 };
 const stub=`<script>
 (function(){
@@ -58,7 +58,8 @@ const stub=`<script>
   ['orderByKey','orderByChild','orderByValue','startAt','endAt','equalTo','limitToLast','limitToFirst'].forEach(m=>{r[m]=()=>r;});
   return r;}
   window.DATA=${JSON.stringify(DATA)};
-  const user={uid:'u1',email:'david@example.com',getIdToken(){return Promise.resolve('x');}};
+  const AS=new URLSearchParams(location.search).get('as')||'u1';
+  const user={uid:AS,email:'david@example.com',getIdToken(){return Promise.resolve('x');}};
   const dbf=function(){return {ref,goOffline(){},goOnline(){}};};dbf.ServerValue={TIMESTAMP:Date.now()};
   const authf=function(){return {currentUser:user,onAuthStateChanged(cb){setTimeout(()=>cb(user),20);},signOut(){return Promise.resolve();},sendPasswordResetEmail(){return Promise.resolve();}};};
   window.firebase={apps:[1],initializeApp(){return {delete(){return Promise.resolve();},auth:authf,database:dbf};},app(){return {};},database:dbf,auth:authf};

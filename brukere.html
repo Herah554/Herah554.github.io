@@ -46,6 +46,8 @@ input:focus,select:focus{border-color:var(--accent)}
 .rb-m{background:#fef2f2;color:var(--red);border:1px solid #fecaca}
 .rb-l{background:#eff6ff;color:var(--blue);border:1px solid #bfdbfe}
 .rb-o{background:#f0fdf4;color:var(--green);border:1px solid #bbf7d0}
+.rb-e{background:var(--text);color:var(--bg2);border:1px solid var(--text)}
+.uacc{font-size:11px;color:var(--text3);margin-top:5px;line-height:1.5}
 .ubody{font-size:12px;color:var(--text2);margin-bottom:.65rem;line-height:1.6}
 .lchips{display:flex;flex-wrap:wrap;gap:3px;margin-top:3px}
 .lchip{font-size:10px;background:var(--bg3);border:1px solid var(--border);border-radius:3px;padding:1px 6px;color:var(--text2);font-family:var(--mono)}
@@ -75,7 +77,7 @@ input:focus,select:focus{border-color:var(--accent)}
 <link rel="stylesheet" href="theme.css?v=20261105c"/>
 <script src="theme.js?v=20261105c"></script>
 <script src="time24.js?v=20260924b"></script>
-<script src="nav.js?v=20261105d"></script>
+<script src="nav.js?v=20261105f"></script>
 </head>
 <body>
 <nav>
@@ -94,6 +96,7 @@ input:focus,select:focus{border-color:var(--accent)}
   </div>
 </nav>
 <main class="page">
+  <div class="card" id="ownerbox" style="display:none"></div>
   <h2>Opprett ny bruker</h2>
   <div class="card">
     <div class="ct"><div class="ca" style="background:var(--accent)"></div>Ny bruker</div>
@@ -118,6 +121,10 @@ input:focus,select:focus{border-color:var(--accent)}
     <div class="fr"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="n-shift" style="width:auto;margin:0">Skiftrapport-tilgang (kan levere/se skiftrapporter)</label></div>
     <div class="fr"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="n-board" style="width:auto;margin:0">Tavle-tilgang (kan redigere tavlene og hake av tiltak — master og leder har det alltid)</label></div>
     <div class="fr"><label>Dashboard</label><select id="n-dash"><option value="std">Standard</option></select></div>
+    <div class="acc">
+      <div class="fr"><label>Innsyn i saker (rotårsaksanalyser)</label><select id="n-level"></select></div>
+      <div class="fr"><label>Sider brukeren kan se (hak bort for å skjule)</label><div class="lchecks" id="n-mods"></div></div>
+    </div>
     <button class="btn" onclick="createUser()">Opprett bruker</button>
   </div>
 
@@ -141,6 +148,10 @@ input:focus,select:focus{border-color:var(--accent)}
     <div class="fr"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="e-shift" style="width:auto;margin:0">Skiftrapport-tilgang</label></div>
     <div class="fr"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="e-board" style="width:auto;margin:0">Tavle-tilgang</label></div>
     <div class="fr"><label>Dashboard</label><select id="e-dash"><option value="std">Standard</option></select></div>
+    <div class="acc">
+      <div class="fr"><label>Innsyn i saker (rotårsaksanalyser)</label><select id="e-level"></select></div>
+      <div class="fr"><label>Sider brukeren kan se (hak bort for å skjule)</label><div class="lchecks" id="e-mods"></div></div>
+    </div>
     <span class="pw-toggle" onclick="sendPwReset()">🔑 Send passord-tilbakestilling på e-post</span>
     <div style="font-size:11px;color:var(--text3);margin-top:4px;line-height:1.5">
       Brukeren får en lenke fra Firebase og setter passordet selv. Passord skal aldri
@@ -164,10 +175,59 @@ localStorage.setItem('firebaseConfig',JSON.stringify(FB));
 const db=firebase.database();
 const auth=firebase.auth();
 
-let myUid=null, editUid=null;
+let myUid=null, editUid=null, EDIT_HIDE={};
 /* Hvem er jeg: master ser og styrer alle; leder ser bare operatørene på sine egne linjer
    og kan bare opprette/redigere operatører der. Leder uten linjer = alle linjer (eldre brukere). */
 let MY_ROLE='master', MY_LINES=LINES.slice();
+/* Eier (system/owner) står over master: bare eieren kan opprette/endre mastere, gi innsynsnivået
+   «Høyeste» og bestemme hvilke sider en master ser. Master styrer ledere og operatører.
+   Før en eier er satt, virker alt som før (master styrer alle). */
+let OWNER_UID=null, IS_OWNER=false, MY_LEVEL=2, LAST=null;
+const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+const LEVELS=[['','Standard for rollen'],[0,'Ingen — kan bare melde hendelser'],[1,'Åpne saker'],[2,'Begrenset — også begrensede saker'],[3,'Høyeste — alle saker']];
+const LEVELN={0:'ingen',1:'åpne saker',2:'begrenset',3:'høyeste'};
+const MODS=window.navModules||[];
+function defLevel(u){return u.role==='master'?2:(u.role==='leder'||u.boardAccess===true)?1:0;}
+function canManage(u){
+  if(MY_ROLE==='leder')return true;                 // leder ser bare det hen kan styre (onMyLines)
+  if(IS_OWNER||!OWNER_UID)return true;
+  return u.role!=='master';
+}
+function buildLevel(id,cur){
+  const sel=document.getElementById(id);if(!sel)return;
+  const max=IS_OWNER?3:Math.min(2,MY_LEVEL);
+  sel.innerHTML=LEVELS.map(l=>'<option value="'+l[0]+'"'+(l[0]!==''&&l[0]>max&&l[0]!==cur?' disabled':'')+'>'+l[1]+(l[0]===3&&!IS_OWNER?' (bare eier kan gi)':'')+'</option>').join('');
+  sel.value=(cur===undefined||cur===null)?'':String(cur);
+}
+function modsFor(role){return MODS.filter(m=>m.min==='alle'||(m.min==='leder'&&role!=='linjeoperator')||(m.min==='master'&&role==='master'));}
+function buildMods(cid,role,hide){
+  const c=document.getElementById(cid);if(!c)return;c.innerHTML='';hide=hide||{};
+  modsFor(role).forEach(m=>{
+    const lbl=document.createElement('label');lbl.className='lc';
+    const cb=document.createElement('input');cb.type='checkbox';cb.value=m.key;cb.checked=!hide[m.key];
+    lbl.appendChild(cb);lbl.appendChild(document.createTextNode(' '+m.label));c.appendChild(lbl);
+  });
+}
+function getHide(cid){const h={};document.querySelectorAll('#'+cid+' input[type=checkbox]').forEach(cb=>{if(!cb.checked)h[cb.value]=true;});return Object.keys(h).length?h:null;}
+function ownerUI(){
+  const box=document.getElementById('ownerbox');if(!box)return;
+  document.querySelectorAll('.acc').forEach(el=>{el.style.display=MY_ROLE==='master'?'':'none';});
+  if(MY_ROLE!=='master'){box.style.display='none';return;}
+  box.style.display='';
+  const own=OWNER_UID&&LAST&&LAST.child(OWNER_UID).val();
+  const bdg=document.getElementById('ubadge');if(IS_OWNER&&bdg)bdg.textContent=bdg.textContent.replace('Master','Eier');
+  box.innerHTML='<div class="ct" style="margin-bottom:.4rem"><div class="ca" style="background:var(--text)"></div>Eier</div><div style="font-size:12.5px;color:var(--text2);line-height:1.6">'
+    +(IS_OWNER?'<b>Du er eier av systemet.</b> Eieren står over master: bare du kan opprette og endre mastere, gi innsynsnivået «Høyeste» i saker, og bestemme hvilke sider hver master ser.'
+      :OWNER_UID?'Eier: <b>'+esc(own&&own.name||'ukjent bruker')+'</b>. Mastere opprettes og endres av eieren — du styrer ledere og operatører.'
+      :'Ingen eier er satt ennå. Eieren står over master og styrer hva hver master ser og har innsyn i. Det kan bare være én, og valget kan ikke gjøres om herfra.<br><button class="btn" style="margin-top:8px" onclick="claimOwner()">Gjør meg til eier</button>')+'</div>';
+  // Master-rollen kan bare deles ut av eieren (eller av en master før eier er satt)
+  ['n-role','e-role'].forEach(id=>{const op=document.querySelector('#'+id+' option[value=master]');if(op)op.disabled=!(IS_OWNER||!OWNER_UID);});
+  buildLevel('n-level',document.getElementById('n-level').value===''?null:+document.getElementById('n-level').value);
+}
+function claimOwner(){
+  if(!confirm('Gjøre deg til eier av systemet? Etterpå kan bare du opprette og endre mastere.'))return;
+  db.ref('system/owner').set(myUid).then(()=>showToast('Du er nå eier')).catch(()=>showToast('Kunne ikke lagre — publiser de nye reglene i Firebase først',true));
+}
 function allowedLines(){return MY_ROLE==='master'?LINES:MY_LINES;}
 function onMyLines(u){
   if(MY_ROLE==='master')return true;
@@ -193,6 +253,9 @@ function toggleSec(rid,sid){
   const role=document.getElementById(rid).value;
   const sec=document.getElementById(sid);
   if(sec)sec.style.display=role==='master'?'none':'block';
+  // sidelisten følger rollen; det som alt er haket bort, beholdes
+  const mid=rid==='n-role'?'n-mods':'e-mods';
+  buildMods(mid,role,document.getElementById(mid).children.length?(getHide(mid)||{}):(rid==='e-role'?EDIT_HIDE:{}));
   const lbl=document.getElementById(sid+'-lbl');
   if(lbl)lbl.textContent=role==='leder'?'Linjer lederen har ansvar for (styrer hva lederen ser i Innstillinger, Skiftrapport og Brukere)':'Linjetilgang (velg hvilke linjer operatøren har tilgang til)';
 }
@@ -205,6 +268,7 @@ function renderUsers(snap){
     grid.innerHTML='<div style="color:var(--text3);font-size:13px">Ingen brukere funnet.</div>';
     return;
   }
+  LAST=snap;
   const users=[];
   snap.forEach(child=>{
     const u={uid:child.key,...child.val()};
@@ -217,21 +281,25 @@ function renderUsers(snap){
   users.forEach((u,i)=>{
     const init=(u.name||'?').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
     const color=COLORS[i%COLORS.length];
-    const rl=u.role==='master'?'Master':u.role==='leder'?'Leder':'Linjeoperatør';
-    const rc=u.role==='master'?'rb-m':u.role==='leder'?'rb-l':'rb-o';
-    const lhtml=(u.lines?.length)?'<div class="lchips">'+u.lines.map(l=>'<span class="lchip">'+l+'</span>').join('')+'</div>':'';
+    const isOwn=u.uid===OWNER_UID;
+    const rl=isOwn?'Eier':u.role==='master'?'Master':u.role==='leder'?'Leder':'Linjeoperatør';
+    const rc=isOwn?'rb-e':u.role==='master'?'rb-m':u.role==='leder'?'rb-l':'rb-o';
+    const lhtml=(u.lines?.length)?'<div class="lchips">'+u.lines.map(l=>'<span class="lchip">'+esc(l)+'</span>').join('')+'</div>':'';
+    const lv=isOwn?3:typeof u.caseLevel==='number'?u.caseLevel:defLevel(u);
+    const hid=isOwn?[]:MODS.filter(m=>(u.hide||{})[m.key]).map(m=>m.label);
+    const acc='<div class="uacc">Innsyn i saker: <b>'+LEVELN[lv]+'</b>'+(typeof u.caseLevel==='number'||isOwn?'':' (standard)')+(hid.length?'<br>Skjulte sider: '+esc(hid.join(', ')):'')+'</div>';
     const body=u.role==='linjeoperator'?'Linjer:'+lhtml
       :u.role==='leder'?(u.lines?.length?'Leder for:'+lhtml:'Leder — alle linjer (ingen linjer valgt)')
       :'Full tilgang til hele systemet';
     const isSelf=(u.uid===myUid);
     const card=document.createElement('div');card.className='ucard';
     card.innerHTML='<div class="uhdr"><div class="av" style="background:'+color+'">'+init+'</div>'
-      +'<div style="min-width:0"><div class="uname">'+u.name+'</div><div class="uemail">'+u.email+'</div><div class="rb '+rc+'">'+rl+'</div></div></div>'
-      +'<div class="ubody">'+body+'</div>'
-      +'<div class="uact"><button class="ebtn" onclick="openEdit(\''+u.uid+'\')">Rediger</button>'
+      +'<div style="min-width:0"><div class="uname">'+esc(u.name)+'</div><div class="uemail">'+esc(u.email)+'</div><div class="rb '+rc+'">'+rl+'</div></div></div>'
+      +'<div class="ubody">'+body+(MY_ROLE==='master'?acc:'')+'</div>'
+      +'<div class="uact">'+(canManage(u)?'<button class="ebtn" onclick="openEdit(\''+u.uid+'\')">Rediger</button>':'<span style="flex:1;font-size:11px;color:var(--text3);padding:6px 4px">Styres av eieren</span>')
       +(isSelf
         ?'<span style="font-size:11px;color:var(--text3);padding:6px 4px">Deg selv</span>'
-        :MY_ROLE==='master'
+        :MY_ROLE==='master'&&canManage(u)
           ?'<button class="dbtn" onclick="delUser(\''+u.uid+'\',\''+encodeURIComponent(u.name||'')+'\')">Slett</button>'
           :'')
       +'</div>';
@@ -250,6 +318,7 @@ auth.onAuthStateChanged(async user=>{
   MY_ROLE=me.role;
   MY_LINES=(me.lines||[]).filter(l=>LINES.includes(l));
   if(!MY_LINES.length)MY_LINES=LINES.slice();
+  MY_LEVEL=typeof me.caseLevel==='number'?me.caseLevel:defLevel(me);
   document.getElementById('ubadge').textContent=me.name+' · '+(me.role==='master'?'Master':'Leder · '+MY_LINES.join(', '));
   if(me.role==='master')document.getElementById('nav-logg').style.display='';
   if(me.role==='leder'){
@@ -263,11 +332,14 @@ auth.onAuthStateChanged(async user=>{
     if(h)h.textContent='Opprett ny operatør på '+MY_LINES.join(', ');
   }
   buildChecks('n-lchecks',[]);
+  buildLevel('n-level',null);
   toggleSec('n-role','n-lsec');
+  ownerUI();
   // Start listener only once
   if(!window._usersListenerStarted){
     window._usersListenerStarted=true;
-    db.ref('users').on('value',s=>renderUsers(s));
+    db.ref('users').on('value',s=>{renderUsers(s);ownerUI();});
+    db.ref('system/owner').on('value',s=>{OWNER_UID=s.val()||null;IS_OWNER=OWNER_UID===myUid;if(IS_OWNER)MY_LEVEL=3;ownerUI();if(LAST)renderUsers(LAST);},()=>{OWNER_UID=null;IS_OWNER=false;ownerUI();});
   }
 });
 
@@ -337,7 +409,10 @@ async function createUser(){
     const sec=firebase.initializeApp(FB,'tmp-'+Date.now());
     const cred=await sec.auth().createUserWithEmailAndPassword(email,pass);
     await sec.auth().signOut();await sec.delete();
-    await db.ref('users/'+cred.user.uid).set({name,email,role,lines,shiftAccess,boardAccess,dashboardId,createdAt:Date.now()});
+    const rec={name,email,role,lines,shiftAccess,boardAccess,dashboardId,createdAt:Date.now()};
+    if(MY_ROLE==='master'){const lv=document.getElementById('n-level').value, hide=getHide('n-mods');if(lv!=='')rec.caseLevel=+lv;if(hide)rec.hide=hide;}
+    await db.ref('users/'+cred.user.uid).set(rec);
+    buildLevel('n-level',null);buildMods('n-mods',document.getElementById('n-role').value,{});
     document.getElementById('n-name').value='';document.getElementById('n-email').value='';document.getElementById('n-pass').value='';document.getElementById('n-shift').checked=false;document.getElementById('n-board').checked=false;
     showMsg('cok','✓ Bruker "'+name+'" er opprettet.');
     showToast('Bruker opprettet');
@@ -358,6 +433,8 @@ function openEdit(uid){
     document.getElementById('e-shift').checked=u.shiftAccess===true;
     document.getElementById('e-board').checked=u.boardAccess===true;
     setDashSelect(u.dashboardId||'std');
+    EDIT_HIDE=u.hide||{};document.getElementById('e-mods').innerHTML='';
+    buildLevel('e-level',typeof u.caseLevel==='number'?u.caseLevel:null);
     toggleSec('e-role','e-lsec');
     document.getElementById('emodal').classList.add('on');
   });
@@ -387,7 +464,10 @@ async function saveEdit(){
 
   if(!name){showToast('Skriv inn navn',true);return;}
   if(role!=='master'&&!lines.length){showToast('Velg minst én linje',true);return;}
-  await db.ref('users/'+editUid).update({name,role,lines,shiftAccess,boardAccess,dashboardId});
+  const upd={name,role,lines,shiftAccess,boardAccess,dashboardId};
+  if(MY_ROLE==='master'){const lv=document.getElementById('e-level').value;upd.caseLevel=lv===''?null:+lv;upd.hide=getHide('e-mods');}
+  try{await db.ref('users/'+editUid).update(upd);}
+  catch(e){showToast('Kunne ikke lagre — du har ikke tilgang til å endre denne brukeren',true);return;}
 
   showToast('Lagret');closeEdit();
 }

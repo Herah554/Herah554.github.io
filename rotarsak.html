@@ -118,7 +118,7 @@ table.t{width:100%;border-collapse:collapse;font-size:12.5px}table.t td,table.t 
 <link rel="stylesheet" href="theme.css?v=20261105c"/>
 <script src="theme.js?v=20261105c"></script>
 <script src="time24.js?v=20260924b"></script>
-<script src="nav.js?v=20261105d"></script>
+<script src="nav.js?v=20261105f"></script>
 </head>
 <body>
 <nav>
@@ -155,11 +155,33 @@ const db=firebase.database(),auth=firebase.auth();
                        rcaDone{by,at}, actions{id:{type:korr|foreb,text,owner,ownerName,due,
                        pdca:ikke|plan|do|check|act|lukket|na,effect,createdAt,closedAt,closedBy}},
                        meetings{}, std, conclusion, recurringId, log{}, archiveComment, archivedAt, archivedBy}
+   TILGANG (05.11.2026): nivået er HVILKEN NODE saken ligger i — rca/cases (Åpen), rca/cases2
+   (Begrenset), rca/cases3 (Høyeste). Reglene gir lesetilgang per node, så en sak over ditt nivå
+   kommer aldri til nettleseren. Å endre nivå = flytte saken (moveCase). Bruk alltid cp(id) for
+   stien til en sak, aldri en fast sti. Brukerens nivå: eier 3, ellers users/{uid}.caseLevel,
+   ellers standard for rollen (master 2, leder/Tavle-tilgang 1, andre 0 = kan bare melde hendelse).
    rca/recurring/{id} {name, description, createdAt, createdBy}
    rca/counter        løpenummer for saker (transaksjon)
    ═══════════════════════════════════════════════════════════════════════════ */
 let USER=null, UID='', REPORTS={}, CASES={}, RECUR={}, USERS=[], EVENTS=[], SETTINGS={};
 let VIEW='hjem', CASE=null, FILT='alle', AFILT='alle', Q='', OPEN_REP={};
+let IS_OWNER=false, MY_LEVEL=0, CASES_L={};
+const NODE={1:'rca/cases',2:'rca/cases2',3:'rca/cases3'}, LEVELN={1:'Åpen',2:'Begrenset',3:'Høyeste'};
+function cp(id){return ((CASES[id]&&CASES[id]._node)||NODE[1])+'/'+id;}
+function mergeCases(){
+  const m={};[1,2,3].forEach(L=>{const o=CASES_L[L]||{};Object.keys(o).forEach(k=>{if(o[k]&&typeof o[k]==='object'){o[k]._node=NODE[L];o[k].level=L;m[k]=o[k];}});});
+  CASES=m;sched();
+}
+/* Flytt saken til noden for nytt nivå. _node og id er bare til bruk i siden og skal ikke lagres. */
+function moveCase(id,L){
+  const c=CASES[id];if(!c||!NODE[L]||c.level===L)return;
+  if(!canEdit()||L>MY_LEVEL){alert('Du kan ikke sette et høyere tilgangsnivå enn ditt eget.');render();return;}
+  if(!confirm(L>c.level?'Sette saken til «'+LEVELN[L]+'»? Da ser bare de med dette innsynet saken — deltakere og følgere uten det mister den.':'Sette saken til «'+LEVELN[L]+'»? Da blir den synlig for flere.')){render();return;}
+  const o=JSON.parse(JSON.stringify(c));delete o._node;delete o.id;o.level=L;
+  o.log=o.log||{};o.log[db.ref('rca').push().key]={at:Date.now(),by:me(),text:'endret tilgang fra «'+LEVELN[c.level]+'» til «'+LEVELN[L]+'»'};
+  const u={};u[NODE[L].slice(4)+'/'+id]=o;u[c._node.slice(4)+'/'+id]=null;
+  db.ref('rca').update(u).catch(fail);
+}
 const CATS=[
  ['folk','Folk (ansatte og ledelse)','Manglende opplæring, feilkommunikasjon, lite erfaring, feil bemanning, uklare beslutninger'],
  ['metode','Arbeidsmåte (prosesser og metoder)','Manglende prosedyrer, feil rekkefølge i arbeidssteg, avvik fra standard, uklare instrukser'],
@@ -179,7 +201,7 @@ function fmtD(m){m=Math.round(m||0);if(m<60)return m+' min';const h=Math.floor(m
 function fmtT(ts){if(!ts)return '—';const d=new Date(ts);return pad(d.getDate())+'.'+pad(d.getMonth()+1)+'.'+d.getFullYear()+' '+pad(d.getHours())+':'+pad(d.getMinutes());}
 function fmtDay(ts){if(!ts)return '—';const d=new Date(ts);return pad(d.getDate())+'.'+pad(d.getMonth()+1)+'.'+d.getFullYear();}
 function arr(o){return Object.keys(o||{}).map(k=>Object.assign({id:k},o[k])).filter(x=>x&&typeof x==='object');}
-function canEdit(){return !!(USER&&(USER.role==='master'||USER.role==='leder'||USER.boardAccess===true));}
+function canEdit(){return !!(USER&&MY_LEVEL>=1&&(USER.role==='master'||USER.role==='leder'||USER.boardAccess===true));}
 function me(){return (USER&&USER.name)||'';}
 function isPlanned(c){return (SETTINGS.plannedStops||[]).includes(c)||/omstilling/i.test(c||'');}
 function fail(){alert('Kunne ikke lagre. Sjekk at reglene for «rca» er publisert i Firebase, og at du har tilgang (master, leder eller Tavle-tilgang).');}
@@ -190,7 +212,10 @@ auth.onAuthStateChanged(async user=>{
   UID=user.uid;
   const s=await db.ref('users/'+user.uid).once('value');USER=s.val();
   if(!USER){auth.signOut();location.href='login.html';return;}
-  document.getElementById('ubadge').textContent=USER.name+' · '+(USER.role==='master'?'Master':USER.role==='leder'?'Leder':'Operatør');
+  const ow=await db.ref('system/owner').once('value').then(x=>x.val()).catch(()=>null);
+  IS_OWNER=ow===UID;
+  MY_LEVEL=IS_OWNER?3:typeof USER.caseLevel==='number'?USER.caseLevel:(USER.role==='master'?2:(USER.role==='leder'||USER.boardAccess===true)?1:0);
+  document.getElementById('ubadge').textContent=USER.name+' · '+(IS_OWNER?'Eier':USER.role==='master'?'Master':USER.role==='leder'?'Leder':'Operatør');
   document.getElementById('app').style.display='block';document.getElementById('subnav').style.display='flex';
   readHash();start();
 });
@@ -200,9 +225,10 @@ function start(){
   db.ref('users').on('value',s=>{USERS=arr(s.val()).filter(u=>u.name&&u.role!=='bridge').map(u=>({uid:u.id,name:u.name})).sort((a,b)=>a.name.localeCompare(b.name,'no'));sched();});
   db.ref('settings').on('value',s=>{SETTINGS=s.val()||{};sched();});
   db.ref('events').on('value',s=>{const a=[];if(s.exists())s.forEach(c=>{const v=c.val();if(v&&v.ts&&v.line)a.push(Object.assign({id:c.key},v));});EVENTS=a.sort((x,y)=>y.ts-x.ts);sched();fromEvent();});
+  if(MY_LEVEL<1)return;                                   // ingen innsyn: bare «Ny hendelse»
   db.ref('rca/reports').on('value',s=>{REPORTS=s.val()||{};sched();});
-  db.ref('rca/cases').on('value',s=>{CASES=s.val()||{};sched();});
   db.ref('rca/recurring').on('value',s=>{RECUR=s.val()||{};sched();});
+  [1,2,3].filter(L=>L<=MY_LEVEL).forEach(L=>db.ref(NODE[L]).on('value',s=>{CASES_L[L]=s.val()||{};mergeCases();},()=>{}));
 }
 let _t=null,_dirty=false;
 function typing(){const a=document.activeElement;return !!(a&&/INPUT|TEXTAREA|SELECT/.test(a.tagName)&&document.getElementById('main').contains(a));}
@@ -222,7 +248,7 @@ function inbox(){return reports().filter(r=>!r.caseId&&!r.archived);}
 function allActions(){const out=[];cases().forEach(c=>arr(c.actions).forEach(a=>out.push(Object.assign({caseId:c.id,caseNr:c.nr,caseTitle:c.title,caseArch:c.status==='archived'},a))));return out;}
 function actOpen(a){return a.pdca!=='lukket'&&a.pdca!=='na';}
 function overdue(a){return actOpen(a)&&a.due&&new Date(a.due).getTime()<Date.now()-86400000;}
-function logCase(id,text){db.ref('rca/cases/'+id+'/log').push({at:Date.now(),by:me(),text});}
+function logCase(id,text){db.ref(cp(id)+'/log').push({at:Date.now(),by:me(),text});}
 function upd(path,val){return db.ref(path).set(val===''||val==null?null:val).catch(fail);}
 /* MES: stopp som hører til saken (samme linje, og maskin/årsak når de er satt) */
 function mesFor(c,since,until){if(!c.line||!LINES.includes(c.line))return [];return EVENTS.filter(e=>e.line===c.line&&(!c.machine||e.machine===c.machine)&&(c.cause?e.cause===c.cause:!isPlanned(e.cause))&&(!since||e.ts>=since)&&(!until||e.ts<until));}
@@ -230,6 +256,11 @@ function mesFor(c,since,until){if(!c.line||!LINES.includes(c.line))return [];ret
 /* ═════════ RENDER ═════════ */
 function render(){
   if(!USER)return;
+  if(MY_LEVEL<1){
+    document.getElementById('subnav').innerHTML='<button class="b pri" data-act="nyhendelse">+ Ny hendelse</button>';
+    document.getElementById('main').innerHTML='<div class="card" style="max-width:640px;margin:30px auto;text-align:center"><div class="ct" style="justify-content:center">Meld en hendelse</div><div class="sub" style="font-size:13px;line-height:1.6;margin-bottom:12px">Ser du noe som gjentar seg, går i stykker eller gir svinn? Meld det her, så havner det i rapportmottaket og blir fulgt opp. Du har ikke innsyn i selve sakene.</div><button class="b pri" data-act="nyhendelse">+ Ny hendelse</button></div>';
+    return;
+  }
   const nb=inbox().length;
   const tabs=[['hjem','Mine oppgaver'],['folger','Følger'],['mottak','Rapportmottak'],['saker','Saker'],['tiltak','Tiltak'],['gjentagende','Gjentagende'],['arkiv','Arkivert'],['rapport','Rapport']];
   document.getElementById('subnav').innerHTML='<button class="b pri" data-act="nyhendelse">+ Ny hendelse</button>'
@@ -239,7 +270,7 @@ function render(){
 }
 function caseCard(c){
   const nrep=reports().filter(r=>r.caseId===c.id).length;
-  return '<div class="kc'+(c.ownerName?'':' noown')+'" data-go="sak" data-id="'+c.id+'"><div class="top"><span class="nr">#'+c.nr+(c.demo?' <span class="tag">demo</span>':'')+'</span><span>'+fmtDay(c.createdAt)+'</span></div>'
+  return '<div class="kc'+(c.ownerName?'':' noown')+'" data-go="sak" data-id="'+c.id+'"><div class="top"><span class="nr">#'+c.nr+(c.demo?' <span class="tag">demo</span>':'')+(c.level>1?' <span class="tag dark">🔒 '+LEVELN[c.level]+'</span>':'')+'</span><span>'+fmtDay(c.createdAt)+'</span></div>'
     +'<div class="tt">'+esc(c.title||'Uten tittel')+'</div><span class="pri-dot '+(c.priority||'medium')+'">'+PRI[c.priority||'medium']+'</span> <span class="tag">'+nrep+' rapport'+(nrep===1?'':'er')+'</span>'
     +'<div class="ft"><span'+(c.ownerName?'':' class="warn"')+'>'+esc(c.ownerName||'Mangler ansvarlig')+'</span><span>📍 '+esc(c.where||c.line||'—')+'</span></div></div>';
 }
@@ -358,8 +389,8 @@ function donut(as){
   return '<div style="display:flex;gap:14px;align-items:center;margin-bottom:10px"><svg width="90" height="90" viewBox="0 0 90 90">'+(as.length?segs:'<circle r="'+R+'" cx="45" cy="45" fill="none" stroke="var(--bg3)" stroke-width="16"/>')+'</svg><div class="sub" style="line-height:1.8">'+PDCA.map(p=>{const n=as.filter(a=>(a.pdca||'ikke')===p[0]).length;return n?'<span style="color:'+PDCA_COL[p[0]]+'">●</span> '+p[1]+' · '+n+' ('+Math.round(n/tot*100)+' %)<br>':'';}).join('')+'</div></div>';
 }
 function vSak(){
-  const c=CASES[CASE];if(!c)return '<div class="card"><div class="empty">Fant ikke saken.</div></div>';
-  c.id=CASE;const P='rca/cases/'+CASE+'/';const ed=canEdit();
+  const c=CASES[CASE];if(!c)return '<div class="card"><div class="empty">Fant ikke saken. Den kan være flyttet til et tilgangsnivå du ikke har innsyn i.</div></div>';
+  c.id=CASE;const P=cp(CASE)+'/';const ed=canEdit();
   const reps=reports().filter(r=>r.caseId===CASE), causes=arr(c.causes), acts=arr(c.actions).sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
   const analysed=causes.filter(a=>a.text&&a.flag!=='ikke');
   const follows=(c.followers||{})[UID];
@@ -368,6 +399,7 @@ function vSak(){
   const days=ref?Math.max(1,(Date.now()-ref)/86400000):0, after=ref?mesFor(c,ref):[], before=ref?mesFor(c,ref-days*86400000,ref):[];
   let h='<button class="b sm noprint" data-go="'+(c.status==='archived'?'arkiv':'saker')+'">← Tilbake</button>'
     +'<div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;margin:10px 0 12px"><div style="flex:1;min-width:260px"><h1>#'+c.nr+'</h1><div class="sub">'+esc(c.createdByName||'')+' · Registrert: '+fmtT(c.createdAt)+(c.status==='archived'?' · <b>Arkivert '+fmtDay(c.archivedAt)+' av '+esc(c.archivedBy||'')+'</b>':'')+'</div></div>'
+    +(ed?'<select id="caselevel" class="noprint" style="width:175px" title="Hvem som kan se saken">'+[1,2,3].filter(L=>L<=MY_LEVEL||L===c.level).map(L=>'<option value="'+L+'"'+(c.level===L?' selected':'')+'>'+(L>1?'🔒 ':'')+'Tilgang: '+LEVELN[L]+'</option>').join('')+'</select>':(c.level>1?'<span class="tag dark">🔒 '+LEVELN[c.level]+'</span>':''))
     +'<select data-save="'+P+'priority" style="width:150px">'+Object.keys(PRI).map(k=>'<option value="'+k+'"'+((c.priority||'medium')===k?' selected':'')+'>Prioritet: '+PRI[k]+'</option>').join('')+'</select>'
     +'<select data-save="'+P+'stage" style="width:190px">'+STAGES.map(s=>'<option value="'+s[0]+'"'+((c.stage||'opprettet')===s[0]?' selected':'')+'>'+s[1]+'</option>').join('')+'</select>'
     +'<button class="b noprint" data-act="folg">'+(follows?'🔔 Følger':'🔕 Følg sak')+'</button>'
@@ -724,7 +756,7 @@ function openSuggest(kind){
     const idx=[].slice.call(document.querySelectorAll('#modal-body input[data-i]:checked')).map(e=>+e.dataset.i);closeModal();if(!idx.length)return;
     const u={}, now=Date.now();
     idx.forEach((i,n)=>{const s=_SG[i], k=db.ref('rca').push().key;if(isC)u['causes/'+k]={cat:s.g,text:s.text,at:now+n};else u['actions/'+k]={type:s.g,text:s.text,pdca:'plan',createdAt:now+n};});
-    db.ref('rca/cases/'+CASE).update(u).catch(fail);logCase(CASE,'la til '+idx.length+' foreslåtte '+(isC?'årsaker':'tiltak'));
+    db.ref(cp(CASE)).update(u).catch(fail);logCase(CASE,'la til '+idx.length+' foreslåtte '+(isC?'årsaker':'tiltak'));
   };
 }
 
@@ -949,7 +981,7 @@ async function loadDemo(){
 function removeDemo(){
   if(!confirm('Fjerne alle demo-saker, demo-rapporter og demo-problemer? Ekte saker røres ikke.'))return;
   const upd={};
-  cases().filter(c=>c.demo).forEach(c=>upd['cases/'+c.id]=null);
+  cases().filter(c=>c.demo).forEach(c=>upd[cp(c.id).slice(4)]=null);
   reports().filter(r=>r.demo).forEach(r=>upd['reports/'+r.id]=null);
   arr(RECUR).filter(r=>r.demo).forEach(r=>upd['recurring/'+r.id]=null);
   db.ref('rca').update(upd).then(()=>render()).catch(fail);
@@ -974,7 +1006,7 @@ function openNyHendelse(pre){
     const wv=document.getElementById('nh-when').value;const when=wv?new Date(wv).getTime():Date.now();
     const rep={text,line:document.getElementById('nh-line').value,where:document.getElementById('nh-where').value.trim(),when:isNaN(when)?Date.now():when,done:document.getElementById('nh-done').value.trim(),createdAt:Date.now(),createdBy:UID,createdByName:me()};
     if(pre.caseId)rep.caseId=pre.caseId;if(pre.mesEventId)rep.mesEventId=pre.mesEventId;if(pre.machine)rep.machine=pre.machine;if(pre.cause)rep.cause=pre.cause;
-    db.ref('rca/reports').push(rep).then(()=>{closeModal();if(pre.caseId)logCase(pre.caseId,'la til ny rapport');else go('mottak');}).catch(fail);
+    db.ref('rca/reports').push(rep).then(()=>{closeModal();if(pre.caseId)logCase(pre.caseId,'la til ny rapport');else if(MY_LEVEL<1){modal('<div class="ct">✓ Takk — hendelsen er meldt</div><div class="sub" style="font-size:13px;margin-bottom:12px">Den ligger nå i rapportmottaket og blir fulgt opp.</div><button class="b pri" id="nh-ok" style="width:100%">OK</button>');document.getElementById('nh-ok').onclick=closeModal;}else go('mottak');}).catch(fail);
   };
 }
 /* rotarsak.html?event=<id> fra 🔍 i dashbordet → skjemaet forhåndsutfylt fra MES-stoppen */
@@ -1006,7 +1038,7 @@ function pick(title,opts,cb){
 document.addEventListener('click',async ev=>{
   const t=ev.target.closest&&ev.target.closest('[data-go],[data-act],[data-add],[data-del]');if(!t)return;
   if(ev.target.closest('button')&&ev.target.closest('button')!==t&&t.dataset.go)return;       // knapp inne i et klikkbart kort
-  const P=CASE?'rca/cases/'+CASE+'/':'', d=t.dataset;
+  const P=CASE?cp(CASE)+'/':'', d=t.dataset;
   if(d.act){
     const a=d.act;
     if(a==='nyhendelse'){openNyHendelse(d.case?{caseId:d.case,line:(CASES[d.case]||{}).line}:{});return;}
@@ -1037,8 +1069,8 @@ document.addEventListener('click',async ev=>{
     if(a==='gjenapne'){db.ref(P.slice(0,-1)).update({status:'open',archivedAt:null,archivedBy:null}).catch(fail);logCase(CASE,'gjenåpnet saken');return;}
     if(a==='nygjent'||a==='redgjent'){const cur=a==='redgjent'?RECUR[d.id]:{};const name=prompt('Navn på det gjentagende problemet:',cur.name||'');if(!name)return;const desc=prompt('Beskrivelse (valgfritt):',cur.description||'');
       if(a==='nygjent')db.ref('rca/recurring').push({name,description:desc||'',createdAt:Date.now(),createdBy:me()}).catch(fail);else db.ref('rca/recurring/'+d.id).update({name,description:desc||''}).catch(fail);return;}
-    if(a==='slettgjent'){if(!confirm('Slette det gjentagende problemet? Sakene beholdes.'))return;cases().filter(c=>c.recurringId===d.id).forEach(c=>db.ref('rca/cases/'+c.id+'/recurringId').remove());db.ref('rca/recurring/'+d.id).remove();return;}
-    if(a==='koblegjent'){pick('Koble sak til «'+RECUR[d.id].name+'»',cases().filter(c=>c.recurringId!==d.id).map(c=>[c.id,'#'+c.nr+' '+(c.title||'')+(c.status==='archived'?' (arkivert)':'')]),id=>{upd('rca/cases/'+id+'/recurringId',d.id);logCase(id,'koblet til gjentagende problem «'+RECUR[d.id].name+'»');});return;}
+    if(a==='slettgjent'){if(!confirm('Slette det gjentagende problemet? Sakene beholdes.'))return;cases().filter(c=>c.recurringId===d.id).forEach(c=>db.ref(cp(c.id)+'/recurringId').remove());db.ref('rca/recurring/'+d.id).remove();return;}
+    if(a==='koblegjent'){pick('Koble sak til «'+RECUR[d.id].name+'»',cases().filter(c=>c.recurringId!==d.id).map(c=>[c.id,'#'+c.nr+' '+(c.title||'')+(c.status==='archived'?' (arkivert)':'')]),id=>{upd(cp(id)+'/recurringId',d.id);logCase(id,'koblet til gjentagende problem «'+RECUR[d.id].name+'»');});return;}
     return;
   }
   if(d.add){
@@ -1054,7 +1086,8 @@ document.addEventListener('click',async ev=>{
 });
 document.addEventListener('change',ev=>{
   const el=ev.target;
-  if(el.id==='addpart'&&el.value){const u=USERS.find(x=>x.uid===el.value);if(u){upd('rca/cases/'+CASE+'/participants/'+u.uid,u.name);logCase(CASE,'la til deltaker '+u.name);}return;}
+  if(el.id==='caselevel'){moveCase(CASE,+el.value);return;}
+  if(el.id==='addpart'&&el.value){const u=USERS.find(x=>x.uid===el.value);if(u){upd(cp(CASE)+'/participants/'+u.uid,u.name);logCase(CASE,'la til deltaker '+u.name);}return;}
   const p=el.dataset&&el.dataset.save;if(!p)return;
   if(!canEdit()){alert('Du har ikke tilgang til å endre saker.');render();return;}
   const v=el.value.trim();

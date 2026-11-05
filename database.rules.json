@@ -2,17 +2,27 @@
   "rules": {
     ".read": false,
     ".write": false,
-
     "users": {
       ".read": "auth != null",
       "$uid": {
-        ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'master' || (root.child('users').child(auth.uid).child('role').val() === 'leder' && newData.child('role').val() === 'linjeoperator' && (!data.exists() || data.child('role').val() === 'linjeoperator')))",
+        ".write": "auth != null && (root.child('system').child('owner').val() === auth.uid || (root.child('users').child(auth.uid).child('role').val() === 'master' && !root.child('system').child('owner').exists()) || (root.child('users').child(auth.uid).child('role').val() === 'master' && data.child('role').val() !== 'master' && newData.child('role').val() !== 'master') || (root.child('users').child(auth.uid).child('role').val() === 'leder' && newData.child('role').val() === 'linjeoperator' && (!data.exists() || data.child('role').val() === 'linjeoperator')))",
         "dashboardId": {
           ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'master' || ($uid === auth.uid && root.child('users').child(auth.uid).child('role').val() !== 'linjeoperator'))"
+        },
+        "caseLevel": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3 && (newData.val() === data.val() || root.child('system').child('owner').val() === auth.uid || (root.child('users').child(auth.uid).child('role').val() === 'master' && newData.val() <= 2 && (!root.child('users').child(auth.uid).child('caseLevel').exists() || newData.val() <= root.child('users').child(auth.uid).child('caseLevel').val())))"
+        },
+        "hide": {
+          ".validate": "root.child('system').child('owner').val() === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'master'"
         }
       }
     },
-
+    "system": {
+      ".read": "auth != null",
+      "owner": {
+        ".write": "auth != null && ((!data.exists() && root.child('users').child(auth.uid).child('role').val() === 'master' && newData.val() === auth.uid) || data.val() === auth.uid)"
+      }
+    },
     "events": {
       ".read": "auth != null",
       "$id": {
@@ -20,7 +30,6 @@
         ".validate": "newData.hasChildren(['line','ts'])"
       }
     },
-
     "deleteRequests": {
       ".read": "auth != null",
       "$id": {
@@ -28,12 +37,10 @@
         ".validate": "newData.hasChildren(['line','from','to','reason','requestedBy','status'])"
       }
     },
-
     "settings": {
       ".read": "auth != null",
       ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'master' || root.child('users').child(auth.uid).child('role').val() === 'leder')"
     },
-
     "production": {
       ".read": "auth != null",
       ".write": "auth != null"
@@ -54,7 +61,6 @@
       ".read": "auth != null",
       ".write": "auth != null"
     },
-
     "plan": {
       ".read": "auth != null",
       ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'master' || root.child('users').child(auth.uid).child('role').val() === 'leder')"
@@ -63,43 +69,70 @@
       ".read": "auth != null",
       ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'master' || root.child('users').child(auth.uid).child('role').val() === 'leder')"
     },
-
     "rca": {
-      ".read": "auth != null",
-      ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'master' || root.child('users').child(auth.uid).child('role').val() === 'leder' || root.child('users').child(auth.uid).child('boardAccess').val() === true)",
+      "counter": {
+        ".read": "auth != null && (root.child('system').child('owner').val() === auth.uid || (root.child('users').child(auth.uid).child('caseLevel').exists() && root.child('users').child(auth.uid).child('caseLevel').val() >= 1) || (!root.child('users').child(auth.uid).child('caseLevel').exists() && (root.child('users').child(auth.uid).child('role').val() === 'master' || root.child('users').child(auth.uid).child('role').val() === 'leder' || root.child('users').child(auth.uid).child('boardAccess').val() === true)))",
+        ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'master' || root.child('users').child(auth.uid).child('role').val() === 'leder' || root.child('users').child(auth.uid).child('boardAccess').val() === true) && (root.child('system').child('owner').val() === auth.uid || (root.child('users').child(auth.uid).child('caseLevel').exists() && root.child('users').child(auth.uid).child('caseLevel').val() >= 1) || (!root.child('users').child(auth.uid).child('caseLevel').exists() && (root.child('users').child(auth.uid).child('role').val() === 'master' || root.child('users').child(auth.uid).child('role').val() === 'leder' || root.child('users').child(auth.uid).child('boardAccess').val() === true)))"
+      },
       "reports": {
+        ".read": "auth != null && (root.child('system').child('owner').val() === auth.uid || (root.child('users').child(auth.uid).child('caseLevel').exists() && root.child('users').child(auth.uid).child('caseLevel').val() >= 1) || (!root.child('users').child(auth.uid).child('caseLevel').exists() && (root.child('users').child(auth.uid).child('role').val() === 'master' || root.child('users').child(auth.uid).child('role').val() === 'leder' || root.child('users').child(auth.uid).child('boardAccess').val() === true)))",
+        ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'master' || root.child('users').child(auth.uid).child('role').val() === 'leder' || root.child('users').child(auth.uid).child('boardAccess').val() === true) && (root.child('system').child('owner').val() === auth.uid || (root.child('users').child(auth.uid).child('caseLevel').exists() && root.child('users').child(auth.uid).child('caseLevel').val() >= 1) || (!root.child('users').child(auth.uid).child('caseLevel').exists() && (root.child('users').child(auth.uid).child('role').val() === 'master' || root.child('users').child(auth.uid).child('role').val() === 'leder' || root.child('users').child(auth.uid).child('boardAccess').val() === true)))",
         "$id": {
           ".write": "auth != null && !data.exists()"
         }
       },
+      "recurring": {
+        ".read": "auth != null && (root.child('system').child('owner').val() === auth.uid || (root.child('users').child(auth.uid).child('caseLevel').exists() && root.child('users').child(auth.uid).child('caseLevel').val() >= 1) || (!root.child('users').child(auth.uid).child('caseLevel').exists() && (root.child('users').child(auth.uid).child('role').val() === 'master' || root.child('users').child(auth.uid).child('role').val() === 'leder' || root.child('users').child(auth.uid).child('boardAccess').val() === true)))",
+        ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'master' || root.child('users').child(auth.uid).child('role').val() === 'leder' || root.child('users').child(auth.uid).child('boardAccess').val() === true) && (root.child('system').child('owner').val() === auth.uid || (root.child('users').child(auth.uid).child('caseLevel').exists() && root.child('users').child(auth.uid).child('caseLevel').val() >= 1) || (!root.child('users').child(auth.uid).child('caseLevel').exists() && (root.child('users').child(auth.uid).child('role').val() === 'master' || root.child('users').child(auth.uid).child('role').val() === 'leder' || root.child('users').child(auth.uid).child('boardAccess').val() === true)))"
+      },
       "cases": {
+        ".read": "auth != null && (root.child('system').child('owner').val() === auth.uid || (root.child('users').child(auth.uid).child('caseLevel').exists() && root.child('users').child(auth.uid).child('caseLevel').val() >= 1) || (!root.child('users').child(auth.uid).child('caseLevel').exists() && (root.child('users').child(auth.uid).child('role').val() === 'master' || root.child('users').child(auth.uid).child('role').val() === 'leder' || root.child('users').child(auth.uid).child('boardAccess').val() === true)))",
+        ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'master' || root.child('users').child(auth.uid).child('role').val() === 'leder' || root.child('users').child(auth.uid).child('boardAccess').val() === true) && (root.child('system').child('owner').val() === auth.uid || (root.child('users').child(auth.uid).child('caseLevel').exists() && root.child('users').child(auth.uid).child('caseLevel').val() >= 1) || (!root.child('users').child(auth.uid).child('caseLevel').exists() && (root.child('users').child(auth.uid).child('role').val() === 'master' || root.child('users').child(auth.uid).child('role').val() === 'leder' || root.child('users').child(auth.uid).child('boardAccess').val() === true)))",
         "$cid": {
           "followers": {
             "$uid": {
-              ".write": "auth != null && $uid === auth.uid"
+              ".write": "auth != null && $uid === auth.uid && (root.child('system').child('owner').val() === auth.uid || (root.child('users').child(auth.uid).child('caseLevel').exists() && root.child('users').child(auth.uid).child('caseLevel').val() >= 1) || (!root.child('users').child(auth.uid).child('caseLevel').exists() && (root.child('users').child(auth.uid).child('role').val() === 'master' || root.child('users').child(auth.uid).child('role').val() === 'leder' || root.child('users').child(auth.uid).child('boardAccess').val() === true)))"
+            }
+          }
+        }
+      },
+      "cases2": {
+        ".read": "auth != null && (root.child('system').child('owner').val() === auth.uid || (root.child('users').child(auth.uid).child('caseLevel').exists() && root.child('users').child(auth.uid).child('caseLevel').val() >= 2) || (!root.child('users').child(auth.uid).child('caseLevel').exists() && root.child('users').child(auth.uid).child('role').val() === 'master'))",
+        ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'master' || root.child('users').child(auth.uid).child('role').val() === 'leder' || root.child('users').child(auth.uid).child('boardAccess').val() === true) && (root.child('system').child('owner').val() === auth.uid || (root.child('users').child(auth.uid).child('caseLevel').exists() && root.child('users').child(auth.uid).child('caseLevel').val() >= 2) || (!root.child('users').child(auth.uid).child('caseLevel').exists() && root.child('users').child(auth.uid).child('role').val() === 'master'))",
+        "$cid": {
+          "followers": {
+            "$uid": {
+              ".write": "auth != null && $uid === auth.uid && (root.child('system').child('owner').val() === auth.uid || (root.child('users').child(auth.uid).child('caseLevel').exists() && root.child('users').child(auth.uid).child('caseLevel').val() >= 2) || (!root.child('users').child(auth.uid).child('caseLevel').exists() && root.child('users').child(auth.uid).child('role').val() === 'master'))"
+            }
+          }
+        }
+      },
+      "cases3": {
+        ".read": "auth != null && (root.child('system').child('owner').val() === auth.uid || (root.child('users').child(auth.uid).child('caseLevel').exists() && root.child('users').child(auth.uid).child('caseLevel').val() >= 3))",
+        ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'master' || root.child('users').child(auth.uid).child('role').val() === 'leder' || root.child('users').child(auth.uid).child('boardAccess').val() === true) && (root.child('system').child('owner').val() === auth.uid || (root.child('users').child(auth.uid).child('caseLevel').exists() && root.child('users').child(auth.uid).child('caseLevel').val() >= 3))",
+        "$cid": {
+          "followers": {
+            "$uid": {
+              ".write": "auth != null && $uid === auth.uid && (root.child('system').child('owner').val() === auth.uid || (root.child('users').child(auth.uid).child('caseLevel').exists() && root.child('users').child(auth.uid).child('caseLevel').val() >= 3))"
             }
           }
         }
       }
     },
-
     "board": {
       ".read": "auth != null",
       ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'master' || root.child('users').child(auth.uid).child('role').val() === 'leder' || root.child('users').child(auth.uid).child('boardAccess').val() === true)"
     },
-
     "shiftReports": {
       ".read": "auth != null",
       ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'master' || root.child('users').child(auth.uid).child('role').val() === 'leder' || root.child('users').child(auth.uid).child('shiftAccess').val() === true)"
     },
-
     "userDashboards": {
       "$uid": {
         ".read": "auth != null && $uid === auth.uid",
         ".write": "auth != null && $uid === auth.uid && root.child('users').child(auth.uid).child('role').val() !== 'linjeoperator'"
       }
     },
-
     "pwResets": {
       ".read": false,
       ".write": false
