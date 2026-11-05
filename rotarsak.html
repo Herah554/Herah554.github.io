@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+<title>Rotårsaksanalyse — Diplom-is</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f4f6f9;--bg2:#fff;--bg3:#eef0f4;--border:#e2e6ed;
+  --text:#18202e;--text2:#4a5568;--text3:#8a95a8;
+  --red:#dc2626;--amber:#d97706;--green:#16a34a;--blue:#2563eb;--purple:#7c3aed;--teal:#0d9488;
+  --accent:#e63329;--navy:#1e3a8a;
+  --font:'IBM Plex Sans',sans-serif;--mono:'IBM Plex Mono',monospace;
+  --r:8px;--rl:12px;--sh:0 1px 4px rgba(0,0,0,.08);--shm:0 4px 20px rgba(0,0,0,.12);
+}
+body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14px;min-height:100vh}
+nav{background:var(--bg2);border-bottom:1px solid var(--border);height:54px;display:flex;align-items:center;padding:0 1.5rem;gap:.4rem;position:sticky;top:0;z-index:50;box-shadow:var(--sh)}
+.logo{font-weight:600;font-size:15px;color:var(--accent);margin-right:.3rem}.logo span{font-weight:400;font-size:12px;color:var(--text3)}
+.nl{font-size:13px;color:var(--text2);text-decoration:none;padding:5px 10px;border-radius:var(--r);font-weight:500;white-space:nowrap}
+.nl:hover{background:var(--bg3)}.nl.on{color:var(--accent);background:var(--bg3)}
+.ml{margin-left:auto;display:flex;align-items:center;gap:8px}
+.ubadge{font-size:11px;font-family:var(--mono);background:var(--bg3);padding:3px 9px;border-radius:99px;color:var(--text2)}
+.lout{font-size:12px;background:none;border:1px solid var(--border);border-radius:var(--r);padding:4px 9px;cursor:pointer;color:var(--text3)}
+.page{max-width:1500px;margin:0 auto;padding:1rem 1.5rem 3rem;display:grid;grid-template-columns:340px 1fr;gap:14px;align-items:start}
+h2{font-size:11px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin:1rem 0 .5rem}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:.9rem 1.1rem;box-shadow:var(--sh);margin-bottom:12px}
+.hdr{background:var(--navy);color:#fff;font-weight:700;font-size:12px;padding:5px 10px;border-radius:4px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.hdr .n{background:rgba(255,255,255,.25);border-radius:99px;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;font-size:11px}
+input,select,textarea{width:100%;padding:7px 9px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;font-family:inherit;background:var(--bg2);color:var(--text)}
+textarea{resize:vertical;min-height:54px;line-height:1.4}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.12)}
+label{font-size:11px;color:var(--text3);display:block;margin:8px 0 3px;font-weight:600}
+.b{padding:7px 12px;border:1px solid var(--border);background:var(--bg2);border-radius:var(--r);cursor:pointer;font-size:13px;color:var(--text2);font-family:inherit}
+.b:hover{color:var(--text)}.b.pri{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600}
+.b.sm{padding:3px 8px;font-size:12px}
+.chip{font-size:12px;padding:4px 10px;border:1px solid var(--border);background:var(--bg2);border-radius:99px;cursor:pointer;color:var(--text2);font-family:inherit}
+.chip.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+.li{padding:9px 10px;border:1px solid var(--border);border-radius:var(--r);margin-bottom:6px;cursor:pointer;background:var(--bg2)}
+.li:hover{border-color:var(--text3)}.li.sel{border-color:var(--accent);box-shadow:0 0 0 2px rgba(230,51,41,.15)}
+.li .t{font-weight:600;font-size:13px}.sub{font-size:11px;color:var(--text3)}
+.st{display:inline-block;font-size:10px;font-weight:700;padding:1px 7px;border-radius:99px;text-transform:uppercase;letter-spacing:.04em}
+.st.open{background:rgba(220,38,38,.12);color:var(--red)}.st.action{background:rgba(217,119,6,.14);color:var(--amber)}.st.closed{background:rgba(22,163,74,.14);color:var(--green)}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.why{display:grid;grid-template-columns:86px 1fr 26px;gap:8px;align-items:start;margin-bottom:6px}
+.why .q{font-weight:700;font-size:12px;color:var(--navy);padding-top:8px;white-space:nowrap}
+.x{background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:6px 2px}.x:hover{color:var(--red)}
+.fish{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.fb{border:1px solid var(--border);border-radius:var(--r);padding:8px;background:var(--bg3)}
+.fb h4{font-size:12px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center}
+.fb .c{display:grid;grid-template-columns:1fr 22px;gap:4px;margin-bottom:4px}
+.fb .c input{padding:5px 7px;font-size:12px}
+.act{display:grid;grid-template-columns:22px 1fr 130px 120px 24px;gap:6px;align-items:start;padding:4px 0;border-bottom:1px dashed var(--border)}
+.act input[type=checkbox]{width:17px;height:17px;margin-top:8px;accent-color:var(--green)}
+.act.done input[type=text],.act.done textarea{text-decoration:line-through;color:var(--text3)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}
+.kpi{background:var(--bg3);border-radius:var(--r);padding:.6rem .8rem}
+.kl{font-size:10px;font-family:var(--mono);text-transform:uppercase;color:var(--text3)}.kv{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+table{width:100%;border-collapse:collapse;font-size:12px}
+td,th{padding:5px 6px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top}
+th{font-size:10px;font-family:var(--mono);text-transform:uppercase;color:var(--text3)}
+.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.good{color:var(--green)}.bad{color:var(--red)}.warn{color:var(--amber)}
+.empty{color:var(--text3);font-size:12px;padding:.4rem 0}
+.gate{max-width:440px;margin:16vh auto;text-align:center;padding:2rem}
+.ro input,.ro textarea,.ro select{pointer-events:none;background:var(--bg3)}
+@media(max-width:1000px){.page{grid-template-columns:1fr}.g2,.g3,.g4,.fish{grid-template-columns:1fr}}
+@media print{nav,#side,.noprint,.x,.b{display:none!important}.page{display:block;padding:0}body{background:#fff}.card{box-shadow:none;break-inside:avoid}textarea,input,select{border-color:#ccc}}
+</style>
+<link rel="stylesheet" href="theme.css?v=20260924b"/>
+<script src="theme.js?v=20260924b"></script>
+<script src="time24.js?v=20260924b"></script>
+<script src="nav.js?v=20261105a"></script>
+</head>
+<body>
+<nav>
+  <div class="logo">Diplom-is<span> / Produksjon</span></div>
+  <a href="index.html" class="nl">Dashboard</a>
+  <div class="ml">
+    <div class="ubadge" id="ubadge">—</div>
+    <button class="lout" onclick="auth.signOut().then(()=>location.href='login.html')">Logg ut</button>
+  </div>
+</nav>
+
+<main class="page" id="app" style="display:none">
+  <aside id="side">
+    <div class="card">
+      <div style="display:flex;gap:6px;margin-bottom:8px">
+        <input id="q" placeholder="Søk i analyser…">
+        <button class="b pri" id="b-new" onclick="newRca()" style="white-space:nowrap">+ Ny</button>
+      </div>
+      <div id="stf" style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px"></div>
+      <div id="list"></div>
+    </div>
+    <div class="card">
+      <div class="hdr" style="background:var(--amber)">Forslag fra dataene</div>
+      <div class="sub" style="margin-bottom:6px">Stopp som gjentar seg de siste 30 dagene og ikke har en åpen analyse.</div>
+      <div id="sugg"></div>
+    </div>
+  </aside>
+
+  <section id="main">
+    <div class="card" id="intro">
+      <div class="hdr">Rotårsaksanalyse</div>
+      <p style="line-height:1.6;color:var(--text2)">Velg en analyse til venstre, start en ny, eller ta utgangspunkt i et forslag. En analyse går gjennom fem steg:
+      <b>1</b> beskriv problemet · <b>2</b> spør «hvorfor» til du er ved roten · <b>3</b> sorter mulige årsaker i fiskebeinet ·
+      <b>4</b> bestem tiltak med ansvar og frist · <b>5</b> kontroller at stoppene faktisk forsvant.</p>
+    </div>
+    <div id="editor" style="display:none"></div>
+  </section>
+</main>
+
+<script>
+const LINES=['Løp 1','Løp 2','Løp 3','Rollo','Koba','Glacier','Krokan'];
+const FB={apiKey:"AIzaSyCL4x1KNwgeDxqTFeP32BndJgH4B5MworQ",authDomain:"messystem-f14dd.firebaseapp.com",databaseURL:"https://messystem-f14dd-default-rtdb.firebaseio.com",projectId:"messystem-f14dd",storageBucket:"messystem-f14dd.firebasestorage.app",messagingSenderId:"1001051250309",appId:"1:1001051250309:web:0b2d82db50e8fd24ce93ec"};
+if(!firebase.apps.length)firebase.initializeApp(FB);
+localStorage.setItem('firebaseConfig',JSON.stringify(FB));
+const db=firebase.database(),auth=firebase.auth();
+
+/* ── ROTÅRSAKSANALYSE ──
+   rca/{id} = {title, line, machine, cause, product, status:open|action|closed,
+               problem, konsekvens, eventIds{evId:true},
+               whys{pid:{text,at}}, fish{menneske|maskin|metode|materiale|maling|miljo:{pid:{text}}},
+               rootCause, actions{pid:{text,ansvar,frist,done,doneBy,doneAt,createdAt}},
+               verify{text,by,at}, createdAt, createdBy, updatedAt, updatedBy, closedAt, closedBy}
+   Gjentakelser og effekt regnes fra events/: samme linje + maskin + årsak. */
+let USER=null, RCA={}, EVENTS=[], SETTINGS={}, SEL=null, STF='alle';
+const FISH=[['menneske','Menneske'],['maskin','Maskin'],['metode','Metode'],['materiale','Materiale'],['maling','Måling'],['miljo','Miljø']];
+const ST={open:'Åpen',action:'Tiltak pågår',closed:'Lukket'};
+const pad=n=>String(n).padStart(2,'0');
+const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+function fmtD(m){m=Math.round(m||0);if(m<60)return m+' min';const h=Math.floor(m/60),r=m%60;return r?h+' t '+r+' min':h+' t';}
+function fmtT(ts){const d=new Date(ts);return pad(d.getDate())+'.'+pad(d.getMonth()+1)+'.'+String(d.getFullYear()).slice(2)+' '+pad(d.getHours())+':'+pad(d.getMinutes());}
+function fmtDay(ts){const d=new Date(ts);return pad(d.getDate())+'.'+pad(d.getMonth()+1)+'.'+d.getFullYear();}
+function canEdit(){return !!(USER&&(USER.role==='master'||USER.role==='leder'||USER.boardAccess===true));}
+function isPlanned(c){return (SETTINGS.plannedStops||[]).includes(c)||/omstilling/i.test(c||'');}
+
+auth.onAuthStateChanged(async user=>{
+  if(!user){location.href='login.html';return;}
+  const s=await db.ref('users/'+user.uid).once('value');USER=s.val();
+  if(!USER){auth.signOut();location.href='login.html';return;}
+  document.getElementById('ubadge').textContent=USER.name+' · '+(USER.role==='master'?'Master':USER.role==='leder'?'Leder':'Operatør');
+  document.getElementById('app').style.display='grid';
+  if(!canEdit())document.getElementById('b-new').style.display='none';
+  start();
+});
+let started=false;
+function start(){
+  if(started)return;started=true;
+  db.ref('settings').on('value',s=>{SETTINGS=s.val()||{};sched();});
+  db.ref('events').on('value',s=>{const a=[];if(s.exists())s.forEach(c=>{const v=c.val();if(v&&v.ts&&v.line)a.push(Object.assign({id:c.key},v));});EVENTS=a.sort((x,y)=>y.ts-x.ts);sched();maybeFromEvent();});
+  db.ref('rca').on('value',s=>{RCA=s.val()||{};sched();});
+}
+let _t=null;function sched(){if(_t)return;_t=setTimeout(()=>{_t=null;renderSide();if(SEL&&!editing())renderEditor();},150);}
+function editing(){const a=document.activeElement;return !!(a&&document.getElementById('editor').contains(a)&&/INPUT|TEXTAREA|SELECT/.test(a.tagName));}
+
+/* Hendelser som hører til en analyse: samme linje, og maskin/årsak når de er satt */
+function matching(r,sinceTs,untilTs){
+  return EVENTS.filter(e=>e.line===r.line&&(!r.machine||e.machine===r.machine)&&(!r.cause||e.cause===r.cause)
+    &&(!sinceTs||e.ts>=sinceTs)&&(!untilTs||e.ts<untilTs));
+}
+
+/* ── VENSTRE: liste, statusfilter, forslag ── */
+function renderSide(){
+  const stf=document.getElementById('stf');stf.innerHTML='';
+  [['alle','Alle'],['open','Åpne'],['action','Tiltak pågår'],['closed','Lukket']].forEach(([k,l])=>{const b=document.createElement('button');b.className='chip'+(STF===k?' on':'');b.textContent=l;b.onclick=()=>{STF=k;renderSide();};stf.appendChild(b);});
+  const q=(document.getElementById('q').value||'').toLowerCase();
+  const all=Object.keys(RCA).map(id=>Object.assign({id},RCA[id])).sort((a,b)=>(b.updatedAt||b.createdAt||0)-(a.updatedAt||a.createdAt||0));
+  const list=all.filter(r=>(STF==='alle'||r.status===STF)&&(!q||((r.title||'')+' '+(r.line||'')+' '+(r.machine||'')+' '+(r.cause||'')+' '+(r.rootCause||'')).toLowerCase().includes(q)));
+  const el=document.getElementById('list');
+  el.innerHTML=list.length?'':'<div class="empty">Ingen analyser'+(q||STF!=='alle'?' som passer.':' ennå.')+'</div>';
+  list.forEach(r=>{
+    const d=document.createElement('div');d.className='li'+(SEL===r.id?' sel':'');
+    const acts=Object.values(r.actions||{}).filter(Boolean), done=acts.filter(a=>a.done).length;
+    d.innerHTML='<div style="display:flex;justify-content:space-between;gap:6px"><span class="t">'+esc(r.title||'Uten tittel')+'</span><span class="st '+(r.status||'open')+'">'+ST[r.status||'open']+'</span></div>'
+      +'<div class="sub">'+esc(r.line||'')+(r.machine?' · '+esc(r.machine):'')+(r.cause?' · '+esc(r.cause):'')+'</div>'
+      +'<div class="sub">'+(acts.length?done+'/'+acts.length+' tiltak · ':'')+fmtDay(r.createdAt||Date.now())+' · '+esc(r.createdBy||'')+'</div>';
+    d.onclick=()=>{SEL=r.id;renderSide();renderEditor();};
+    el.appendChild(d);
+  });
+  // Forslag: gjentakende reelle stopp siste 30 dager uten åpen analyse
+  const since=Date.now()-30*86400000, agg={};
+  EVENTS.filter(e=>e.ts>=since&&!isPlanned(e.cause)&&!e.unhandled&&e.cause&&!/automatisk/i.test(e.cause)).forEach(e=>{
+    const k=e.line+'|'+(e.machine||'')+'|'+e.cause;const a=agg[k]=agg[k]||{line:e.line,machine:e.machine||'',cause:e.cause,n:0,min:0};a.n++;a.min+=e.duration||0;});
+  const open=all.filter(r=>r.status!=='closed');
+  const sg=Object.values(agg).filter(a=>(a.n>=2||a.min>=60)&&!open.some(r=>r.line===a.line&&(r.machine||'')===a.machine&&(r.cause||'')===a.cause)).sort((a,b)=>b.min-a.min).slice(0,8);
+  const se=document.getElementById('sugg');
+  se.innerHTML=sg.length?'':'<div class="empty">Ingen gjentakende stopp uten analyse. 👍</div>';
+  sg.forEach(a=>{
+    const d=document.createElement('div');d.className='li';
+    d.innerHTML='<div class="t">'+esc(a.cause)+'</div><div class="sub">'+esc(a.line)+(a.machine?' · '+esc(a.machine):'')+'</div><div class="sub"><b class="bad">'+a.n+' ganger · '+fmtD(a.min)+'</b>'+(canEdit()?' · start analyse →':'')+'</div>';
+    if(canEdit())d.onclick=()=>newRca({line:a.line,machine:a.machine,cause:a.cause,title:a.cause+' — '+(a.machine||a.line)});
+    se.appendChild(d);
+  });
+}
+document.getElementById('q').addEventListener('input',renderSide);
+
+/* ── Opprett ── */
+async function newRca(pre){
+  if(!canEdit()){alert('Du har ikke tilgang til å opprette analyser. Master gir «Tavle-tilgang» under Brukere.');return;}
+  pre=pre||{};
+  const ref=db.ref('rca').push();
+  const now=Date.now();
+  await ref.set(Object.assign({title:pre.title||'Ny rotårsaksanalyse',line:pre.line||LINES[0],machine:pre.machine||'',cause:pre.cause||'',product:pre.product||'',status:'open',
+    problem:pre.problem||'',createdAt:now,createdBy:USER.name||'',updatedAt:now,updatedBy:USER.name||''},pre.eventIds?{eventIds:pre.eventIds}:{}))
+    .catch(()=>alert('Kunne ikke lagre — sjekk at reglene for «rca» er publisert i Firebase.'));
+  SEL=ref.key;renderSide();renderEditor();
+}
+/* rotarsak.html?event=<id> — fra «🔍» på en hendelse i dashbordet */
+let _fromEvtDone=false;
+function maybeFromEvent(){
+  if(_fromEvtDone)return;
+  const id=new URLSearchParams(location.search).get('event');if(!id){_fromEvtDone=true;return;}
+  const e=EVENTS.find(x=>x.id===id);if(!e)return;
+  _fromEvtDone=true;
+  const ex=Object.keys(RCA).find(k=>RCA[k]&&RCA[k].eventIds&&RCA[k].eventIds[id]);
+  if(ex){SEL=ex;renderSide();renderEditor();return;}
+  newRca({line:e.line,machine:e.machine||'',cause:e.cause||'',product:e.product||'',title:(e.cause||'Stopp')+' — '+(e.machine||e.line),
+    problem:'Stopp '+fmtT(e.ts)+', varighet '+fmtD(e.duration)+'.'+(e.comment?' '+e.comment:''),eventIds:{[id]:true}});
+}
+
+/* ── Lagring: ett felt om gangen ── */
+function save(path,val){
+  if(!SEL||!canEdit())return;
+  const upd={};upd[path]=(val===''||val==null)?null:val;upd.updatedAt=Date.now();upd.updatedBy=USER.name||'';
+  db.ref('rca/'+SEL).update(upd).catch(()=>alert('Kunne ikke lagre — sjekk at reglene for «rca» er publisert i Firebase.'));
+}
+function addChild(path,obj){if(!canEdit())return;const k=db.ref('rca/'+SEL+'/'+path).push().key;save(path+'/'+k,obj);setTimeout(()=>{const el=document.querySelector('[data-p="'+path+'/'+k+'/text"]');if(el)el.focus();},300);}
+function setStatus(s){
+  const upd={status:s,updatedAt:Date.now(),updatedBy:USER.name||''};
+  if(s==='closed'){upd.closedAt=Date.now();upd.closedBy=USER.name||'';}else{upd.closedAt=null;upd.closedBy=null;}
+  db.ref('rca/'+SEL).update(upd);
+}
+function delRca(){if(!confirm('Slette hele analysen? Dette kan ikke angres.'))return;db.ref('rca/'+SEL).remove();SEL=null;document.getElementById('editor').style.display='none';document.getElementById('intro').style.display='';}
+
+/* ── HØYRE: editoren ── */
+function inp(path,val,ph,extra){return '<input type="text" data-p="'+path+'" value="'+esc(val||'')+'" placeholder="'+esc(ph||'')+'" '+(extra||'')+'>';}
+function ta(path,val,ph,rows){return '<textarea data-p="'+path+'" rows="'+(rows||2)+'" placeholder="'+esc(ph||'')+'">'+esc(val||'')+'</textarea>';}
+function renderEditor(){
+  const r=RCA[SEL];const ed=document.getElementById('editor');
+  if(!r){ed.style.display='none';document.getElementById('intro').style.display='';return;}
+  document.getElementById('intro').style.display='none';ed.style.display='';ed.className=canEdit()?'':'ro';
+  const machines=(SETTINGS.machines||{})[(r.line||'').replace(/[\s\/]/g,'_')]||[];
+  const whys=Object.keys(r.whys||{}).map(k=>Object.assign({k},r.whys[k])).sort((a,b)=>(a.at||0)-(b.at||0));
+  const acts=Object.keys(r.actions||{}).map(k=>Object.assign({k},r.actions[k])).sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
+  // Tall fra dataene
+  const d90=Date.now()-90*86400000;
+  const m90=matching(r,d90), tot90=m90.reduce((s,e)=>s+(e.duration||0),0);
+  const lastAct=acts.filter(a=>a.done&&a.doneAt).map(a=>a.doneAt).sort((a,b)=>b-a)[0];
+  const ref=r.closedAt||lastAct||null;
+  const after=ref?matching(r,ref):[], days=ref?Math.max(1,(Date.now()-ref)/86400000):0;
+  const before=ref?matching(r,ref-days*86400000,ref):[];
+  let h='<div class="card"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
+    +'<input type="text" data-p="title" value="'+esc(r.title||'')+'" style="flex:1;min-width:260px;font-size:17px;font-weight:700">'
+    +'<span class="st '+(r.status||'open')+'">'+ST[r.status||'open']+'</span>'
+    +(canEdit()?'<select id="st-sel" style="width:150px" class="noprint">'+Object.keys(ST).map(k=>'<option value="'+k+'"'+(r.status===k?' selected':'')+'>'+ST[k]+'</option>').join('')+'</select>':'')
+    +'<button class="b noprint" onclick="window.print()">🖨 Skriv ut</button>'
+    +(USER.role==='master'?'<button class="b noprint" onclick="delRca()" style="color:var(--red)">Slett</button>':'')
+    +'</div><div class="sub" style="margin-top:6px">Opprettet '+fmtT(r.createdAt||0)+' av '+esc(r.createdBy||'')+' · sist endret '+fmtT(r.updatedAt||r.createdAt||0)+' av '+esc(r.updatedBy||'')+(r.closedAt?' · lukket '+fmtT(r.closedAt)+' av '+esc(r.closedBy||''):'')+'</div></div>';
+
+  // 1 Problem
+  h+='<div class="card"><div class="hdr"><span class="n">1</span>Problemet</div><div class="g4">'
+    +'<div><label>Linje</label><select data-p="line">'+LINES.map(l=>'<option'+(l===r.line?' selected':'')+'>'+l+'</option>').join('')+'</select></div>'
+    +'<div><label>Maskin</label><select data-p="machine"><option value="">— alle / hele linja —</option>'+machines.concat(r.machine&&!machines.includes(r.machine)?[r.machine]:[]).map(m=>'<option'+(m===r.machine?' selected':'')+'>'+esc(m)+'</option>').join('')+'</select></div>'
+    +'<div><label>Årsak registrert i MES</label>'+inp('cause',r.cause,'f.eks. Mekanisk feil')+'</div>'
+    +'<div><label>Produkt</label>'+inp('product',r.product,'valgfritt')+'</div></div>'
+    +'<div class="g2"><div><label>Hva skjer? (fakta, ikke antakelser)</label>'+ta('problem',r.problem,'Hva ser vi, når, hvor ofte?',3)+'</div>'
+    +'<div><label>Konsekvens</label>'+ta('konsekvens',r.konsekvens,'Nedetid, svinn, kvalitet, sikkerhet …',3)+'</div></div>'
+    +'<label>Omfang siste 90 dager — hentet fra hendelsene (samme linje'+(r.machine?', maskin':'')+(r.cause?', årsak':'')+')</label>'
+    +'<div class="kpis"><div class="kpi"><div class="kl">Antall stopp</div><div class="kv">'+m90.length+'</div></div><div class="kpi"><div class="kl">Nedetid</div><div class="kv">'+fmtD(tot90)+'</div></div>'
+    +'<div class="kpi"><div class="kl">Snitt per stopp</div><div class="kv">'+(m90.length?fmtD(tot90/m90.length):'—')+'</div></div><div class="kpi"><div class="kl">Sist</div><div class="kv" style="font-size:15px">'+(m90[0]?fmtT(m90[0].ts):'—')+'</div></div></div>'
+    +(m90.length?'<table style="margin-top:8px"><thead><tr><th>Tid</th><th>Maskin</th><th>Årsak</th><th class="num">Varighet</th><th>Kommentar</th></tr></thead><tbody>'+m90.slice(0,6).map(e=>'<tr><td>'+fmtT(e.ts)+'</td><td>'+esc(e.machine||'—')+'</td><td>'+esc(e.cause||'')+'</td><td class="num">'+fmtD(e.duration)+'</td><td class="sub">'+esc(e.comment||'')+'</td></tr>').join('')+'</tbody></table>'+(m90.length>6?'<div class="sub">… og '+(m90.length-6)+' til</div>':''):'')
+    +'</div>';
+
+  // 2 5 hvorfor
+  h+='<div class="card"><div class="hdr"><span class="n">2</span>5 × hvorfor</div><div class="sub" style="margin-bottom:6px">Spør «hvorfor» på svaret over til du står ved noe dere kan gjøre noe med. Det trenger ikke bli akkurat fem.</div>';
+  whys.forEach((w,i)=>{h+='<div class="why"><div class="q">Hvorfor '+(i+1)+'?</div>'+ta('whys/'+w.k+'/text',w.text,i?'Hvorfor skjer det over?':'Hvorfor skjer problemet?',1)+'<button class="x" data-del="whys/'+w.k+'">✕</button></div>';});
+  h+=(canEdit()?'<button class="b sm noprint" data-add="whys">+ Hvorfor</button>':'')+'</div>';
+
+  // 3 Fiskebein
+  h+='<div class="card"><div class="hdr"><span class="n">3</span>Fiskebein — mulige årsaker</div><div class="fish">';
+  FISH.forEach(([k,l])=>{const cs=Object.keys((r.fish||{})[k]||{}).map(id=>({id,text:r.fish[k][id].text}));
+    h+='<div class="fb"><h4>'+l+(canEdit()?'<button class="b sm noprint" data-add="fish/'+k+'">+</button>':'')+'</h4>'+(cs.length?cs.map(c=>'<div class="c">'+inp('fish/'+k+'/'+c.id+'/text',c.text,'mulig årsak')+'<button class="x" data-del="fish/'+k+'/'+c.id+'">✕</button></div>').join(''):'<div class="sub">—</div>')+'</div>';});
+  h+='</div><label>Rotårsak — konklusjon</label>'+ta('rootCause',r.rootCause,'Den egentlige årsaken, slik dere har kommet fram til den',2)+'</div>';
+
+  // 4 Tiltak
+  h+='<div class="card"><div class="hdr"><span class="n">4</span>Tiltak</div>';
+  acts.forEach(a=>{h+='<div class="act'+(a.done?' done':'')+'"><input type="checkbox" data-chk="'+a.k+'"'+(a.done?' checked':'')+(canEdit()?'':' disabled')+'>'+ta('actions/'+a.k+'/text',a.text,'Hva skal gjøres?',1)+inp('actions/'+a.k+'/ansvar',a.ansvar,'Ansvar')+'<input type="date" data-p="actions/'+a.k+'/frist" value="'+esc(a.frist||'')+'">'+'<button class="x" data-del="actions/'+a.k+'">✕</button></div>'
+    +(a.done?'<div class="sub" style="margin:2px 0 4px 28px"><b class="good">✓ utført av '+esc(a.doneBy||'ukjent')+' '+fmtT(a.doneAt||0)+'</b></div>':(a.frist&&new Date(a.frist).getTime()<Date.now()-86400000?'<div class="sub bad" style="margin:2px 0 4px 28px">Fristen er passert</div>':''));});
+  h+=(canEdit()?'<button class="b sm noprint" data-add="actions" style="margin-top:6px">+ Tiltak</button>':'')+(acts.length?'':'<div class="empty">Ingen tiltak ennå.</div>')+'</div>';
+
+  // 5 Effekt
+  h+='<div class="card"><div class="hdr"><span class="n">5</span>Virket det?</div>';
+  if(ref){
+    const bm=before.reduce((s,e)=>s+(e.duration||0),0), am=after.reduce((s,e)=>s+(e.duration||0),0);
+    const ok=after.length<before.length||(after.length===0);
+    h+='<div class="sub" style="margin-bottom:6px">Sammenligner '+Math.round(days)+' dager før og etter '+(r.closedAt?'lukking':'siste utførte tiltak')+' ('+fmtDay(ref)+').</div>'
+      +'<div class="kpis"><div class="kpi"><div class="kl">Stopp før</div><div class="kv">'+before.length+'</div><div class="sub">'+fmtD(bm)+'</div></div>'
+      +'<div class="kpi"><div class="kl">Stopp etter</div><div class="kv '+(ok?'good':'bad')+'">'+after.length+'</div><div class="sub">'+fmtD(am)+'</div></div>'
+      +'<div class="kpi"><div class="kl">Vurdering</div><div class="kv '+(ok?'good':'bad')+'" style="font-size:16px">'+(after.length===0?'Ingen nye stopp':ok?'Færre stopp':'Ikke bedre — se på rotårsaken igjen')+'</div></div></div>'
+      +(after.length?'<table style="margin-top:8px"><tbody>'+after.slice(0,5).map(e=>'<tr><td>'+fmtT(e.ts)+'</td><td>'+esc(e.machine||'—')+'</td><td class="num">'+fmtD(e.duration)+'</td><td class="sub">'+esc(e.comment||'')+'</td></tr>').join('')+'</tbody></table>':'');
+  }else h+='<div class="empty">Regnes automatisk når et tiltak er haket av eller analysen er lukket.</div>';
+  h+='<label>Kommentar til effekten</label>'+ta('verify/text',(r.verify||{}).text,'Hva så dere etterpå? Skal noe standardiseres?',2)+'</div>';
+
+  ed.innerHTML=h;
+  // lyttere
+  ed.querySelectorAll('[data-p]').forEach(el=>el.addEventListener('change',()=>save(el.dataset.p,el.value.trim())));
+  ed.querySelectorAll('[data-add]').forEach(b=>b.addEventListener('click',()=>{const p=b.dataset.add;addChild(p,p==='actions'?{text:'',ansvar:'',frist:'',done:false,createdAt:Date.now()}:p==='whys'?{text:'',at:Date.now()}:{text:''});}));
+  ed.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',()=>{if(canEdit())save(b.dataset.del,null);}));
+  ed.querySelectorAll('[data-chk]').forEach(c=>c.addEventListener('change',()=>{const k=c.dataset.chk;const upd={};upd['actions/'+k+'/done']=c.checked;upd['actions/'+k+'/doneBy']=c.checked?(USER.name||''):null;upd['actions/'+k+'/doneAt']=c.checked?Date.now():null;upd.updatedAt=Date.now();upd.updatedBy=USER.name||'';if(c.checked&&r.status==='open')upd.status='action';db.ref('rca/'+SEL).update(upd);}));
+  const ss=document.getElementById('st-sel');if(ss)ss.addEventListener('change',()=>setStatus(ss.value));
+}
+</script>
+</body>
+</html>

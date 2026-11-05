@@ -273,7 +273,7 @@ table,#eff-kpi-eff,#eff-kpi-nd,.klbl,.ksub{font-variant-numeric:tabular-nums;fon
 <link rel="stylesheet" href="theme.css?v=20260924b"/>
 <script src="theme.js?v=20260924b"></script>
 <script src="time24.js?v=20260924b"></script>
-<script src="nav.js?v=20261007b"></script>
+<script src="nav.js?v=20261105a"></script>
 </head>
 <body>
 <nav>
@@ -1314,6 +1314,7 @@ function renderHist(fil){
       +'</div><div class="em"><span>'+fmtSpan(e)+'</span><span>'+fmtD(e.duration)+'</span><span class="badge '+badge+'">'+lbl+'</span></div>'
       +(e.comment?'<div class="ec">'+e.comment+'</div>':'')
       +editNoteHTML(e)+'</div>'
+      +(e.unhandled?'':'<a class="ebtn-e" href="rotarsak.html?event='+e.id+'" title="Rotårsaksanalyse av denne stoppen" style="text-decoration:none">🔍</a>')
       +(e.unhandled?'':'<button class="ebtn-e ebtn-edit" title="Rediger hendelsen (krever begrunnelse)">✎</button>')
       +(isStaff()
         ?'<button class="dbtn" onclick="askDel(\''+e.id+'\',\''+( e.cause||'').replace(/'/g,"\\'")+'\')">✕</button>'
