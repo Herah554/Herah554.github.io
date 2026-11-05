@@ -104,6 +104,14 @@ table.t{width:100%;border-collapse:collapse;font-size:12.5px}table.t td,table.t 
 .mover.on{display:flex}
 .modal{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:1.25rem;width:560px;max-width:100%;max-height:90vh;overflow-y:auto;box-shadow:var(--shm)}
 .ro .cause input,.ro textarea,.ro .act input,.ro .act select{pointer-events:none}
+.assist{border-left:3px solid var(--navy)}
+.prog{height:8px;background:var(--bg3);border-radius:99px;overflow:hidden;margin:6px 0 10px}.prog i{display:block;height:100%;background:var(--green);border-radius:99px}
+.chk{display:grid;grid-template-columns:14px 1fr;gap:6px;font-size:12.5px;line-height:1.45;padding:4px 2px 0}
+.hint2{background:var(--bg3);border-radius:var(--r);padding:8px 10px;font-size:12.5px;line-height:1.5;margin-top:6px;color:var(--text2)}
+.sg{display:grid;grid-template-columns:18px 1fr;gap:8px;align-items:start;padding:6px 0;border-bottom:1px dashed var(--border);font-size:13px;cursor:pointer;line-height:1.4}
+.sg input{width:auto;padding:0;margin-top:3px}
+.sgh{font-size:12.5px;font-weight:700;margin:14px 0 2px}
+.hbar{display:grid;grid-template-columns:190px 1fr 34px;gap:8px;align-items:center;font-size:12.5px;margin:5px 0}.hbar i{display:block;height:12px;background:var(--navy);border-radius:4px;min-width:3px}
 @media(max-width:1150px){.case{grid-template-columns:1fr}.side{position:static}.kb3,.kb4,.cats,.g3{grid-template-columns:1fr}.act{grid-template-columns:1fr}}
 @media print{nav,.sub-nav,.noprint,.side,.x,.b,.flag{display:none!important}.case{display:block}.page{padding:0}body{background:#fff}.card{box-shadow:none;break-inside:avoid}}
 </style>
@@ -217,17 +225,17 @@ function overdue(a){return actOpen(a)&&a.due&&new Date(a.due).getTime()<Date.now
 function logCase(id,text){db.ref('rca/cases/'+id+'/log').push({at:Date.now(),by:me(),text});}
 function upd(path,val){return db.ref(path).set(val===''||val==null?null:val).catch(fail);}
 /* MES: stopp som hører til saken (samme linje, og maskin/årsak når de er satt) */
-function mesFor(c,since,until){if(!c.line||!LINES.includes(c.line))return [];return EVENTS.filter(e=>e.line===c.line&&(!c.machine||e.machine===c.machine)&&(!c.cause||e.cause===c.cause)&&(!since||e.ts>=since)&&(!until||e.ts<until));}
+function mesFor(c,since,until){if(!c.line||!LINES.includes(c.line))return [];return EVENTS.filter(e=>e.line===c.line&&(!c.machine||e.machine===c.machine)&&(c.cause?e.cause===c.cause:!isPlanned(e.cause))&&(!since||e.ts>=since)&&(!until||e.ts<until));}
 
 /* ═════════ RENDER ═════════ */
 function render(){
   if(!USER)return;
   const nb=inbox().length;
-  const tabs=[['hjem','Mine oppgaver'],['folger','Følger'],['mottak','Rapportmottak'],['saker','Saker'],['tiltak','Tiltak'],['gjentagende','Gjentagende'],['arkiv','Arkivert']];
+  const tabs=[['hjem','Mine oppgaver'],['folger','Følger'],['mottak','Rapportmottak'],['saker','Saker'],['tiltak','Tiltak'],['gjentagende','Gjentagende'],['arkiv','Arkivert'],['rapport','Rapport']];
   document.getElementById('subnav').innerHTML='<button class="b pri" data-act="nyhendelse">+ Ny hendelse</button>'
     +tabs.map(t=>'<button class="sn'+((VIEW===t[0]||(VIEW==='sak'&&t[0]==='saker'))?' on':'')+'" data-go="'+t[0]+'">'+t[1]+(t[0]==='mottak'&&nb?'<span class="bdg">'+nb+'</span>':'')+'</button>').join('');
   const m=document.getElementById('main');
-  m.innerHTML=({hjem:vHjem,folger:vFolger,mottak:vMottak,saker:vSaker,tiltak:vTiltak,gjentagende:vGjent,arkiv:vArkiv,sak:vSak}[VIEW]||vHjem)();
+  m.innerHTML=({hjem:vHjem,folger:vFolger,mottak:vMottak,saker:vSaker,tiltak:vTiltak,gjentagende:vGjent,arkiv:vArkiv,rapport:vRapport,sak:vSak}[VIEW]||vHjem)();
 }
 function caseCard(c){
   const nrep=reports().filter(r=>r.caseId===c.id).length;
@@ -261,7 +269,7 @@ function repHTML(r,inCase){
   return '<div class="rep"><div style="display:flex;justify-content:space-between;gap:8px;cursor:pointer" data-act="toggrep" data-id="'+r.id+'"><div><div style="font-weight:600">'+esc((r.text||'').slice(0,open?400:110))+((r.text||'').length>110&&!open?' …':'')+'</div>'
     +'<div class="sub">'+fmtT(r.createdAt)+' · '+esc(r.createdByName||'')+' · '+esc([r.line,r.where].filter(Boolean).join(' '))+(r.mesEventId?' · <span class="tag">fra MES</span>':'')+'</div></div>'+(inCase?'':'<span class="sub">'+(open?'▴':'▾')+'</span>')+'</div>'
     +(open?'<div class="g" style="margin-top:8px"><div><span class="lblx">Hvor?</span>'+esc([r.line,r.where].filter(Boolean).join(' · ')||'—')+'</div><div><span class="lblx">Når?</span>'+fmtT(r.when)+'</div></div><span class="lblx">Er noe gjort for å løse det?</span>'+esc(r.done||'—'):'')
-    +(inCase||!canEdit()?'':'<div style="display:flex;gap:6px;margin-top:9px;flex-wrap:wrap"><button class="b dark sm" data-act="nysak" data-id="'+r.id+'">Opprett sak fra rapport</button><button class="b sm" data-act="koble" data-id="'+r.id+'">🔗 Koble til eksisterende sak</button><button class="b sm" data-act="arkrep" data-id="'+r.id+'" style="margin-left:auto">Arkiver</button></div>')+'</div>';
+    +(inCase?'':repHint(r))+(inCase||!canEdit()?'':'<div style="display:flex;gap:6px;margin-top:9px;flex-wrap:wrap"><button class="b dark sm" data-act="nysak" data-id="'+r.id+'">Opprett sak fra rapport</button><button class="b sm" data-act="koble" data-id="'+r.id+'">🔗 Koble til eksisterende sak</button><button class="b sm" data-act="arkrep" data-id="'+r.id+'" style="margin-left:auto">Arkiver</button></div>')+'</div>';
 }
 function vMottak(){
   const inb=inbox();
@@ -349,23 +357,6 @@ function donut(as){
   const segs=PDCA.map(p=>{const n=as.filter(a=>(a.pdca||'ikke')===p[0]).length;if(!n)return '';const len=n/tot*C;const el='<circle r="'+R+'" cx="45" cy="45" fill="none" stroke="'+PDCA_COL[p[0]]+'" stroke-width="16" stroke-dasharray="'+len+' '+(C-len)+'" stroke-dashoffset="'+(-acc)+'" transform="rotate(-90 45 45)"/>';acc+=len;return el;}).join('');
   return '<div style="display:flex;gap:14px;align-items:center;margin-bottom:10px"><svg width="90" height="90" viewBox="0 0 90 90">'+(as.length?segs:'<circle r="'+R+'" cx="45" cy="45" fill="none" stroke="var(--bg3)" stroke-width="16"/>')+'</svg><div class="sub" style="line-height:1.8">'+PDCA.map(p=>{const n=as.filter(a=>(a.pdca||'ikke')===p[0]).length;return n?'<span style="color:'+PDCA_COL[p[0]]+'">●</span> '+p[1]+' · '+n+' ('+Math.round(n/tot*100)+' %)<br>':'';}).join('')+'</div></div>';
 }
-function reportHTML(c){
-  const cs=arr(c.causes).filter(a=>a.text), as=arr(c.actions), reps=reports().filter(r=>r.caseId===c.id);
-  const m90=mesFor(c,Date.now()-90*86400000), tot=m90.reduce((s,e)=>s+(e.duration||0),0);
-  const lastWhy=a=>{const w=arr(a.whys).filter(x=>x.text).sort((x,y)=>(x.at||0)-(y.at||0));return w.length?w[w.length-1].text:'';};
-  const rel=cs.filter(a=>a.klass==='rot'||a.klass==='medv'||(!a.klass&&a.flag==='mulig'));
-  const tbl=l=>l.length?'<table><thead><tr><th>Tiltak</th><th>Ansvarlig</th><th>Frist</th><th>Status</th><th>Effektvurdering</th></tr></thead><tbody>'+l.map(a=>'<tr><td>'+esc(a.text||'')+'</td><td>'+esc(a.ownerName||'—')+'</td><td>'+(a.due?fmtDay(a.due):'—')+'</td><td>'+esc((PDCA.find(p=>p[0]===(a.pdca||'ikke'))||['',''])[1])+'</td><td>'+esc(a.effect||'Ikke vurdert ennå')+'</td></tr>').join('')+'</tbody></table>':'<p>Ingen registrert.</p>';
-  const open=as.filter(actOpen).length;
-  return '<div class="report"><h3 style="margin-top:0">Hendelse #'+c.nr+' – '+esc(c.title||'')+'</h3><p><b>Lokasjon:</b> '+esc(c.where||c.line||'—')+' | <b>Alvorlighet:</b> '+PRI[c.priority||'medium']+' | <b>Rapportert av:</b> '+esc(c.createdByName||'—')+' | <b>Analyseansvarlig:</b> '+esc(c.ownerName||'ikke satt')+'</p>'
-    +'<h3>Hendelsessammendrag</h3><p>'+esc(c.problem||reps.map(r=>r.text).join(' ')||'Ingen beskrivelse registrert.')+'</p>'
-    +'<h3>Omfang</h3><p>'+(m90.length?'MES har registrert <b>'+m90.length+' stopp</b> med til sammen <b>'+fmtD(tot)+'</b> nedetid de siste 90 dagene på '+esc(c.line)+(c.machine?' / '+esc(c.machine):'')+(c.cause?' med årsak «'+esc(c.cause)+'»':'')+'.':'Ingen omfang registrert'+(c.line&&LINES.includes(c.line)?' i MES for denne linja.':'.'))+'</p>'
-    +'<h3>Fakta</h3>'+(arr(c.facts).length?'<ul>'+arr(c.facts).map(f=>'<li>'+esc(f.text)+'</li>').join('')+'</ul>':'<p>Ingen fakta registrert.</p>')
-    +'<h3>Rotårsaker</h3>'+(rel.length?'<ul>'+rel.map(a=>'<li><b>'+esc(CATN[a.cat]||'')+' – '+esc(a.text)+':</b> '+(lastWhy(a)?esc(lastWhy(a)):'ikke undersøkt videre')+' <i>('+((KLASS.find(k=>k[0]===a.klass)||['','mulig årsak'])[1]).toLowerCase()+')</i></li>').join('')+'</ul>':'<p>Ingen rotårsaker identifisert ennå.</p>')
-    +'<h3>Tiltak</h3><p>Totalt er '+as.length+' tiltak registrert, '+open+' åpne.</p><p><b>Korrigerende tiltak</b></p>'+tbl(as.filter(a=>a.type!=='foreb'))+'<p><b>Forebyggende tiltak</b></p>'+tbl(as.filter(a=>a.type==='foreb'))
-    +'<h3>Møteplan</h3>'+(arr(c.meetings).length?'<ul>'+arr(c.meetings).map(x=>'<li>'+fmtT(x.when)+' — '+esc(x.text||'')+'</li>').join('')+'</ul>':'<p>Ingen møter registrert.</p>')
-    +'<h3>Standardisering og læring</h3><p>'+esc(c.std||'Ingen standardiseringsbeslutninger registrert.')+'</p>'
-    +'<h3>Konklusjon</h3><p>'+esc(c.conclusion||'Ikke skrevet ennå.')+'</p></div>';
-}
 function vSak(){
   const c=CASES[CASE];if(!c)return '<div class="card"><div class="empty">Fant ikke saken.</div></div>';
   c.id=CASE;const P='rca/cases/'+CASE+'/';const ed=canEdit();
@@ -389,10 +380,11 @@ function vSak(){
   h+='<div class="side"><div class="card" style="margin:0"><div class="ct" style="font-size:13px">💬 Diskusjon</div>'+(arr(c.comments).sort((a,b)=>(a.at||0)-(b.at||0)).map(x=>'<div class="cmt"><b>'+esc(x.byName||'')+'</b> <span class="sub">'+fmtT(x.at)+'</span><br>'+esc(x.text)+'</div>').join('')||'<div class="sub">Ingen kommentarer.</div>')
     +(ed?'<textarea id="cmt" rows="2" placeholder="Skriv en kommentar…" style="margin-top:6px"></textarea><button class="b sm" data-act="cmt" style="margin-top:4px">Send</button>':'')+'</div>'
     +'<div class="card" style="margin:0"><div class="ct" style="font-size:13px">🏷 Fakta</div>'+(arr(c.facts).map(f=>'<div class="cause" style="grid-template-columns:1fr 22px"><input data-save="'+P+'facts/'+f.id+'/text" value="'+esc(f.text||'')+'"><button class="x" data-del="'+P+'facts/'+f.id+'">✕</button></div>').join('')||'<div class="sub">Ingen fakta registrert.</div>')+(ed?'<button class="b ghost sm" data-add="facts" style="width:100%;margin-top:6px">+ Legg til</button>':'')+'</div>'
-    +(c.line&&LINES.includes(c.line)?'<div class="card" style="margin:0"><div class="ct" style="font-size:13px">⚙ MES — siste 90 dager</div><div class="kpis" style="grid-template-columns:1fr 1fr"><div class="kpi"><div class="kl">Stopp</div><div class="kv">'+m90.length+'</div></div><div class="kpi"><div class="kl">Nedetid</div><div class="kv" style="font-size:15px">'+fmtD(tot90)+'</div></div></div><div class="sub" style="margin-top:6px">Samme linje'+(c.machine?', maskin':'')+(c.cause?', årsak':'')+'.</div></div>':'')+'</div>';
+    +(c.line&&LINES.includes(c.line)?'<div class="card" style="margin:0"><div class="ct" style="font-size:13px">⚙ MES — siste 90 dager</div><div class="kpis" style="grid-template-columns:1fr 1fr"><div class="kpi"><div class="kl">Stopp</div><div class="kv">'+m90.length+'</div></div><div class="kpi"><div class="kl">Nedetid</div><div class="kv" style="font-size:15px">'+fmtD(tot90)+'</div></div></div><div class="sub" style="margin-top:6px">Samme linje'+(c.machine?', maskin':'')+(c.cause?', årsak':'')+'.</div></div>':'')+simHTML(c)+'</div>';
 
   /* midten */
   h+='<div>';
+  h+=assistHTML(c);
   h+='<div class="card"><div class="ct">👥 Analyseansvarlig og deltakere</div><span class="lblx">Analyseansvarlig</span>'+userSel(P+'owner',c.owner,'— ingen —')
     +'<span class="lblx">Deltakere</span><div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">'+Object.keys(c.participants||{}).map(u=>'<span class="tag" style="padding:4px 9px">'+esc(c.participants[u])+(ed?' <button class="x" data-del="'+P+'participants/'+u+'" style="padding:0 0 0 4px">✕</button>':'')+'</span>').join('')
     +(ed?'<select id="addpart" style="width:190px"><option value="">+ Legg til deltaker</option>'+USERS.filter(u=>!(c.participants||{})[u.uid]).map(u=>'<option value="'+u.uid+'">'+esc(u.name)+'</option>').join('')+'</select>':'')+'</div>'
@@ -402,9 +394,9 @@ function vSak(){
 
   h+='<div class="card"><div class="ct">📄 Hendelsesrapport'+(reps.length>1?'er ('+reps.length+')':'')+'</div>'+(reps.map(r=>repHTML(r,true)).join('')||'<div class="empty">Ingen rapport koblet.</div>')+'<button class="b ghost sm noprint" data-act="nyhendelse" data-case="'+CASE+'" style="width:100%">+ Ny rapport</button></div>';
 
-  h+='<div class="card"><div class="ct">📝 Problembeskrivelse</div>'+(reps.length?'<span class="lblx">Fra hendelsesrapportene</span><div class="sub" style="font-size:12.5px;line-height:1.5;margin-bottom:6px">'+esc(reps.map(r=>r.text).join(' · '))+'</div>':'')+'<span class="lblx">Egen problembeskrivelse</span><textarea data-save="'+P+'problem" rows="3" placeholder="Hva skjer, hvor ofte, hva fører det til?">'+esc(c.problem||'')+'</textarea></div>';
+  h+='<div class="card"><div class="ct">📝 Problembeskrivelse</div>'+(reps.length?'<span class="lblx">Fra hendelsesrapportene</span><div class="sub" style="font-size:12.5px;line-height:1.5;margin-bottom:6px">'+esc(reps.map(r=>r.text).join(' · '))+'</div>':'')+'<span class="lblx">Egen problembeskrivelse</span><textarea data-save="'+P+'problem" rows="3" placeholder="Hva skjer, hvor ofte, hva fører det til?">'+esc(c.problem||'')+'</textarea>'+sugBox(c,'problem')+'</div>';
 
-  h+='<div class="card"><div class="ct">🧩 Rotårsaksanalyse<span class="r sub">🚩 = mulig årsak · klikk igjen for «trolig ikke»</span></div><div class="cats">';
+  h+='<div class="card"><div class="ct">🧩 Rotårsaksanalyse'+(ed?'<button class="b sm noprint" data-act="forslag" data-v="causes">💡 Foreslå årsaker</button>':'')+'<span class="r sub">🚩 = mulig årsak · klikk igjen for «trolig ikke»</span></div><div class="cats">';
   CATS.forEach(([k,n,hint])=>{const l=causes.filter(a=>a.cat===k);
     h+='<div class="cat"><h4>'+n+'</h4><div class="hint">'+hint+'</div>'+l.map(a=>'<div class="cause'+(a.flag==='ikke'?' ikke':'')+'"><input data-save="'+P+'causes/'+a.id+'/text" value="'+esc(a.text||'')+'" placeholder="mulig årsak"><button class="flag'+(a.flag?' on':'')+'" data-act="flag" data-id="'+a.id+'" title="'+(a.flag==='mulig'?'Mulig årsak':a.flag==='ikke'?'Trolig ikke årsak':'Ikke vurdert')+'">'+(a.flag==='ikke'?'🏳':'🚩')+'</button><button class="x" data-del="'+P+'causes/'+a.id+'">✕</button></div>').join('')
       +(ed?'<button class="b ghost sm" data-add="causes" data-cat="'+k+'" style="width:100%;margin-top:4px">+ Legg til</button>':'')+'</div>';});
@@ -426,7 +418,7 @@ function vSak(){
     +'<input type="date" data-save="'+P+'actions/'+a.id+'/due" value="'+esc(a.due||'')+'"><select data-save="'+P+'actions/'+a.id+'/pdca" data-pdca="'+a.id+'">'+PDCA.map(p=>'<option value="'+p[0]+'"'+((a.pdca||'ikke')===p[0]?' selected':'')+'>'+p[1]+'</option>').join('')+'</select><button class="x" data-del="'+P+'actions/'+a.id+'">✕</button>'
     +'<input data-save="'+P+'actions/'+a.id+'/effect" value="'+esc(a.effect||'')+'" placeholder="Effektvurdering — virket tiltaket?" style="grid-column:1/-1;font-size:12px">'
     +(overdue(a)?'<div class="sub bad" style="grid-column:1/-1">Fristen er passert</div>':'')+(a.closedBy?'<div class="sub good" style="grid-column:1/-1">✓ lukket av '+esc(a.closedBy)+' '+fmtT(a.closedAt)+'</div>':'')+'</div>';
-  h+='<div class="card" id="tiltak"><div class="ct">📋 Tiltaksoversikt</div>'+donut(acts)
+  h+='<div class="card" id="tiltak"><div class="ct">📋 Tiltaksoversikt'+(ed?'<button class="b sm noprint" data-act="forslag" data-v="actions">💡 Foreslå tiltak</button>':'')+'</div>'+donut(acts)
     +'<div class="ct" style="font-size:13px">Korrigerende tiltak <span class="tag">'+acts.filter(a=>a.type!=='foreb').length+'</span></div>'+(acts.filter(a=>a.type!=='foreb').map(actRow).join('')||'<div class="sub">Ingen.</div>')+(ed?'<button class="b ghost sm" data-add="actions" data-type="korr" style="margin:4px 0 12px">+ Korrigerende tiltak</button>':'')
     +'<div class="ct" style="font-size:13px">Forebyggende tiltak <span class="tag">'+acts.filter(a=>a.type==='foreb').length+'</span></div>'+(acts.filter(a=>a.type==='foreb').map(actRow).join('')||'<div class="sub">Ingen.</div>')+(ed?'<button class="b ghost sm" data-add="actions" data-type="foreb" style="margin-top:4px">+ Forebyggende tiltak</button>':'')+'</div>';
 
@@ -438,9 +430,9 @@ function vSak(){
     h+=(m90.length?'<table class="t" style="margin-top:8px"><thead><tr><th>Siste stopp</th><th>Maskin</th><th>Årsak</th><th class="num">Varighet</th><th>Kommentar</th></tr></thead><tbody>'+m90.slice(0,5).map(e=>'<tr><td>'+fmtT(e.ts)+'</td><td>'+esc(e.machine||'—')+'</td><td>'+esc(e.cause||'')+'</td><td class="num">'+fmtD(e.duration)+'</td><td class="sub">'+esc(e.comment||'')+'</td></tr>').join('')+'</tbody></table>':'')+'</div>';
   }
 
-  h+='<div class="card"><div class="ct">🧾 Rapport <span class="r sub">settes sammen av det som er registrert</span></div>'+reportHTML(c)
-    +'<span class="lblx noprint">Standardisering og læring</span><textarea class="noprint" data-save="'+P+'std" rows="2" placeholder="Hva gjør vi til ny standard? Hvem andre bør lære av dette?">'+esc(c.std||'')+'</textarea>'
-    +'<span class="lblx noprint">Konklusjon</span><textarea class="noprint" data-save="'+P+'conclusion" rows="3" placeholder="Oppsummer hva som ble funnet og hva som gjenstår">'+esc(c.conclusion||'')+'</textarea></div>';
+  h+='<div class="card"><div class="ct">🧾 Automatisk rapport<span class="r noprint"><button class="b sm" data-act="kopirap">📋 Kopier tekst</button> <button class="b sm" onclick="window.print()">📄 Skriv ut</button></span></div>'+reportHTML(c)
+    +'<span class="lblx noprint">Standardisering og læring</span><textarea class="noprint" data-save="'+P+'std" rows="2" placeholder="Hva gjør vi til ny standard? Hvem andre bør lære av dette?">'+esc(c.std||'')+'</textarea>'+sugBox(c,'std')
+    +'<span class="lblx noprint">Konklusjon</span><textarea class="noprint" data-save="'+P+'conclusion" rows="3" placeholder="Oppsummer hva som ble funnet og hva som gjenstår">'+esc(c.conclusion||'')+'</textarea>'+sugBox(c,'conclusion')+'</div>';
 
   h+='<div class="card noprint"><div class="ct">🕘 Aktivitetslogg</div>'+(arr(c.log).sort((a,b)=>(b.at||0)-(a.at||0)).slice(0,30).map(l=>'<div class="sub" style="padding:2px 0">'+fmtT(l.at)+' · <b>'+esc(l.by||'')+'</b> — '+esc(l.text||'')+'</div>').join('')||'<div class="sub">Ingen aktivitet logget.</div>')+'</div>';
 
@@ -453,6 +445,426 @@ function vSak(){
   h+='<div class="side noprint">'+side('Korrigerende tiltak',acts.filter(a=>a.type!=='foreb'),'korr')+side('Forebyggende tiltak',acts.filter(a=>a.type==='foreb'),'foreb')
     +'<div class="card" style="margin:0"><div class="ct" style="font-size:12px;text-transform:uppercase;color:var(--text3)">Møter</div>'+(arr(c.meetings).sort((a,b)=>(a.when||0)-(b.when||0)).map(x=>'<div class="sub" style="padding:3px 0;display:flex;justify-content:space-between"><span>'+fmtT(x.when)+'<br>'+esc(x.text||'')+'</span>'+(ed?'<button class="x" data-del="'+P+'meetings/'+x.id+'">✕</button>':'')+'</div>').join('')||'<div class="sub">Ingen planlagte møter.</div>')+(ed?'<button class="b ghost sm" data-act="mote" style="width:100%;margin-top:6px">+ Legg til møte</button>':'')+'</div></div>';
   return h+'</div>';
+}
+
+/* ═════════ ASSISTENT — automatiske rapporter og forslag ═════════
+   Alt her er FASTE REGLER OG LISTER. Ingen AI, ingen API-nøkler, ingen kall ut av siden —
+   svarene regnes i nettleseren fra det som er registrert i saken, i andre saker og i MES.
+     advise(c)          sjekkliste for saken → «Neste steg» + punkter i Saksassistent og rapport
+     suggestCauses(c)   forslag til årsaker: rotårsaker i lignende saker, stopp i MES,
+                        ordliste over typiske årsaker (KB) og generelle kontrollspørsmål (GEN)
+     suggestActions(c)  forslag til tiltak ut fra kategori og siste «hvorfor» (TILTAK)
+     similarCases()     lignende saker på ordoverlapp + linje/maskin
+     titleFor/prioFor   tittel og prioritet når en sak opprettes fra en rapport
+     reportHTML(c)      automatisk rapport for én sak; vRapport() samlerapport for perioden
+   Ny typisk årsak = én linje i KB. */
+const DAY=86400000;
+const sum=l=>l.reduce((s,e)=>s+(e.duration||0),0);
+const og=l=>l.length<2?l.join(''):l.slice(0,-1).join(', ')+' og '+l[l.length-1];
+const sit=t=>'«'+t+'»';
+const kort=(t,n)=>{t=String(t||'');n=n||60;return t.length>n?t.slice(0,n-1)+'…':t;};
+const nodot=s=>String(s||'').replace(/[.\s]+$/,'');
+const lowFirst=s=>{s=nodot(s);return s.charAt(0).toLowerCase()+s.slice(1);};
+const norm=s=>String(s||'').toLowerCase().replace(/[^a-zæøå0-9]/g,'');
+const whysOf=a=>arr(a.whys).filter(x=>x.text).sort((x,y)=>(x.at||0)-(y.at||0));
+const repsOf=c=>reports().filter(r=>r.caseId===c.id);
+const stageName=c=>(STAGES.find(s=>s[0]===(c.stage||'opprettet'))||['',''])[1];
+
+/* ── Ordliste: typiske årsaker per tema. re = ord i beskrivelsen som slår til. ── */
+const KB=[
+ {n:'Folie og forsegling',re:/foli|oblat|lokk|forsegl|sveis/i,c:{
+   maskin:['Slitte eller tette sugekopper','For lavt vakuum eller for lite luft til dispenseren','Varmeelement har feil temperatur eller er tilsmusset','Nedlegger står i feil posisjon'],
+   metode:['Vann i vakuumslanger etter vask','Ingen fast metode for rengjøring av varmeelement'],
+   ravare:['Folie/oblat avviker i tykkelse eller er krøllet','Ny leverandør eller ny batch av folie'],
+   kontroll:['Vakuum og temperatur kontrolleres ikke ved oppstart'],
+   miljo:['Kondens eller fukt ved dispenseren'],
+   folk:['Ulik innstilling fra skift til skift']}},
+ {n:'Luft og vakuum',re:/vakuum|sugekopp|trykkluft|\bluft|pneumat/i,c:{
+   maskin:['Lekkasje i slanger eller koblinger','Filter eller ventil er tett','Flere forbrukere på samme lufttilførsel'],
+   kontroll:['Trykket overvåkes ikke, ingen alarmgrense'],
+   metode:['Slanger tømmes ikke for vann etter vask']}},
+ {n:'Pakking og esker',re:/pakkemaskin|pakking|eske|kartong|\blim\b/i,c:{
+   maskin:['Slitte føringer eller medbringere','Limdyse er tett eller limet har feil temperatur','Maskinen er ikke justert for formatet'],
+   ravare:['Kartong med ujevn kvalitet eller fukt','Feil kartong eller format levert til linja'],
+   metode:['Ingen standard innstilling per produkt','Omstilling gjøres ulikt fra gang til gang'],
+   folk:['Manglende opplæring i justering av maskinen'],
+   miljo:['Kartong lagres fuktig eller kaldt'],
+   kontroll:['Formatinnstillinger er ikke dokumentert']}},
+ {n:'Robot, kamera og sensorer',re:/robot|plukk|kamera|sensor|fotocelle|giver/i,c:{
+   maskin:['Sugekopp eller griper er slitt eller tett','Sensor eller fotocelle er skitten eller ute av stilling'],
+   kontroll:['Kamera eller sensor er feil kalibrert for hastigheten','Feil terskelverdi eller resept i styringen'],
+   miljo:['Kondens, rim eller dårlig lys forstyrrer kamera og sensorer'],
+   metode:['Rengjøring av linse og sensorer står ikke i rutinen'],
+   ravare:['Produktet varierer i form eller plassering på båndet']}},
+ {n:'Doble produkter og mating',re:/dobl|dobbel/i,c:{
+   maskin:['Ujevn mating eller feil avstand mellom produktene','Båndhastighetene er ikke synkronisert'],
+   kontroll:['Ingen deteksjon av doble produkter før pakking'],
+   ravare:['Produktene fester seg til hverandre (temperatur eller overtrekk)'],
+   metode:['Hastigheten økes uten at matingen justeres']}},
+ {n:'Merking og etikett',re:/etikett|merking|datomerk|print|skriver/i,c:{
+   maskin:['Etikettsensor er ute av stilling','Skrivehode er slitt eller skittent','Etikettbanen er feil trædd'],
+   ravare:['Etikettrull med dårlig lim eller feil dimensjon'],
+   kontroll:['Merking kontrolleres ikke ved oppstart og produktbytte'],
+   folk:['Feil etikett eller resept valgt ved produktbytte'],
+   miljo:['Kondens på emballasjen gjør at etiketten ikke fester']}},
+ {n:'Pinner',re:/pinne/i,c:{
+   maskin:['Pinnemagasin eller bane kiler seg','Slitte føringer i pinneinnsetteren'],
+   ravare:['Pinner med ujevn dimensjon, sprekker eller fukt'],
+   metode:['Etterfylling av pinner gjøres for sent eller feil'],
+   kontroll:['Ingen mottakskontroll av pinner']}},
+ {n:'Fylling og vekt',re:/fyll|doser|vekt|volum/i,c:{
+   maskin:['Slitt doseringsventil eller pakning','Ujevnt trykk eller temperatur på miksen inn til fylleren'],
+   kontroll:['Vekt eller kontrollvekt er ikke kalibrert','Vektkontroll gjøres for sjelden'],
+   ravare:['Miksen varierer i viskositet eller overrun'],
+   metode:['Fyllemengden justeres uten fast standard']}},
+ {n:'Temperatur og frysing',re:/temperatur|frys|herd|tunnel|smelt|kulde/i,c:{
+   maskin:['Fordamper er nediset, for sjelden avriming','Kuldeanlegget leverer ikke nok kapasitet'],
+   kontroll:['Temperaturføler viser feil eller mangler alarm'],
+   miljo:['Dører og porter står åpne, varm luft kommer inn','Høy romtemperatur eller luftfuktighet'],
+   metode:['For kort oppholdstid i tunnelen ved høy hastighet']}},
+ {n:'Renhold og fremmedlegemer',re:/vask|rengj|renhold|\bcip\b|\bsot\b|partik|fremmedleg|smuss|skitt/i,c:{
+   metode:['Området står ikke i vaskeplanen','Åpne kritiske punkter dekkes ikke til under vask','Vasken avsluttes uten kontroll'],
+   maskin:['Slitasje gir partikler (bånd, lager, pakninger)','Vanskelig tilkomst for rengjøring'],
+   kontroll:['Ingen visuell kontroll før oppstart'],
+   folk:['Uklart hvem som har ansvar for rengjøringen'],
+   miljo:['Støv, sot eller kondens fra omgivelsene']}},
+ {n:'Mekanisk og transport',re:/kjede|bånd|belte|transportør|\blager\b|motor|\bgir\b|\brem\b|mekanisk/i,c:{
+   maskin:['Kjede eller bånd er slitt eller feil strammet','Lager eller drev er slitt','Manglende smøring'],
+   metode:['Delen står ikke i forebyggende vedlikehold'],
+   kontroll:['Ingen tilstandskontroll (lyd, vibrasjon, stramming)'],
+   folk:['Feilen er håndtert tidligere uten varig utbedring']}},
+ {n:'Elektrisk og styring',re:/elektrisk|hmi|\bpls\b|feilmelding|alarm|sikring|frekvens|styring|program/i,c:{
+   maskin:['Løs kontakt, kabelbrudd eller slitt kontaktor','Giver eller sikkerhetsbryter gir ustabilt signal'],
+   kontroll:['Alarmteksten sier ikke hva som er feil','Parametere er endret uten logg'],
+   metode:['Oppstartsrekkefølgen følges ikke','Feil kvitteres uten at årsaken finnes'],
+   folk:['Få som kan feilsøke styringen'],
+   miljo:['Fukt eller kondens i skap og koblingsbokser']}},
+ {n:'Oppstart og omstilling',re:/oppstart|starter den opp|omstilling|produktbytte|formatbytte/i,c:{
+   metode:['Ingen sjekkliste for oppstart og omstilling','Innstillinger fra forrige produkt blir stående'],
+   folk:['Ulik praksis mellom skiftene'],
+   kontroll:['Første produkt kontrolleres ikke før full fart'],
+   maskin:['Formatdeler er slitt eller mangler merking']}},
+ {n:'Svinn og kvalitet',re:/svinn|vrak|kasser|underkjen|sperr/i,c:{
+   kontroll:['Svinn registreres ikke per årsak','Avvik oppdages for sent i prosessen'],
+   metode:['Uklart når linja skal stoppes ved avvik'],
+   ravare:['Variasjon i råvare eller halvfabrikat'],
+   maskin:['Maskinen kjøres utenfor stabilt område (hastighet)']}},
+ {n:'Overtrekk og sjokolade',re:/sjokolade|overtrekk|dypp|topping|strø/i,c:{
+   maskin:['Feil temperatur i sjokoladekaret','Dyser eller dypp tetter seg'],
+   ravare:['Sjokolade med feil viskositet'],
+   kontroll:['Temperatur og viskositet logges ikke'],
+   miljo:['Kald trekk eller kondens ved overtrekket']}}
+];
+const GEN={
+ folk:['Manglende eller ulik opplæring','Ulik praksis mellom skiftene','Uklart hvem som har ansvaret'],
+ metode:['Ingen fast standard eller sjekkliste','Standarden finnes, men følges ikke i praksis'],
+ kontroll:['Avviket oppdages for sent','Måleutstyr er ikke kalibrert'],
+ miljo:['Temperatur, fukt eller kondens','Dårlig renhold eller orden i området'],
+ ravare:['Variasjon i råvare eller emballasje','Ny batch eller ny leverandør'],
+ maskin:['Slitasje, manglende forebyggende vedlikehold','Feil innstilling for produktet']};
+const TILTAK={
+ folk:['Gjennomgang med alle skift om: ','Legg temaet inn i opplæringen (ettpunktsleksjon)'],
+ metode:['Rett opp praksis med en gang: ','Lag fast standard eller sjekkliste'],
+ kontroll:['Kontroller og kalibrer nå: ','Legg inn fast kontrollpunkt i oppstartssjekk eller skiftrapport'],
+ miljo:['Utbedre forholdene: ','Lag fast rutine for området'],
+ ravare:['Sperr og sorter berørt vare, og meld avvik til leverandør: ','Innfør mottakskontroll eller krav til leverandør'],
+ maskin:['Utbedre eller bytt: ','Legg inn i forebyggende vedlikehold']};
+const CATRAD={folk:'Vurder felles opplæring på tvers av skiftene.',metode:'Vurder en felles gjennomgang av standarder og sjekklister.',kontroll:'Vurder flere faste kontrollpunkter og kalibreringsrutiner.',miljo:'Vurder tiltak på renhold og forhold i lokalene.',ravare:'Ta det opp med innkjøp og leverandører.',maskin:'Vurder å styrke det forebyggende vedlikeholdet.'};
+const STOP=new Set('dette denne disse etter eller ikke også blir være hver flere mange noen alle gang ganger siste dager linja linje produkt produkter produktene fører deretter veldig generelt forekommer forårsaker kommer skjer alltid stadig først gjøre gjort løse startet stoppet stopp nedetid varighet mellom under over fordi feil mangler manglende maskin maskinen dårlig dårlige problem problemer enkelte nesten hvert skift skiftet igjen samme rett uten andre annet mindre minste mest fått måtte bare'.split(' '));
+
+/* ── Lignende saker ── */
+function toks(s){const o={};(String(s||'').toLowerCase().match(/[a-zæøå]{4,}/g)||[]).forEach(w=>{if(!STOP.has(w))o[w.slice(0,5)]=1;});return o;}
+function caseText(c){return [c.title,c.problem,c.where,c.machine,c.cause].concat(repsOf(c).map(r=>(r.text||'')+' '+(r.where||''))).filter(Boolean).join(' ');}
+function similarCases(text,line,machine,except){
+  const t=Object.keys(toks(text));if(!t.length)return [];
+  return cases().filter(c=>c.id!==except).map(c=>{const o=toks(caseText(c));const ov=t.filter(k=>o[k]).length;return {c,ov,score:ov+(line&&c.line===line?1.5:0)+(machine&&c.machine===machine?1.5:0)};})
+    .filter(x=>x.ov>=2&&x.score>=3).sort((a,b)=>b.score-a.score).slice(0,4).map(x=>x.c);
+}
+function simHTML(c){
+  const l=similarCases(caseText(c),c.line,c.machine,c.id);if(!l.length)return '';
+  return '<div class="card" style="margin:0"><div class="ct" style="font-size:13px">🔎 Lignende saker</div>'+l.map(o=>{const rot=arr(o.causes).filter(a=>a.text&&a.klass==='rot');
+    return '<div class="sub" style="padding:5px 0;border-bottom:1px dashed var(--border);cursor:pointer;line-height:1.45" data-go="sak" data-id="'+o.id+'"><b style="color:var(--text)">#'+o.nr+' '+esc(kort(o.title,60))+'</b> · '+(o.status==='archived'?'arkivert':'åpen')
+      +(rot.length?'<br>Rotårsak: '+esc(kort(rot.map(a=>a.text).join(', '),90)):'')+(o.archiveComment?'<br>Resultat: '+esc(kort(o.archiveComment,90)):'')+'</div>';}).join('')+'</div>';
+}
+
+/* ── MES-hjelpere ── */
+function mesTop(line,days){
+  const since=Date.now()-days*DAY,agg={};
+  EVENTS.filter(e=>e.line===line&&e.ts>=since&&e.cause&&!e.unhandled&&!isPlanned(e.cause)&&!/automatisk/i.test(e.cause)).forEach(e=>{const k=(e.machine||'')+'|'+e.cause;const a=agg[k]=agg[k]||{machine:e.machine||'',cause:e.cause,n:0,min:0};a.n++;a.min+=e.duration||0;});
+  return Object.values(agg).sort((a,b)=>b.min-a.min);
+}
+function catOfMes(cause){const s=String(cause||'').toLowerCase();
+  if(/operat|bemann|personell|opplær/.test(s))return 'folk';
+  if(/råvare|emballasje|material|kartong|folie|pinne/.test(s))return 'ravare';
+  if(/vask|rengj|omstilling|oppstart|innstill|juster/.test(s))return 'metode';
+  if(/sensor|kontroll|kalibr|vekt/.test(s))return 'kontroll';
+  if(/temperatur|kulde|fukt/.test(s))return 'miljo';
+  return 'maskin';}
+/* Før/etter siste lukkede tiltak (eller arkivering), like lange perioder */
+function effect(c){
+  if(!c.line||!LINES.includes(c.line))return null;
+  const last=arr(c.actions).filter(a=>a.pdca==='lukket'&&a.closedAt).map(a=>a.closedAt).sort((a,b)=>b-a)[0], ref=c.archivedAt||last;
+  if(!ref)return null;
+  const days=Math.max(1,(Date.now()-ref)/DAY), after=mesFor(c,ref), before=mesFor(c,ref-days*DAY,ref);
+  return {ref,days:Math.round(days),before,after,bm:sum(before),am:sum(after),ok:after.length<before.length||after.length===0,what:c.archivedAt?'arkivering':'siste lukkede tiltak',wide:!c.machine&&!c.cause};
+}
+function effSentence(ef){
+  if(!ef.before.length&&!ef.after.length)return 'MES har ikke registrert stopp verken før eller etter '+ef.what+' ('+fmtDay(ef.ref)+'), så effekten kan ikke leses av tallene ennå.';
+  return 'I de '+ef.days+' dagene etter '+ef.what+' ('+fmtDay(ef.ref)+') har MES registrert '+ef.after.length+' stopp ('+fmtD(ef.am)+'), mot '+ef.before.length+' ('+fmtD(ef.bm)+') i like lang periode før'
+    +(ef.wide?'. Tallene gjelder alle stopp på linja, fordi saken ikke er koblet til maskin eller årsak.':ef.ok?' — tiltakene ser ut til å virke.':' — ingen målbar bedring ennå.');
+}
+
+/* ── Tittel og prioritet når sak opprettes ── */
+function titleFor(text){
+  const t=String(text||'').trim().replace(/\s+/g,' ');const m=t.match(/^(.{15,90}?)[.!?](\s|$)/);
+  if(m)return m[1];if(t.length<=90)return nodot(t);
+  const cut=t.slice(0,90);return cut.slice(0,Math.max(40,cut.lastIndexOf(' ')))+'…';
+}
+function prioFor(rep){
+  const t=(rep.text||'')+' '+(rep.done||'');
+  if(/sperr|underkjen|fremmedleg|partik|\bsot\b|skade|\bhms\b|farlig|brann|allergen|tilbakekal|reklamasjon|mye nedetid|mye svinn/i.test(t))return 'high';
+  if(rep.line&&LINES.includes(rep.line)&&(rep.machine||rep.cause)){
+    const ev=EVENTS.filter(e=>e.line===rep.line&&e.ts>=Date.now()-30*DAY&&(!rep.machine||e.machine===rep.machine)&&(!rep.cause||e.cause===rep.cause)&&!isPlanned(e.cause));
+    if(ev.length>=5||sum(ev)>=120)return 'high';
+  }
+  return 'medium';
+}
+function repHint(r){
+  const sim=similarCases((r.text||'')+' '+(r.where||''),r.line,r.machine,null).filter(c=>c.status!=='archived')[0], pri=prioFor(r);
+  if(!sim&&pri!=='high')return '';
+  return '<div class="hint2" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+(pri==='high'?'<span class="tag red">Foreslått prioritet: Høy</span>':'')
+    +(sim?'<span>💡 Ligner på <b>#'+sim.nr+' '+esc(kort(sim.title,60))+'</b></span>'+(canEdit()?'<button class="b sm" data-act="koblesim" data-id="'+r.id+'" data-case="'+sim.id+'">Koble til denne</button>':''):'')+'</div>';
+}
+
+/* ── Sjekkliste for saken ── */
+function advise(c){
+  const cs=arr(c.causes).filter(a=>a.text), as=arr(c.actions), reps=repsOf(c);
+  const mulig=cs.filter(a=>a.flag==='mulig'), rot=cs.filter(a=>a.klass==='rot'), cats=new Set(cs.map(a=>a.cat)).size;
+  const names=l=>og(l.slice(0,3).map(a=>sit(kort(a.text,45))))+(l.length>3?' m.fl.':'');
+  const L=[], add=(ok,w,t,okT)=>L.push({ok:!!ok,w,t:ok?okT:t});
+  add(c.owner,'bad','Sett en analyseansvarlig — saker uten eier blir liggende.','Analyseansvarlig er satt');
+  add(c.problem||reps.length,'bad','Beskriv problemet: hva skjer, hvor ofte, og hva fører det til?','Problemet er beskrevet');
+  add(cs.length>=3&&cats>=2,'warn',cs.length?'Bare '+cs.length+' årsak'+(cs.length>1?'er':'')+' i '+cats+' kategori'+(cats>1?'er':'')+' er lagt inn. Gå gjennom alle seks kategoriene — «Foreslå årsaker» gir deg en start.':'Ingen mulige årsaker er lagt inn. Start med «Foreslå årsaker».','Mulige årsaker er kartlagt');
+  if(cs.length){
+    const uv=cs.filter(a=>!a.flag);
+    add(!uv.length,'warn',uv.length+' årsak'+(uv.length>1?'er':'')+' er ikke vurdert ennå (🚩 mulig eller 🏳 trolig ikke): '+names(uv)+'.','Alle årsaker er vurdert');
+    const uw=mulig.filter(a=>!whysOf(a).length);
+    add(mulig.length&&!uw.length,'warn',mulig.length?'Spør «hvorfor» på '+names(uw)+'.':'Ingen årsak er merket som mulig. Marker de sannsynlige med 🚩 og spør «hvorfor» på dem.','Hvorfor-analyse er gjort på de mulige årsakene');
+    add(rot.length,'bad','Ingen årsak er klassifisert som rotårsak ennå.','Rotårsak er pekt ut');
+    if(rot.length){const k=rot.filter(a=>whysOf(a).length<2);add(!k.length,'warn','Hvorfor-kjeden er kort for '+names(k)+'. Spør hvorfor to–tre ganger, ellers stopper analysen lett ved et symptom.','Hvorfor-kjedene går i dybden');}
+  }
+  const foreb=as.filter(a=>a.type==='foreb'&&a.pdca!=='na');
+  add(as.length&&(!rot.length||foreb.length),'bad',!as.length?'Ingen tiltak er registrert. «Foreslå tiltak» lager utkast fra årsakene.':'Rotårsaken har ingen forebyggende tiltak — da kommer problemet tilbake.','Tiltak er registrert');
+  if(as.length){
+    const uf=as.filter(a=>actOpen(a)&&(!a.owner||!a.due));
+    add(!uf.length,'warn',uf.length+' åpne tiltak mangler ansvarlig eller frist.','Åpne tiltak har ansvarlig og frist');
+    const od=as.filter(overdue);
+    add(!od.length,'bad',od.length+' tiltak er over frist: '+od.slice(0,3).map(a=>sit(kort(a.text,45))+' ('+(a.ownerName||'uten ansvarlig')+', '+fmtDay(a.due)+')').join(', ')+'.','Ingen tiltak er over frist');
+    if(as.some(a=>a.pdca==='lukket')){const ue=as.filter(a=>a.pdca==='lukket'&&!a.effect);add(!ue.length,'warn',(ue.length===1?'1 lukket tiltak mangler effektvurdering — virket det?':ue.length+' lukkede tiltak mangler effektvurdering — virket de?'),'Lukkede tiltak er effektvurdert');}
+  }
+  add(c.rcaDone,'warn',rot.length?'Rotårsaken er funnet — marker RCA som utført.':'RCA er ikke markert som utført.','RCA er markert som utført');
+  const ef=effect(c);
+  /* Uten maskin/årsak teller alle stopp på linja — da sier før/etter lite om akkurat denne saken */
+  if(ef&&ef.wide)add(false,'warn','Velg maskin eller årsak under «Analyseansvarlig og deltakere», så måles effekten på de stoppene saken gjelder — nå telles alle stopp på '+c.line+'.','');
+  else if(ef&&(ef.before.length||ef.after.length))add(ef.ok,'bad','MES viser ikke færre stopp etter tiltakene ('+ef.before.length+' før, '+ef.after.length+' etter). Vurder om rotårsaken er riktig.','MES viser '+(ef.after.length?'færre stopp':'ingen nye stopp')+' etter tiltakene');
+  if(c.rcaDone||c.stage==='bekreftet'||c.status==='archived'){
+    add(c.std,'warn','Skriv hva som gjøres til ny standard, og hvem andre som bør lære av saken.','Standardisering er beskrevet');
+    add(c.conclusion,'warn','Skriv en konklusjon — eller bruk forslaget under rapporten.','Konklusjon er skrevet');
+  }
+  const done=L.filter(x=>x.ok).length, open=as.filter(actOpen).length;
+  return {L,done,total:L.length,pct:Math.round(done/L.length*100),open,ready:done===L.length&&!open};
+}
+function assistHTML(c){
+  if(c.status==='archived')return '';
+  const ad=advise(c), bad=ad.L.filter(x=>!x.ok), ok=ad.L.filter(x=>x.ok);
+  return '<div class="card assist noprint"><div class="ct">🧭 Saksassistent<span class="r sub">faste regler — ingen AI</span></div>'
+    +'<div class="sub"><b>'+ad.done+' av '+ad.total+'</b> punkter på plass</div><div class="prog"><i style="width:'+ad.pct+'%"></i></div>'
+    +(bad.length?'<div class="hint2"><b>Neste steg:</b> '+esc(bad[0].t)+'</div>':ad.ready?'<div class="hint2"><b class="good">✔ Alt er på plass.</b> Saken kan ferdigstilles nederst på siden.</div>':'<div class="hint2"><b class="good">✔ Analysen er komplett.</b> '+ad.open+' tiltak gjenstår før saken kan ferdigstilles.</div>')
+    +bad.slice(1).map(x=>'<div class="chk"><span class="'+x.w+'">●</span><span>'+esc(x.t)+'</span></div>').join('')
+    +(ok.length?'<div class="sub" style="margin-top:8px;line-height:1.6">✓ '+ok.map(x=>esc(x.t)).join(' · ')+'</div>':'')+'</div>';
+}
+
+/* ── Forslag til årsaker og tiltak ── */
+function suggestCauses(c){
+  const have={}, per={}, out=[], old=arr(c.causes).filter(a=>a.text).map(a=>toks(a.text));arr(c.causes).forEach(a=>{have[norm(a.text)]=1;});
+  // «Vann i vakuumslanger etter vask» er samme årsak som «Vann i slange» — ikke foreslå det som alt står der
+  const dup=text=>{const t=Object.keys(toks(text));return t.length>0&&old.some(o=>{const n=t.filter(k=>o[k]).length;return n>=2&&n/t.length>=0.6;});};
+  const add=(cat,text,src)=>{const k=norm(text);if(!k||!CATN[cat]||have[k]||(per[cat]||0)>=5||dup(text))return;have[k]=1;per[cat]=(per[cat]||0)+1;out.push({g:cat,text,src});};
+  const txt=caseText(c);
+  similarCases(txt,c.line,c.machine,c.id).forEach(o=>arr(o.causes).filter(a=>a.text&&(a.klass==='rot'||a.klass==='medv')).forEach(a=>add(a.cat,a.text,(a.klass==='rot'?'Rotårsak':'Medvirkende faktor')+' i sak #'+o.nr+' — '+kort(o.title,50))));
+  if(c.line&&LINES.includes(c.line))mesTop(c.line,90).filter(a=>(!c.machine||a.machine===c.machine)&&a.cause!==c.cause).slice(0,4).forEach(a=>add(catOfMes(a.cause),a.cause+(a.machine?' på '+a.machine:''),'MES: '+a.n+' stopp · '+fmtD(a.min)+' siste 90 dager'));
+  KB.filter(t=>t.re.test(txt)).forEach(t=>Object.keys(t.c).forEach(cat=>t.c[cat].forEach(x=>add(cat,x,'Typisk for «'+t.n+'»'))));
+  CATS.forEach(k=>{if((per[k[0]]||0)<2)GEN[k[0]].forEach(x=>add(k[0],x,'Generelt kontrollspørsmål'));});
+  return out;
+}
+function suggestActions(c){
+  const have={}, out=[];arr(c.actions).forEach(a=>{have[norm(a.text)]=1;});
+  const cs=arr(c.causes).filter(a=>a.text), rot=cs.filter(a=>a.klass==='rot'||a.klass==='medv'), base=rot.length?rot:cs.filter(a=>a.flag==='mulig'&&a.klass!=='symptom'&&a.klass!=='ikke');
+  const add=(g,text,src)=>{const k=norm(text);if(have[k])return;have[k]=1;out.push({g,text,src});};
+  base.forEach(a=>{const w=whysOf(a), t=TILTAK[a.cat]||TILTAK.maskin, src=(a.klass==='rot'?'Rotårsak':a.klass==='medv'?'Medvirkende faktor':'Mulig årsak')+': '+sit(kort(a.text,60));
+    add('korr',t[0]+lowFirst(a.text),src);add('foreb',t[1]+(w.length?' — siste hvorfor: '+sit(nodot(w[w.length-1].text)):' — årsak: '+sit(nodot(a.text))),src);});
+  if(base.length){
+    add('foreb','Oppdater instruks eller standard og informer alle skift'+(c.line?' på '+c.line:''),'Standardisering');
+    if(c.line&&LINES.includes(c.line))add('foreb','Følg stoppene i MES i fire uker etter tiltakene og vurder effekten','Effektkontroll');
+    add('foreb','Sjekk om samme svakhet finnes på tilsvarende utstyr på andre linjer','Læring på tvers');
+  }
+  return out;
+}
+let _SG=[];
+function openSuggest(kind){
+  const c=Object.assign({},CASES[CASE],{id:CASE}), isC=kind==='causes';
+  _SG=isC?suggestCauses(c):suggestActions(c);
+  if(!_SG.length){alert(isC?'Fant ingen nye forslag — de som passer ligger allerede i saken.':'Marker mulige årsaker med 🚩 eller klassifiser en rotårsak først. Tiltakene foreslås ut fra dem.');return;}
+  const groups=isC?CATS.map(k=>[k[0],k[1]]):[['korr','Korrigerende tiltak — retter feilen nå'],['foreb','Forebyggende tiltak — hindrer at den kommer tilbake']];
+  modal('<div class="ct">💡 Forslag til '+(isC?'årsaker':'tiltak')+'</div><div class="sub" style="line-height:1.5">'+(isC?'Hentet fra rotårsaker i lignende saker, stoppene i MES og en fast liste over typiske årsaker for ordene i beskrivelsen.':'Laget ut fra årsakene i saken: kategori og siste svar i hvorfor-kjeden.')+' Kryss av det som passer — teksten kan endres etterpå.</div>'
+    +groups.map(g=>{const l=_SG.map((s,i)=>[s,i]).filter(x=>x[0].g===g[0]);return l.length?'<div class="sgh">'+esc(g[1])+'</div>'+l.map(x=>'<label class="sg"><input type="checkbox" data-i="'+x[1]+'"><span>'+esc(x[0].text)+'<div class="sub">'+esc(x[0].src)+'</div></span></label>').join(''):'';}).join('')
+    +'<div style="display:flex;gap:8px;margin-top:14px"><button class="b pri" id="sg-ok" style="flex:1">Legg til valgte</button><button class="b" id="sg-no" style="flex:1">Avbryt</button></div>');
+  document.getElementById('sg-no').onclick=closeModal;
+  document.getElementById('sg-ok').onclick=()=>{
+    const idx=[].slice.call(document.querySelectorAll('#modal-body input[data-i]:checked')).map(e=>+e.dataset.i);closeModal();if(!idx.length)return;
+    const u={}, now=Date.now();
+    idx.forEach((i,n)=>{const s=_SG[i], k=db.ref('rca').push().key;if(isC)u['causes/'+k]={cat:s.g,text:s.text,at:now+n};else u['actions/'+k]={type:s.g,text:s.text,pdca:'plan',createdAt:now+n};});
+    db.ref('rca/cases/'+CASE).update(u).catch(fail);logCase(CASE,'la til '+idx.length+' foreslåtte '+(isC?'årsaker':'tiltak'));
+  };
+}
+
+/* ── Automatiske tekster ── */
+function summaryText(c){
+  const cs=arr(c.causes).filter(a=>a.text), as=arr(c.actions), reps=repsOf(c), rot=cs.filter(a=>a.klass==='rot'), medv=cs.filter(a=>a.klass==='medv'), mulig=cs.filter(a=>a.flag==='mulig');
+  const age=Math.max(0,Math.round(((c.archivedAt||Date.now())-(c.createdAt||Date.now()))/DAY)), s=[];
+  s.push('Sak #'+c.nr+' ble opprettet '+fmtDay(c.createdAt)+(c.createdByName?' av '+c.createdByName:'')+(reps.length?' på bakgrunn av '+reps.length+' hendelsesrapport'+(reps.length>1?'er':''):'')+(c.where||c.line?' fra '+(c.where||c.line):'')+'.');
+  s.push(c.status==='archived'?'Saken ble ferdigstilt '+fmtDay(c.archivedAt)+' etter '+age+' dager.':'Saken har vært åpen i '+age+' dager og står i fasen «'+stageName(c)+'» med '+PRI[c.priority||'medium'].toLowerCase()+' prioritet'+(c.ownerName?'; analyseansvarlig er '+c.ownerName+'.':'; den mangler analyseansvarlig.'));
+  if(cs.length)s.push('Analysen har vurdert '+cs.length+' mulig'+(cs.length>1?'e':'')+' årsak'+(cs.length>1?'er':'')+' i '+new Set(cs.map(a=>a.cat)).size+' av seks kategorier. '
+    +(rot.length?(rot.length>1?'Rotårsakene er ':'Rotårsaken er ')+og(rot.map(a=>sit(nodot(a.text))))+'.':mulig.length?'Ingen rotårsak er pekt ut ennå; de mest sannsynlige årsakene er '+og(mulig.slice(0,3).map(a=>sit(nodot(a.text))))+'.':'Ingen av dem er vurdert som sannsynlig ennå.')
+    +(medv.length?' Medvirkende: '+og(medv.map(a=>sit(nodot(a.text))))+'.':''));
+  else s.push('Det er ikke lagt inn mulige årsaker ennå.');
+  if(as.length){const od=as.filter(overdue).length;s.push('Det er registrert '+as.length+' tiltak ('+as.filter(a=>a.type!=='foreb').length+' korrigerende og '+as.filter(a=>a.type==='foreb').length+' forebyggende): '+as.filter(a=>a.pdca==='lukket').length+' er lukket og '+as.filter(actOpen).length+' åpne'+(od?', hvorav '+od+' over frist':'')+'.');}
+  else s.push('Ingen tiltak er registrert ennå.');
+  const ef=effect(c);if(ef&&(ef.before.length||ef.after.length))s.push(effSentence(ef));
+  return s;
+}
+function autoProblem(c){
+  const reps=repsOf(c);if(!reps.length)return '';
+  const m=mesFor(c,Date.now()-90*DAY);
+  return reps.map(r=>nodot(r.text)+'.').join(' ')+(m.length?' MES har registrert '+m.length+' stopp med til sammen '+fmtD(sum(m))+' nedetid på '+c.line+(c.machine?' / '+c.machine:'')+' de siste 90 dagene.':'');
+}
+function autoStd(c){
+  const f=arr(c.actions).filter(a=>a.type==='foreb'&&a.pdca!=='na'&&a.text);if(!f.length)return '';
+  return 'Gjøres til fast standard: '+og(f.map(a=>lowFirst(a.text)))+'. Alle skift'+(c.line?' på '+c.line:'')+' informeres, og det vurderes om det samme gjelder tilsvarende utstyr på andre linjer.';
+}
+function autoConclusion(c){
+  const cs=arr(c.causes).filter(a=>a.text), rot=cs.filter(a=>a.klass==='rot'), as=arr(c.actions).filter(a=>a.text), luk=as.filter(a=>a.pdca==='lukket'), ap=as.filter(actOpen), ef=effect(c);
+  if(!rot.length&&!as.length)return '';
+  const s=[rot.length?'Analysen peker på '+og(rot.map(a=>sit(nodot(a.text))))+' som rotårsak'+(rot.length>1?'er':'')+'.':'Rotårsaken er ikke fastslått ennå.'];
+  rot.forEach(a=>{const w=whysOf(a);if(w.length)s.push('Bak '+sit(nodot(a.text))+' ligger: '+lowFirst(w[w.length-1].text)+'.');});
+  if(luk.length)s.push('Gjennomført: '+og(luk.map(a=>lowFirst(a.text)))+'.');
+  if(ap.length)s.push('Gjenstår: '+og(ap.map(a=>lowFirst(a.text)+(a.ownerName?' ('+a.ownerName+(a.due?', frist '+fmtDay(a.due):'')+')':'')))+'.');
+  if(ef&&(ef.before.length||ef.after.length))s.push(effSentence(ef));
+  return s.join(' ');
+}
+const AUTO={problem:autoProblem,std:autoStd,conclusion:autoConclusion}, AUTON={problem:'problembeskrivelse',std:'standardisering',conclusion:'konklusjon'};
+function sugBox(c,f){
+  if(!canEdit()||c[f]||c.status==='archived')return '';const t=AUTO[f](c);if(!t)return '';
+  return '<div class="hint2 noprint"><b>Forslag:</b> '+esc(t)+' <button class="b sm" data-act="bruk" data-v="'+f+'" style="margin-left:4px">Bruk forslaget</button></div>';
+}
+function copyText(el,btn){
+  if(!el)return;const t=el.innerText, old=btn.textContent, done=()=>{btn.textContent='✓ Kopiert';setTimeout(()=>{btn.textContent=old;},1500);};
+  const fb=()=>{const ta=document.createElement('textarea');ta.value=t;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();try{document.execCommand('copy');done();}catch(e){alert('Kunne ikke kopiere.');}document.body.removeChild(ta);};
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t).then(done,fb);else fb();
+}
+
+/* ── Automatisk rapport for én sak ── */
+function reportHTML(c){
+  const cs=arr(c.causes).filter(a=>a.text), as=arr(c.actions).sort((a,b)=>(a.createdAt||0)-(b.createdAt||0)), reps=repsOf(c);
+  const onLine=c.line&&LINES.includes(c.line), now=Date.now(), m90=mesFor(c,now-90*DAY), ef=effect(c), ad=advise(c), bad=ad.L.filter(x=>!x.ok);
+  const chain=a=>{const w=whysOf(a);return w.length?w.map(x=>esc(nodot(x.text))).join(' → '):'<i>ikke undersøkt videre</i>';};
+  const grp=(l,t)=>l.length?'<p><b>'+t+'</b></p><ul>'+l.map(a=>'<li><b>'+esc(CATN[a.cat]||'')+' – '+esc(nodot(a.text))+'.</b> Hvorfor: '+chain(a)+'</li>').join('')+'</ul>':'';
+  const tbl=l=>l.length?'<table><thead><tr><th>Tiltak</th><th>Ansvarlig</th><th>Frist</th><th>Status</th><th>Effektvurdering</th></tr></thead><tbody>'+l.map(a=>'<tr><td>'+esc(a.text||'')+'</td><td>'+esc(a.ownerName||'—')+'</td><td>'+(a.due?fmtDay(a.due):'—')+(overdue(a)?' <b class="bad">over frist</b>':'')+'</td><td>'+esc((PDCA.find(p=>p[0]===(a.pdca||'ikke'))||['',''])[1])+'</td><td>'+esc(a.effect||'Ikke vurdert ennå')+'</td></tr>').join('')+'</tbody></table>':'<p>Ingen registrert.</p>';
+  const tl=[];
+  reps.forEach(r=>tl.push([r.when||r.createdAt,'Hendelse meldt'+(r.createdByName?' av '+r.createdByName:'')+': '+sit(kort(r.text,140))]));
+  tl.push([c.createdAt,'Sak #'+c.nr+' opprettet'+(c.createdByName?' av '+c.createdByName:'')]);
+  if(c.rcaDone)tl.push([c.rcaDone.at,'Rotårsaksanalysen markert som utført av '+c.rcaDone.by]);
+  as.filter(a=>a.pdca==='lukket'&&a.closedAt).forEach(a=>tl.push([a.closedAt,'Tiltak lukket'+(a.closedBy?' av '+a.closedBy:'')+': '+sit(kort(a.text,90))+(a.effect?' — '+a.effect:'')]));
+  if(c.archivedAt)tl.push([c.archivedAt,'Saken ferdigstilt'+(c.archivedBy?' av '+c.archivedBy:'')+(c.archiveComment?': '+c.archiveComment:'')]);
+  tl.sort((a,b)=>(a[0]||0)-(b[0]||0));
+  let mes='<p>'+(onLine?'Ingen stopp registrert i MES på '+esc(c.line)+(c.machine?' / '+esc(c.machine):'')+' de siste 90 dagene.':'Saken er ikke koblet til en linje i MES, så omfanget er ikke målt.')+'</p>';
+  if(m90.length){
+    const agg={};m90.forEach(e=>{const k=(e.machine||'—')+' · '+(e.cause||'ukjent årsak');const a=agg[k]=agg[k]||{k,n:0,min:0};a.n++;a.min+=e.duration||0;});
+    const top=Object.values(agg).sort((a,b)=>b.min-a.min).slice(0,3), l30=mesFor(c,now-30*DAY), p30=mesFor(c,now-60*DAY,now-30*DAY);
+    mes='<p>MES har registrert <b>'+m90.length+' stopp</b> med til sammen <b>'+fmtD(sum(m90))+'</b> nedetid de siste 90 dagene på '+esc(c.line)+(c.machine?' / '+esc(c.machine):'')+(c.cause?' med årsak «'+esc(c.cause)+'»':'')+(!c.machine&&!c.cause?' (alle uplanlagte stopp på linja)':'')+'. Siste 30 dager: '+l30.length+' stopp ('+fmtD(sum(l30))+'), mot '+p30.length+' ('+fmtD(sum(p30))+') de 30 dagene før.</p>'
+      +'<ul>'+top.map(a=>'<li>'+esc(a.k)+': '+a.n+' stopp, '+fmtD(a.min)+'</li>').join('')+'</ul>';
+  }
+  const avskr=cs.filter(a=>a.flag==='ikke'||a.klass==='ikke'), uklass=cs.filter(a=>!a.klass&&a.flag==='mulig');
+  return '<div class="report"><h3 style="margin-top:0">Sak #'+c.nr+' – '+esc(c.title||'')+'</h3><p><b>Sted:</b> '+esc(c.where||c.line||'—')+' | <b>Prioritet:</b> '+PRI[c.priority||'medium']+' | <b>Status:</b> '+(c.status==='archived'?'Arkivert':esc(stageName(c)))+' | <b>Rapportert av:</b> '+esc(c.createdByName||'—')+' | <b>Analyseansvarlig:</b> '+esc(c.ownerName||'ikke satt')+(Object.keys(c.participants||{}).length?' | <b>Deltakere:</b> '+esc(Object.keys(c.participants).map(u=>c.participants[u]).join(', ')):'')+'</p>'
+    +'<h3>Sammendrag</h3><p>'+summaryText(c).map(esc).join(' ')+'</p>'
+    +'<h3>Problembeskrivelse</h3><p>'+esc(c.problem||reps.map(r=>r.text).join(' ')||'Ingen beskrivelse registrert.')+'</p>'
+    +'<h3>Hendelsesforløp</h3><ul>'+tl.map(x=>'<li><b>'+fmtDay(x[0])+'</b> — '+esc(x[1])+'</li>').join('')+'</ul>'
+    +'<h3>Omfang</h3>'+mes
+    +'<h3>Fakta</h3>'+(arr(c.facts).filter(f=>f.text).length?'<ul>'+arr(c.facts).filter(f=>f.text).map(f=>'<li>'+esc(f.text)+'</li>').join('')+'</ul>':'<p>Ingen fakta registrert.</p>')
+    +'<h3>Rotårsaksanalyse</h3>'+(cs.length?'<p>'+cs.length+' mulige årsaker er vurdert: '+CATS.map(k=>[k[0],cs.filter(a=>a.cat===k[0]).length]).filter(x=>x[1]).map(x=>esc(CATN[x[0]])+' ('+x[1]+')').join(', ')+'.</p>'
+        +grp(cs.filter(a=>a.klass==='rot'),'Rotårsaker')+grp(cs.filter(a=>a.klass==='medv'),'Medvirkende faktorer')+grp(cs.filter(a=>a.klass==='symptom'),'Symptomer')+grp(uklass,'Mulige årsaker som ikke er klassifisert ennå')
+        +(avskr.length?'<p><b>Vurdert og avskrevet:</b> '+avskr.map(a=>esc(nodot(a.text))).join('; ')+'.</p>':''):'<p>Ingen årsaker er lagt inn ennå.</p>')
+    +'<h3>Tiltak</h3><p>Totalt er '+as.length+' tiltak registrert, '+as.filter(actOpen).length+' åpne.</p><p><b>Korrigerende tiltak</b></p>'+tbl(as.filter(a=>a.type!=='foreb'))+'<p><b>Forebyggende tiltak</b></p>'+tbl(as.filter(a=>a.type==='foreb'))
+    +'<h3>Effekt</h3><p>'+(ef?esc(effSentence(ef)):onLine?'Effekten regnes automatisk fra stoppene i MES når et tiltak er lukket eller saken er arkivert.':'Effekten kan ikke måles automatisk fordi saken ikke er koblet til en linje i MES.')+'</p>'
+    +'<h3>Vurdering og anbefalte neste steg</h3>'+(bad.length?'<ul>'+bad.map(x=>'<li>'+esc(x.t)+'</li>').join('')+'</ul>':'<p>Alle kontrollpunktene er oppfylt'+(c.status==='archived'?'.':ad.open?'. '+ad.open+' tiltak gjenstår før saken kan ferdigstilles.':'. Saken kan ferdigstilles.')+'</p>')
+    +'<h3>Møteplan</h3>'+(arr(c.meetings).length?'<ul>'+arr(c.meetings).sort((a,b)=>(a.when||0)-(b.when||0)).map(x=>'<li>'+fmtT(x.when)+' — '+esc(x.text||'')+'</li>').join('')+'</ul>':'<p>Ingen møter registrert.</p>')
+    +'<h3>Standardisering og læring</h3><p>'+esc(c.std||'Ingen standardiseringsbeslutninger registrert.')+'</p>'
+    +'<h3>Konklusjon</h3><p>'+(c.conclusion?esc(c.conclusion):autoConclusion(c)?esc(autoConclusion(c))+' <i>(automatisk utkast — ikke godkjent)</i>':'Ikke skrevet ennå.')+'</p>'
+    +'<p class="sub" style="margin-top:14px">Rapporten er satt sammen automatisk av det som er registrert i saken og i MES, '+fmtT(now)+'.</p></div>';
+}
+
+/* ── Samlerapport for perioden ── */
+let RPER=90;
+function vRapport(){
+  const now=Date.now(), from=now-RPER*DAY, inP=t=>!!t&&t>=from, per=RPER===365?'siste 12 måneder':'siste '+RPER+' dager';
+  const all=cases(), open=openCases(), nye=all.filter(c=>inP(c.createdAt)), ferdig=all.filter(c=>c.status==='archived'&&inP(c.archivedAt));
+  const repsP=reports().filter(r=>inP(r.createdAt)), inb=inbox(), gamle=inb.filter(r=>(r.createdAt||0)<now-7*DAY);
+  const lead=ferdig.filter(c=>c.createdAt).map(c=>(c.archivedAt-c.createdAt)/DAY), snitt=lead.length?Math.round(lead.reduce((a,b)=>a+b,0)/lead.length):null;
+  const acts=allActions(), aOpen=acts.filter(a=>actOpen(a)&&!a.caseArch), aOver=aOpen.filter(overdue).sort((a,b)=>String(a.due).localeCompare(String(b.due))), aLuk=acts.filter(a=>a.pdca==='lukket'&&inP(a.closedAt));
+  const scope=all.filter(c=>inP(c.createdAt)||c.status!=='archived'||inP(c.archivedAt));
+  const catN={};let rotTot=0;scope.forEach(c=>arr(c.causes).forEach(a=>{if(a.text&&CATN[a.cat]&&(a.klass==='rot'||a.klass==='medv')){catN[a.cat]=(catN[a.cat]||0)+1;rotTot++;}}));
+  const catTop=Object.keys(catN).sort((a,b)=>catN[b]-catN[a]);
+  const lk=LINES.slice();scope.forEach(c=>{const l=c.line||'Annet';if(!lk.includes(l))lk.push(l);});
+  const rows=lk.map(l=>{const f=c=>(c.line||'Annet')===l, ev=LINES.includes(l)?EVENTS.filter(e=>e.line===l&&e.ts>=from&&!isPlanned(e.cause)):[];return {l,nye:nye.filter(f).length,open:open.filter(f).length,ferdig:ferdig.filter(f).length,n:ev.length,min:sum(ev)};}).filter(r=>r.nye||r.open||r.ferdig);
+  const stuck=open.filter(c=>lastChange(c)<now-14*DAY).sort((a,b)=>lastChange(a)-lastChange(b));
+  const own={}, o=k=>own[k]=own[k]||{open:0,over:0,luk:0};
+  aOpen.forEach(a=>{const x=o(a.ownerName||'Uten ansvarlig');x.open++;if(overdue(a))x.over++;});aLuk.forEach(a=>{o(a.ownerName||'Uten ansvarlig').luk++;});
+  const rec=arr(RECUR).map(r=>{const cs=all.filter(c=>c.recurringId===r.id);let n=0,min=0;cs.forEach(c=>{const m=mesFor(c,from);n+=m.length;min+=sum(m);});return {r,cs,n,min};}).filter(x=>x.cs.length).sort((a,b)=>b.cs.length-a.cs.length);
+  const uten=open.filter(c=>!c.owner), hoy=open.filter(c=>c.priority==='high'), treg=open.filter(c=>!c.rcaDone&&(c.createdAt||now)<now-30*DAY);
+  const st=k=>open.filter(c=>(c.stage||'opprettet')===k).length;
+  const nrs=l=>l.slice(0,6).map(c=>'#'+c.nr).join(', ')+(l.length>6?' …':'');
+  /* anbefalinger */
+  const R=[];
+  if(aOver.length)R.push(aOver.length+' tiltak er over frist. Eldst: '+sit(kort(aOver[0].text,60))+' i sak #'+aOver[0].caseNr+' ('+(aOver[0].ownerName||'uten ansvarlig')+', frist '+fmtDay(aOver[0].due)+').');
+  if(uten.length)R.push(uten.length+' åpne sak'+(uten.length>1?'er':'')+' mangler analyseansvarlig: '+nrs(uten)+'.');
+  if(gamle.length)R.push(gamle.length+' rapport'+(gamle.length>1?'er':'')+' har ventet over en uke i rapportmottaket.');
+  if(stuck.length)R.push(stuck.length+' sak'+(stuck.length>1?'er':'')+' har ikke vært rørt på 14 dager: '+nrs(stuck)+'.');
+  if(treg.length)R.push(treg.length+' sak'+(treg.length>1?'er':'')+' er eldre enn 30 dager uten ferdig rotårsaksanalyse: '+nrs(treg)+'.');
+  const topL=rows.slice().sort((a,b)=>b.nye-a.nye)[0];
+  if(topL&&topL.nye>=2)R.push('Flest nye saker kommer fra '+topL.l+' ('+topL.nye+' av '+nye.length+').');
+  if(rotTot>=3)R.push('«'+CATN[catTop[0]]+'» står bak '+Math.round(catN[catTop[0]]/rotTot*100)+' % av rot- og medvirkende årsaker. '+CATRAD[catTop[0]]);
+  if(rec.length&&rec[0].cs.length>=2)R.push('Det gjentagende problemet «'+rec[0].r.name+'» samler '+rec[0].cs.length+' saker'+(rec[0].n?' og '+fmtD(rec[0].min)+' nedetid i perioden':'')+' — vurder ett felles tiltak i stedet for å løse sakene hver for seg.');
+  const S=['I perioden kom det inn '+repsP.length+' hendelsesrapport'+(repsP.length===1?'':'er')+', og '+nye.length+' ny'+(nye.length===1?'':'e')+' sak'+(nye.length===1?'':'er')+' ble opprettet.',
+    ferdig.length?ferdig.length+' sak'+(ferdig.length===1?'':'er')+' ble ferdigstilt, med '+snitt+' dager i snitt fra opprettet til arkivert.':'Ingen saker ble ferdigstilt.',
+    'Nå er '+open.length+' sak'+(open.length===1?'':'er')+' åpne: '+st('opprettet')+' opprettet, '+st('undersoker')+' under undersøkelse og '+st('bekreftet')+' med bekreftet rotårsak. '+hoy.length+' har høy prioritet, og '+uten.length+' mangler analyseansvarlig.',
+    inb.length+' rapport'+(inb.length===1?'':'er')+' venter i mottaket.',
+    'Det er '+aOpen.length+' åpne tiltak, hvorav '+aOver.length+' over frist; '+aLuk.length+' tiltak ble lukket i perioden.'];
+  const kpi=(l,v,cls)=>'<div class="kpi"><div class="kl">'+l+'</div><div class="kv'+(cls?' '+cls:'')+'">'+v+'</div></div>';
+  const mx=Math.max.apply(null,[1].concat(catTop.map(k=>catN[k])));
+  return '<div class="bar noprint"><div><h1>📊 Rapport</h1><div class="lead" style="margin:0">Skrives automatisk av sakene, tiltakene og stoppene i MES — faste regler, ingen AI.</div></div><span style="margin-left:auto"></span>'
+    +[[30,'30 dager'],[90,'90 dager'],[365,'12 måneder']].map(p=>'<button class="chip'+(RPER===p[0]?' on':'')+'" data-act="rper" data-v="'+p[0]+'">'+p[1]+'</button>').join('')
+    +'<button class="b" data-act="kopirap">📋 Kopier tekst</button><button class="b" onclick="window.print()">📄 Skriv ut</button></div>'
+    +'<div class="card" style="max-width:1000px;margin:0 auto"><div class="report"><h3 style="margin-top:0;font-size:18px">Forbedringsrapport — '+per+'</h3><p class="sub">'+fmtDay(from)+' – '+fmtDay(now)+' · laget '+fmtT(now)+'</p>'
+    +'<h3>Sammendrag</h3><p>'+S.map(esc).join(' ')+'</p>'
+    +'<div class="kpis" style="margin:10px 0">'+kpi('Nye saker',nye.length)+kpi('Ferdigstilt',ferdig.length,ferdig.length?'good':'')+kpi('Åpne nå',open.length)+kpi('Snitt behandlingstid',snitt==null?'—':snitt+' d')+kpi('Åpne tiltak',aOpen.length)+kpi('Over frist',aOver.length,aOver.length?'bad':'good')+'</div>'
+    +'<h3>Anbefalinger</h3>'+(R.length?'<ul>'+R.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>':'<p>Ingen avvik å melde — saker og tiltak er i rute.</p>')
+    +'<h3>Saker per linje</h3>'+(rows.length?'<table><thead><tr><th>Linje</th><th>Nye</th><th>Åpne nå</th><th>Ferdigstilt</th><th>Stopp i MES</th><th>Nedetid i MES</th></tr></thead><tbody>'+rows.map(r=>'<tr><td><b>'+esc(r.l)+'</b></td><td>'+r.nye+'</td><td>'+r.open+'</td><td>'+r.ferdig+'</td><td>'+(LINES.includes(r.l)?r.n:'—')+'</td><td>'+(LINES.includes(r.l)?fmtD(r.min):'—')+'</td></tr>').join('')+'</tbody></table><p class="sub">MES-tallene er alle reelle stopp på linja i perioden, ikke bare de som har en sak.</p>':'<p>Ingen saker i perioden.</p>')
+    +'<h3>Hva er rotårsakene?</h3>'+(rotTot?'<p>'+rotTot+' rot- og medvirkende årsaker i saker som er nye, åpne eller ferdigstilt i perioden.</p>'+catTop.map(k=>'<div class="hbar"><span>'+esc(CATN[k])+'</span><span><i style="width:'+Math.round(catN[k]/mx*100)+'%"></i></span><b>'+catN[k]+'</b></div>').join(''):'<p>Ingen årsaker er klassifisert som rotårsak eller medvirkende ennå.</p>')
+    +'<h3>Tiltak per ansvarlig</h3>'+(Object.keys(own).length?'<table><thead><tr><th>Ansvarlig</th><th>Åpne</th><th>Over frist</th><th>Lukket i perioden</th></tr></thead><tbody>'+Object.keys(own).sort((a,b)=>own[b].over-own[a].over||own[b].open-own[a].open).map(k=>'<tr><td>'+esc(k)+'</td><td>'+own[k].open+'</td><td>'+(own[k].over?'<b class="bad">'+own[k].over+'</b>':'0')+'</td><td>'+own[k].luk+'</td></tr>').join('')+'</tbody></table>':'<p>Ingen tiltak registrert.</p>')
+    +(aOver.length?'<h3>Tiltak over frist</h3><table><thead><tr><th>Frist</th><th>Tiltak</th><th>Sak</th><th>Ansvarlig</th></tr></thead><tbody>'+aOver.slice(0,10).map(a=>'<tr style="cursor:pointer" data-go="sak" data-id="'+a.caseId+'"><td><b class="bad">'+fmtDay(a.due)+'</b></td><td>'+esc(a.text||'')+'</td><td>#'+a.caseNr+' '+esc(kort(a.caseTitle,40))+'</td><td>'+esc(a.ownerName||'—')+'</td></tr>').join('')+'</tbody></table>':'')
+    +(rec.length?'<h3>Gjentagende problemer</h3><table><thead><tr><th>Problem</th><th>Saker</th><th>Stopp i MES</th><th>Nedetid i MES</th></tr></thead><tbody>'+rec.map(x=>'<tr><td><b>'+esc(x.r.name)+'</b></td><td>'+x.cs.length+' ('+x.cs.filter(c=>c.status!=='archived').length+' åpne)</td><td>'+x.n+'</td><td>'+fmtD(x.min)+'</td></tr>').join('')+'</tbody></table>':'')
+    +(open.length?'<h3>Åpne saker, eldste først</h3><table><thead><tr><th>Sak</th><th>Linje</th><th>Fase</th><th>Ansvarlig</th><th>Alder</th><th>Neste steg</th></tr></thead><tbody>'+open.slice().sort((a,b)=>(a.createdAt||0)-(b.createdAt||0)).slice(0,12).map(c=>{const ad=advise(c), n=ad.L.find(x=>!x.ok);return '<tr style="cursor:pointer" data-go="sak" data-id="'+c.id+'"><td><b>#'+c.nr+'</b> '+esc(kort(c.title,45))+'</td><td>'+esc(c.line||'—')+'</td><td>'+esc(stageName(c))+'</td><td>'+esc(c.ownerName||'—')+'</td><td>'+Math.round((now-(c.createdAt||now))/DAY)+' d</td><td>'+esc(n?kort(n.t,90):ad.open?ad.open+' tiltak gjenstår':'Kan ferdigstilles')+'</td></tr>';}).join('')+'</tbody></table>':'')
+    +'</div></div>';
 }
 
 /* ═════════ DEMO-DATA ═════════
@@ -578,7 +990,7 @@ async function createCase(rep,extra){
   const tr=await db.ref('rca/counter').transaction(n=>(n||0)+1).catch(()=>null);
   if(!tr||!tr.committed){fail();return null;}
   const nr=tr.snapshot.val(), ref=db.ref('rca/cases').push(), now=Date.now();
-  const c=Object.assign({nr,title:(rep.text||'Ny sak').slice(0,90),priority:'medium',stage:'opprettet',status:'open',line:rep.line||'',where:[rep.line,rep.where].filter(Boolean).join(' ')||'',machine:rep.machine||'',cause:rep.cause||'',createdAt:now,createdBy:rep.createdBy||UID,createdByName:rep.createdByName||me()},extra||{});
+  const c=Object.assign({nr,title:titleFor(rep.text||'Ny sak'),priority:prioFor(rep),stage:'opprettet',status:'open',line:rep.line||'',where:[rep.line,rep.where].filter(Boolean).join(' ')||'',machine:rep.machine||'',cause:rep.cause||'',createdAt:now,createdBy:rep.createdBy||UID,createdByName:rep.createdByName||me()},extra||{});
   await ref.set(c).catch(fail);
   if(rep.id)await db.ref('rca/reports/'+rep.id+'/caseId').set(ref.key);
   logCase(ref.key,'opprettet saken'+(rep.id?' fra rapport':''));
@@ -602,11 +1014,16 @@ document.addEventListener('click',async ev=>{
     if(a==='filt'){FILT=d.v;render();return;}
     if(a==='afilt'){AFILT=d.v;render();return;}
     if(a==='folg'){upd(P+'followers/'+UID,(CASES[CASE].followers||{})[UID]?null:true);return;}
+    if(a==='rper'){RPER=+d.v;render();return;}
+    if(a==='kopirap'){copyText(document.querySelector('#main .report'),t);return;}
     if(!canEdit()){alert('Du har ikke tilgang til å behandle saker. Master gir «Tavle-tilgang» under Brukere.');return;}
     if(a==='nysak'){const r=Object.assign({id:d.id},REPORTS[d.id]);const id=await createCase(r);if(id)go('sak',id);return;}
     if(a==='koble'){pick('Koble rapporten til en sak',openCases().map(c=>[c.id,'#'+c.nr+' '+(c.title||'')]),id=>{db.ref('rca/reports/'+d.id+'/caseId').set(id).catch(fail);logCase(id,'koblet til en ny rapport');});return;}
     if(a==='arkrep'){upd('rca/reports/'+d.id+'/archived',true);return;}
     if(a==='gjenrep'){upd('rca/reports/'+d.id+'/archived',null);return;}
+    if(a==='forslag'){openSuggest(d.v);return;}
+    if(a==='bruk'){const c=Object.assign({},CASES[CASE],{id:CASE}), tx=AUTO[d.v](c);if(tx){upd(P+d.v,tx);logCase(CASE,'brukte foreslått '+AUTON[d.v]);}return;}
+    if(a==='koblesim'){db.ref('rca/reports/'+d.id+'/caseId').set(d.case).catch(fail);logCase(d.case,'koblet til en ny rapport');return;}
     if(a==='demoinn'){loadDemo();return;}
     if(a==='demout'){removeDemo();return;}
     if(a==='mesrap'){const id=await createCase({text:d.cause+' — '+(d.machine||d.line)+' ('+d.n+' ganger, '+fmtD(+d.min)+' siste 30 dager)',line:d.line,where:d.machine,machine:d.machine,cause:d.cause},{problem:'Stoppen «'+d.cause+'» på '+d.line+(d.machine?' / '+d.machine:'')+' har gjentatt seg '+d.n+' ganger de siste 30 dagene, til sammen '+fmtD(+d.min)+' nedetid.'});if(id)go('sak',id);return;}
