@@ -234,6 +234,11 @@ function csvToRows(text){
    kolonner (tid, antall); kolonner uten egen dato arver fra venstre.
    Gjenkjennes på en rad med minst to datoer. Returnerer lange rader. */
 function matrixToLong(arr){
+  /* En vanlig liste har Dato, Linje/Maskin og Antall som overskrifter i SAMME rad — matrisen har
+     dem i hver sin rad. Uten denne sjekken ble en liste med art.nr «12157» og antall «7362» tatt for
+     en matrise (18.11.2026), fordi normDate godtok rene tall som datoer. */
+  const isList=arr.slice(0,6).some(r=>{const c=r.map(x=>String(x||'').trim());return c.some(x=>/^dato$|^date$/i.test(x))&&c.some(x=>/linje|maskin|line/i.test(x))&&c.some(x=>/antall|mål|quantity/i.test(x));});
+  if(isList)return null;
   const dateRow=arr.findIndex(r=>r.filter(c=>normDate(c)).length>=2);
   if(dateRow<0)return null;
   const dates=arr[dateRow].map(c=>normDate(c));
@@ -347,6 +352,10 @@ function normDate(v){
     if(mo>12&&d<=12){const t=d;d=mo;mo=t;}   // amerikansk m/d/y fra Excel
     if(mo<1||mo>12||d<1||d>31)return '';
     return y+'-'+pad(mo)+'-'+pad(d);}
+  /* Siste utvei er nettleserens egen tolkning («Wed Nov 18 2026», «18 Nov 2026»). Den er MEGET raus:
+     new Date('12157') er år 12157, og Chrome leser også «ROYAL VANILJE 8» som en dato. Slipp derfor
+     bare gjennom tekst med et månedsnavn og et firesifret årstall. */
+  if(s.length>40||!/\b(jan|feb|mar|apr|ma[iy]|jun|jul|aug|sep|o[ck]t|nov|de[cs])/i.test(s)||!/\b(19|20)\d{2}\b/.test(s))return '';
   const d=new Date(s); if(!isNaN(d))return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
   return '';
 }
