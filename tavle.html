@@ -679,7 +679,7 @@ function techCard(line){
   if(line&&!l.length)return '';
   return '<div class="card"><div class="hdr" style="background:var(--amber)">Oppfølging fra teknisk skiftrapport'+(l.length?' ('+l.length+')':'')+'</div>'
     +(l.length?l.map(x=>'<div class="tfu"><input type="checkbox" class="tdone" data-id="'+esc(x.id)+'" data-date="'+esc(x.date)+'" data-skift="'+esc(x.skift)+'"'+(canFollow()?'':' disabled')+' title="Marker som fulgt opp"><div><b>'+esc(x.text||'(uten beskrivelse)')+'</b>'
-        +'<div class="who">'+(line?'':'<span class="lbl" style="font-size:10px;padding:1px 6px">'+esc(x.line||'—')+'</span> ')+(x.area?esc(x.area)+' · ':'')+(x.ao?'AO '+esc(x.ao)+' · ':'')+fmtDM(new Date(x.date+'T12:00:00').getTime())+' '+esc(x.skift)+'skift · '+esc(x.initials||'')+'</div></div></div>').join('')
+        +'<div class="who">'+(line?'':'<span class="lbl" style="font-size:10px;padding:1px 6px">'+esc(x.line||'—')+'</span> ')+(x.area?esc(x.area)+' · ':'')+(x.ao?'AO '+esc(x.ao)+' · ':'')+fmtDM(new Date(x.date+'T12:00:00').getTime())+' '+esc(x.skift)+'skift · '+esc(x.byName||x.initials||'')+'</div></div></div>').join('')
       :'<div class="empty">Ingenting venter på oppfølging.</div>')
     +'<div class="sub" style="margin-top:6px"><a href="teknisk.html?vis=oppf" style="color:var(--blue)">Åpne teknisk skiftrapport →</a></div></div>';
 }

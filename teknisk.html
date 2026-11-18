@@ -46,7 +46,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent)}
 .sub{font-size:11.5px;color:var(--text3)}
 .good{color:var(--green)}.warn{color:var(--amber)}.bad{color:var(--red)}
 /* rapporten — som Excel-arket: Maskin | Området | Beskrivelse | AO | Status | Initialer */
-.rhead,.r{display:grid;grid-template-columns:150px 1fr 100px 250px 52px 30px;gap:6px;align-items:start}
+.rhead,.r{display:grid;grid-template-columns:150px 1fr 100px 250px 130px 30px;gap:6px;align-items:start}
 .rhead{background:var(--navy);color:#fff;font-size:12px;font-weight:600;padding:7px 8px 7px 6px;margin-left:130px}
 .rhead span{padding:0 4px}
 .phead{display:none}
@@ -66,7 +66,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent)}
 .stb button.on[data-st=oppf]{background:var(--amber);border-color:var(--amber);color:#fff}
 .stb button.on[data-st=ok]{background:var(--green);border-color:var(--green);color:#fff}
 .stb.mangler button{border-color:var(--amber)}
-.ini{font-family:var(--mono);font-size:12px;font-weight:600;text-align:center;padding:9px 0;color:var(--text2)}
+.ini{font-size:12px;font-weight:600;padding:9px 2px;color:var(--text2);line-height:1.3;word-break:break-word}
 .x{background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:8px 4px}.x:hover{color:var(--red)}
 .note{grid-column:1/-1;font-size:12px;color:var(--text2);padding:0 2px 2px}
 .mlbl{display:none}
@@ -161,10 +161,10 @@ table.lg tr.helg td{background:rgba(128,128,128,.06)}
     </div>
     <div class="card" style="padding:0;overflow:hidden">
       <div class="phead" id="phead"></div>
-      <div class="rhead"><span>Området</span><span>Beskrivelse — hva er gjort?</span><span>AO</span><span>Status</span><span>Init.</span><span></span></div>
+      <div class="rhead"><span>Området</span><span>Beskrivelse — hva er gjort?</span><span>AO</span><span>Status</span><span>Bruker</span><span></span></div>
       <div id="rap"></div>
     </div>
-    <div class="sub noprint" style="padding:0 4px">Lagres mens du skriver — det finnes ingen lagre-knapp. Initialene settes fra brukeren din. «Trenger oppfølging» legger posten på Teknisk-tavla til noen markerer den som fulgt opp.</div>
+    <div class="sub noprint" style="padding:0 4px">Lagres mens du skriver — det finnes ingen lagre-knapp. Navnet ditt settes automatisk fra brukeren du er logget inn med. «Trenger oppfølging» legger posten på Teknisk-tavla til noen markerer den som fulgt opp.</div>
   </div>
   <div id="v-oppf" style="display:none"></div>
   <div id="v-logg" style="display:none"></div>
@@ -175,12 +175,13 @@ table.lg tr.helg td{background:rgba(128,128,128,.06)}
 /* ═══════════════════════════════════════════════════════════════════════════
    SKIFTRAPPORT TEKNISK (18.11.2026) — etter teknisk avdelings Excel-ark «Skiftrapport mal»:
    én rapport per dato og skift, med rader per linje/maskin: Området · Beskrivelse · AO ·
-   Status (trenger oppfølging / trenger ikke) · Initialer (settes fra brukeren).
+   Status (trenger oppfølging / trenger ikke) · Bruker (navnet settes fra innloggingen — vises
+   i stedet for initialer; feltet initials lagres fortsatt, men brukes bare når byName mangler).
 
    techReports/{YYYY-MM-DD}/{dag|kveld|natt}/e/{id} = {line, area, text, ao, status:'oppf'|'ok',
         initials, by, byName, at, editedBy?, editedAt?, done?:{by,byName,initials,at,note}}
    techReports/{dato}/{skift}/none = {by,byName,initials,at}   «ingenting å melde» — skiftet er ført
-   techOpen/{id} = {date, skift, line, area, text, ao, initials, at}
+   techOpen/{id} = {date, skift, line, area, text, ao, initials, byName, at}
         Kopi av hver post som trenger oppfølging og ikke er fulgt opp. Tavla (Teknisk) og fanen
         Oppfølging leser bare denne lille noden, så en gammel oppfølging aldri faller ut av et
         datovindu. Skrives ALLTID sammen med posten i én update (saveEntry) — ikke skriv til
@@ -206,6 +207,8 @@ const fmtDay=k=>{const d=pd(k);return pad(d.getDate())+'.'+pad(d.getMonth()+1)+'
 const fmtT=ts=>{const d=new Date(ts);return pad(d.getDate())+'.'+pad(d.getMonth()+1)+' '+pad(d.getHours())+':'+pad(d.getMinutes());};
 function isoWeek(d){const t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));const day=t.getUTCDay()||7;t.setUTCDate(t.getUTCDate()+4-day);const y=new Date(Date.UTC(t.getUTCFullYear(),0,1));return Math.ceil(((t-y)/86400000+1)/7);}
 function ini(name){return String(name||'').trim().split(/\s+/).map(w=>w.charAt(0)).join('').toUpperCase().slice(0,3)||'?';}
+/* Hvem: brukernavnet. Eldre poster kan ha bare initialer. */
+function who(x){return (x&&(x.byName||x.initials))||'';}
 function canWrite(){return !!(USER&&(USER.role==='master'||USER.role==='leder'||USER.techAccess===true));}
 function isStaff(){return !!(USER&&(USER.role==='master'||USER.role==='leder'));}
 function lines(){const l=SETTINGS.techLines;return Array.isArray(l)&&l.length?l.filter(Boolean):DEF_LINES;}
@@ -231,7 +234,7 @@ auth.onAuthStateChanged(async user=>{
   UID=user.uid;
   const s=await db.ref('users/'+user.uid).once('value');USER=s.val();
   if(!USER){auth.signOut();location.href='login.html';return;}
-  document.getElementById('ubadge').textContent=USER.name+' · '+ini(USER.name);
+  document.getElementById('ubadge').textContent=USER.name+' · '+(USER.role==='master'?'Master':USER.role==='leder'?'Leder':'Tekniker');
   if(!canWrite()){document.getElementById('gate').style.display='block';return;}
   document.getElementById('app').style.display='block';
   document.getElementById('b-lines').style.display=isStaff()?'':'none';
@@ -270,13 +273,13 @@ function saveEntry(date,skift,id,patch,isNew){
   const node=((REP[date]=REP[date]||{})[skift]=REP[date][skift]||{}), map=(node.e=node.e||{}), cur=map[id]||{}, now=Date.now();
   const e=Object.assign({},cur,patch);
   if(isNew){e.by=UID;e.byName=USER.name;e.initials=ini(USER.name);e.at=now;}
-  else if(cur.by&&cur.by!==UID&&!('done' in patch)){e.editedBy=ini(USER.name);e.editedAt=now;}
+  else if(cur.by&&cur.by!==UID&&!('done' in patch)){e.editedBy=ini(USER.name);e.editedByName=USER.name;e.editedAt=now;}
   Object.keys(e).forEach(k=>{if(e[k]===''||e[k]==null)delete e[k];});
   map[id]=e;delete node.none;                                   // optimistisk, så neste felt bygger videre på denne
   const u={};
   u['techReports/'+date+'/'+skift+'/e/'+id]=e;
   u['techReports/'+date+'/'+skift+'/none']=null;
-  u['techOpen/'+id]=(e.status==='oppf'&&!e.done)?{date,skift,line:e.line||'',area:e.area||'',text:e.text||'',ao:e.ao||'',initials:e.initials||'',at:e.at||now}:null;
+  u['techOpen/'+id]=(e.status==='oppf'&&!e.done)?{date,skift,line:e.line||'',area:e.area||'',text:e.text||'',ao:e.ao||'',initials:e.initials||'',byName:e.byName||'',at:e.at||now}:null;
   return db.ref().update(u).catch(fail);
 }
 function removeEntry(date,skift,id){
@@ -307,11 +310,11 @@ function rowHTML(line,e){
     +'<textarea data-f="text" rows="1" placeholder="'+(isNew?'Skriv hva som er gjort …':'Beskrivelse')+'" aria-label="Beskrivelse">'+esc(e.text||'')+'</textarea>'
     +'<input data-f="ao" value="'+esc(e.ao||'')+'" placeholder="AO-nr" aria-label="AO-nummer">'
     +'<div class="stb'+(!isNew&&!st&&filled(e)?' mangler':'')+'"><button type="button" data-st="oppf"'+(st==='oppf'?' class="on"':'')+'>Trenger oppfølging</button><button type="button" data-st="ok"'+(st==='ok'?' class="on"':'')+'>Trenger ikke</button></div>'
-    +'<div class="ini" title="'+esc(e.byName||'')+(e.editedBy?' · endret av '+esc(e.editedBy):'')+'">'+esc(isNew?'':e.initials||'')+(e.editedBy?'<span class="sub">*</span>':'')+'</div>'
+    +'<div class="ini">'+esc(isNew?'':who(e))+(e.editedBy?'<div class="sub" style="font-weight:400">endret av '+esc(e.editedByName||e.editedBy)+'</div>':'')+'</div>'
     +(isNew?'<span></span>':'<button type="button" class="x" data-del title="Slett posten">✕</button>')
     +(!isNew&&!st&&filled(e)?'<div class="note warn">Velg status: trenger dette oppfølging?</div>':'')
     +(st==='oppf'&&!e.done?'<div class="note warn">⚠ Ligger på Teknisk-tavla til noen har fulgt opp. <button type="button" class="bg" data-done style="padding:3px 9px;font-size:12px;margin-left:4px">✓ Fulgt opp</button></div>':'')
-    +(st==='oppf'&&e.done?'<div class="note good">✓ Fulgt opp av '+esc(e.done.initials||e.done.byName||'')+' '+fmtT(e.done.at)+(e.done.note?' — '+esc(e.done.note):'')+' <button type="button" class="bg noprint" data-undone style="padding:3px 9px;font-size:12px;margin-left:4px">Angre</button></div>':'')
+    +(st==='oppf'&&e.done?'<div class="note good">✓ Fulgt opp av '+esc(who(e.done))+' '+fmtT(e.done.at)+(e.done.note?' — '+esc(e.done.note):'')+' <button type="button" class="bg noprint" data-undone style="padding:3px 9px;font-size:12px;margin-left:4px">Angre</button></div>':'')
     +'</div>';
 }
 function renderRap(){
@@ -324,7 +327,7 @@ function renderRap(){
   const sd=shiftDef()[SKIFT]||{};
   document.getElementById('stat').innerHTML='<b>'+DAGER[d.getDay()]+' '+fmtDay(DATE)+' · '+SKIFT_N[SKIFT]+'skift</b> <span class="sub">'+esc(sd.start||'')+'–'+esc(sd.end||'')+'</span>'
     +(real.length?'<span>'+real.length+' post'+(real.length===1?'':'er')+'</span>'+(oppf?'<span class="warn"><b>'+oppf+' trenger oppfølging</b></span>':'')+(nostat?'<span class="warn">'+nostat+' uten status</span>':'')
-      :node.none?'<span class="good"><b>✓ Ingenting å melde</b> — '+esc(node.none.initials||'')+' '+fmtT(node.none.at)+'</span><button type="button" class="bg" data-act="unnone" style="padding:4px 10px;font-size:12px">Angre</button>'
+      :node.none?'<span class="good"><b>✓ Ingenting å melde</b> — '+esc(who(node.none))+' '+fmtT(node.none.at)+'</span><button type="button" class="bg" data-act="unnone" style="padding:4px 10px;font-size:12px">Angre</button>'
       :'<span class="sub">Ikke ført ennå'+(Date.now()>sp[1]?' — skiftet er over':'')+'.</span><button type="button" class="bg" data-act="none" style="padding:4px 10px;font-size:12px">Ingenting å melde på dette skiftet</button>');
   const ls=lines().slice();es.forEach(e=>{if(e.line&&!ls.includes(e.line))ls.push(e.line);});
   document.getElementById('rap').innerHTML=ls.map(line=>{
@@ -337,7 +340,7 @@ function grow(t){t.style.height='auto';t.style.height=Math.max(36,t.scrollHeight
 
 function fuHTML(x,done){
   return '<div class="fu'+(done?' done':'')+'"><div><div class="t">'+esc(x.text||'(uten beskrivelse)')+'</div><div style="margin-top:5px"><span class="tag dark">'+esc(x.line||'—')+'</span>'+(x.area?'<span class="tag">'+esc(x.area)+'</span>':'')+(x.ao?'<span class="tag">AO '+esc(x.ao)+'</span>':'')
-    +'<span class="sub">'+fmtDay(x.date)+' · '+SKIFT_N[x.skift]+'skift · '+esc(x.initials||'')+(done?' · <b class="good">fulgt opp av '+esc(x.done.initials||'')+' '+fmtT(x.done.at)+'</b>'+(x.done.note?' — '+esc(x.done.note):''):' · '+age(x.date))+'</span></div></div>'
+    +'<span class="sub">'+fmtDay(x.date)+' · '+SKIFT_N[x.skift]+'skift · '+esc(who(x))+(done?' · <b class="good">fulgt opp av '+esc(who(x.done))+' '+fmtT(x.done.at)+'</b>'+(x.done.note?' — '+esc(x.done.note):''):' · '+age(x.date))+'</span></div></div>'
     +'<div style="display:flex;gap:6px;flex-wrap:wrap">'+(done?'':'<button type="button" class="bp" data-fu="'+esc(x.id)+'" data-date="'+x.date+'" data-skift="'+x.skift+'">✓ Fulgt opp</button>')+'<button type="button" class="bg" data-open="'+x.date+'" data-skift="'+x.skift+'">Åpne rapporten</button></div></div>';
 }
 function age(k){const n=Math.round((pd(dk(new Date()))-pd(k))/86400000);return n<=0?'i dag':n===1?'i går':n+' dager siden';}
@@ -357,8 +360,8 @@ function expected(date,skift){const t=Object.assign({dag:true,kveld:true,natt:tr
 function startDate(){if(SETTINGS.techStart)return SETTINGS.techStart;const ks=Object.keys(REP).sort();return ks[0]||dk(new Date());}
 function cellState(date,skift){
   const es=entries(date,skift).filter(filled), node=shiftNode(date,skift), sp=shiftSpan(date,skift), now=Date.now();
-  if(es.length)return {k:'ok',n:es.length,oppf:es.filter(e=>e.status==='oppf'&&!e.done).length,who:Array.from(new Set(es.map(e=>e.initials).filter(Boolean)))};
-  if(node.none)return {k:'none',who:[node.none.initials]};
+  if(es.length)return {k:'ok',n:es.length,oppf:es.filter(e=>e.status==='oppf'&&!e.done).length,who:Array.from(new Set(es.map(who).filter(Boolean)))};
+  if(node.none)return {k:'none',who:[who(node.none)]};
   if(now<sp[0])return {k:'future'};
   if(!expected(date,skift)||date<startDate())return {k:'off'};
   return {k:now<sp[1]?'now':'miss'};

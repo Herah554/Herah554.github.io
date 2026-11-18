@@ -1,1 +1,3 @@
 tools/.out/
+# Produksjonsplaner og andre regneark skal ikke ut på den offentlige nettsiden
+*.xlsx
