@@ -100,13 +100,18 @@ td.ln{font-weight:700;white-space:nowrap}
 .st .kv{font-size:40px}
 .st .row2{display:flex;justify-content:space-between;gap:8px;font-size:14px;font-weight:600;padding:5px 0;border-top:1px solid var(--border)}
 .pct{font-size:19px;font-weight:700;font-variant-numeric:tabular-nums}
+.seg{display:inline-flex}.seg .b{border-radius:0}.seg .b:first-child{border-radius:var(--r) 0 0 var(--r)}.seg .b:last-child{border-radius:0 var(--r) var(--r) 0;border-left:none}
+.seg .b.on{background:var(--navy);color:#fff;border-color:var(--navy);font-weight:600}
+.cell.ao{font-family:var(--mono);font-size:13px;white-space:nowrap;word-break:normal}
+.tfu{display:grid;grid-template-columns:22px 1fr;gap:8px;padding:6px 0;border-bottom:1px dashed var(--border);align-items:start;font-size:14px;line-height:1.35}
+.tfu input{width:17px;height:17px;margin-top:3px;accent-color:var(--green);cursor:pointer}
 @media(max-width:1100px){.g-hoved,.g-teknisk,.g-linje,.g2,.g3{grid-template-columns:1fr}.kv{font-size:28px}}
-@media print{nav,.top .b,.chip{display:none}body{background:#fff}.card,.kpi{box-shadow:none;break-inside:avoid}.cell{border-color:transparent!important}}
+@media print{nav,.top .b,.chip,.seg{display:none}body{background:#fff}.card,.kpi{box-shadow:none;break-inside:avoid}.cell{border-color:transparent!important}}
 </style>
-<link rel="stylesheet" href="theme.css?v=20261105c"/>
-<script src="theme.js?v=20261105c"></script>
+<link rel="stylesheet" href="theme.css?v=20261118a"/>
+<script src="theme.js?v=20261118a"></script>
 <script src="time24.js?v=20260924b"></script>
-<script src="nav.js?v=20261105f"></script>
+<script src="nav.js?v=20261118a"></script>
 </head>
 <body>
 <nav>
@@ -139,6 +144,7 @@ td.ln{font-weight:700;white-space:nowrap}
     <button class="b" onclick="setOffset(0)">I dag</button>
     <span class="sub" id="wk-label" style="margin-left:6px"></span>
     <div class="clk" id="clk">--:--</div>
+    <span class="seg" id="vis-seg" title="Hvordan måltallene vises"><button class="b" data-vis="tall">Mål / produsert</button><button class="b" data-vis="pct">Bare %</button></span>
     <button class="b" onclick="toggleDetails()" id="b-det">Vis detaljer</button>
     <button class="b" onclick="zoomBy(-0.1)" title="Mindre">A−</button>
     <button class="b" onclick="zoomBy(0.1)" title="Større">A+</button>
@@ -195,6 +201,9 @@ localStorage.setItem('firebaseConfig',JSON.stringify(FB));
 const db=firebase.database(),auth=firebase.auth();
 
 let USER=null, LINE_SEL='Alle', OFF=-1, BOARD='hoved';
+/* Visning av måltall (18.11.2026): 'tall' = mål og produsert, 'pct' = bare prosent av mål.
+   Valget er per nettleser (localStorage), så tavle-TV-en og kontor-PC-en kan stå ulikt. */
+let VIS=localStorage.getItem('diplomis.tavlevis')==='pct'?'pct':'tall', TECH_OPEN={};
 let EVENTS=[], SETTINGS={}, PROD_ALL={}, PROD_HOURLY={}, ACTIVE_PROD={}, ACTIVE_FULL={}, SHIFT_PLAN={}, SHIFT_REPORTS={}, PLAN={}, DREQ={}, BD={};
 const lk=l=>(l||'').replace(/[\s\/]/g,'_');
 const pad=n=>String(n).padStart(2,'0');
@@ -484,6 +493,7 @@ function start(){
   db.ref('plan/production').on('value',s=>{PLAN=s.val()||{};sched();});
   db.ref('deleteRequests').on('value',s=>{DREQ=s.val()||{};sched();});
   db.ref('board').on('value',s=>{BD=s.val()||{};sched();});
+  db.ref('techOpen').on('value',s=>{TECH_OPEN=s.val()||{};sched();},()=>{});   // oppfølging fra teknisk skiftrapport
   setInterval(()=>{document.getElementById('clk').textContent=new Date().toLocaleTimeString('no-NO',{hour:'2-digit',minute:'2-digit'});},1000);
   setInterval(render,5*60000);
 }
@@ -607,12 +617,25 @@ function delItem(scope,id){
 }
 /* Én lytter på hele tavla: tåler at knappene byttes ut mellom mousedown og click */
 document.addEventListener('click',ev=>{
+  const vb=ev.target.closest&&ev.target.closest('[data-vis]');
+  if(vb){VIS=vb.dataset.vis;localStorage.setItem('diplomis.tavlevis',VIS);render();return;}
   const add=ev.target.closest&&ev.target.closest('.add[data-scope]');
   if(add){ev.preventDefault();addItem(add.dataset.scope);return;}
   const del=ev.target.closest&&ev.target.closest('.item .del');
   if(del){const it=del.closest('.item'),wrap=del.closest('.items');if(it&&wrap)delItem(wrap.dataset.scope,it.dataset.id);}
 });
 document.addEventListener('change',ev=>{
+  /* «Fulgt opp» på en post fra teknisk skiftrapport: posten og oppfølgingskopien skrives sammen */
+  if(ev.target.matches&&ev.target.matches('.tdone')){
+    const d=ev.target.dataset, note=prompt('Hva ble gjort? (valgfritt — vises i teknisk skiftrapport)','');
+    if(note===null){ev.target.checked=false;return;}
+    const nm=(USER&&USER.name)||'', u={};
+    u['techReports/'+d.date+'/'+d.skift+'/e/'+d.id+'/done']={by:auth.currentUser.uid,byName:nm,initials:nm.trim().split(/\s+/).map(w=>w.charAt(0)).join('').toUpperCase().slice(0,3),at:Date.now(),note:note.trim()||null};
+    u['techOpen/'+d.id]=null;
+    db.ref().update(u).catch(()=>{alert('Kunne ikke lagre. Sjekk at reglene er publisert og at du har Tavle-tilgang eller tilgang til teknisk skiftrapport.');render();});
+    logBoard('done',{scope:'teknisk',text:('Fulgt opp: '+((TECH_OPEN[d.id]||{}).text||'')).slice(0,80)});
+    return;
+  }
   if(ev.target.matches&&ev.target.matches('.item input[type=checkbox]')){const it=ev.target.closest('.item'),wrap=ev.target.closest('.items');if(it&&wrap)toggleItem(wrap.dataset.scope,it.dataset.id,ev.target.checked);}
 });
 /* Tiltaksliste for ett scope. Ferdige punkter vises resten av dagen, så forsvinner de. */
@@ -640,38 +663,72 @@ function wireItems(root){}   // håndteres av de delegerte lytterne over
 function noteRows(prefix,n,ph){let h='';for(let i=1;i<=n;i++){h+='<div class="row"><span class="lbl">'+i+'</span>'+cell('board/notes/'+BOARD+'/'+prefix+i,bdNote(prefix+i),{ph:ph||''})+'</div>';}return h;}
 
 /* ── MÅLTALL-tabellen (brukes av hoved og teknisk) ── */
+/* AO-nr for linja den dagen: innskrevet på tavla, ellers fra dagens skiftrapport */
+function aoFor(line,dk){
+  const o=bdDay(dk,line,'ao');if(o!=null)return {v:o,auto:false};
+  const r=(SHIFT_REPORTS[dk]||{})[lk(line)], a=r&&r.aoNr;
+  return {v:a||'',auto:!!a};
+}
+/* Hvem kan hake av oppfølging fra teknisk skiftrapport: tavle-redigerere og teknikere */
+function canFollow(){return canEdit()||!!(USER&&USER.techAccess===true);}
+/* Åpne oppfølginger fra teknisk skiftrapport (techOpen). line=null → alle; ellers bare linjas. */
+function techCard(line){
+  let l=Object.keys(TECH_OPEN).map(id=>Object.assign({id},TECH_OPEN[id])).filter(x=>x&&x.date);
+  if(line){const n=normTxt(line);l=l.filter(x=>{const m=normTxt(x.line);return m===n||m.indexOf(n)===0||n.indexOf(m)===0&&m.length>3;});}
+  l.sort((a,b)=>(a.at||0)-(b.at||0));
+  if(line&&!l.length)return '';
+  return '<div class="card"><div class="hdr" style="background:var(--amber)">Oppfølging fra teknisk skiftrapport'+(l.length?' ('+l.length+')':'')+'</div>'
+    +(l.length?l.map(x=>'<div class="tfu"><input type="checkbox" class="tdone" data-id="'+esc(x.id)+'" data-date="'+esc(x.date)+'" data-skift="'+esc(x.skift)+'"'+(canFollow()?'':' disabled')+' title="Marker som fulgt opp"><div><b>'+esc(x.text||'(uten beskrivelse)')+'</b>'
+        +'<div class="who">'+(line?'':'<span class="lbl" style="font-size:10px;padding:1px 6px">'+esc(x.line||'—')+'</span> ')+(x.area?esc(x.area)+' · ':'')+(x.ao?'AO '+esc(x.ao)+' · ':'')+fmtDM(new Date(x.date+'T12:00:00').getTime())+' '+esc(x.skift)+'skift · '+esc(x.initials||'')+'</div></div></div>').join('')
+      :'<div class="empty">Ingenting venter på oppfølging.</div>')
+    +'<div class="sub" style="margin-top:6px"><a href="teknisk.html?vis=oppf" style="color:var(--blue)">Åpne teknisk skiftrapport →</a></div></div>';
+}
+
+/* ── MÅLTALL-tabellen (brukes av hoved og teknisk) ──
+   To visninger (VIS): 'tall' = mål, faktisk og %, 'pct' = bare % av mål. Begge har linje og AO-nr. */
 function maaltallHTML(day,lines,withComment){
-  const yest=dayObj(OFF-1>-1?OFF-1:OFF-1), today=dayObj(0), yk=dateKeyOf(yest), tk=dateKeyOf(today);
-  const sel=day, sk=dateKeyOf(day);
+  const sel=day, sk=dateKeyOf(day), wkk=weekKey(day), pct=VIS==='pct';
   const hms=((BD.day||{})[sk]||{}).hms||{};
-  const hmsW=((BD.week||{})[weekKey(day)]||{}).hms||{};
-  const pctCell=(f,m)=>{if(f==null||!m)return '<td class="num sub">—</td>';const p=Math.round(f/m*100);return '<td class="num '+clsVs(f,m)+'"><b>'+p+' %</b></td>';};
-  let h='<table><thead><tr><th></th><th class="grp" colspan="'+(withComment?4:3)+'">'+(OFF===-1?'I går':OFF===0?'I dag':fmtDM(sel))+'</th><th class="grp" style="background:var(--text3)">Svinn</th><th class="grp" colspan="3">Uke '+isoWeek(sel)+'</th></tr>'
-    +'<tr><th></th><th>Mål</th><th>Faktisk</th><th>%</th>'+(withComment?'<th>Kommentar</th>':'')+'<th>%</th><th>Mål</th><th>Faktisk</th><th>%</th></tr></thead><tbody>';
+  const hmsW=((BD.week||{})[wkk]||{}).hms||{};
+  const pctCell=(f,m)=>{if(f==null||!m)return '<td class="num sub">—</td>';const p=Math.round(f/m*100);return '<td class="num '+clsVs(f,m)+'"'+(pct?' title="'+fmtVal(f)+' av '+fmtVal(m)+'"':'')+'><b'+(pct?' class="pct"':'')+'>'+p+' %</b></td>';};
+  const dayLbl=OFF===-1?'I går':OFF===0?'I dag':fmtDM(sel);
+  let h=pct
+    ?'<table><thead><tr><th></th><th>AO</th><th class="grp">'+dayLbl+'</th>'+(withComment?'<th>Kommentar</th>':'')+'<th class="grp" style="background:var(--text3)">Svinn</th><th class="grp">Uke '+isoWeek(sel)+'</th></tr></thead><tbody>'
+    :'<table><thead><tr><th></th><th></th><th class="grp" colspan="'+(withComment?4:3)+'">'+dayLbl+'</th><th class="grp" style="background:var(--text3)">Svinn</th><th class="grp" colspan="3">Uke '+isoWeek(sel)+'</th></tr>'
+     +'<tr><th></th><th>AO</th><th>Mål</th><th>Faktisk</th><th>%</th>'+(withComment?'<th>Kommentar</th>':'')+'<th>%</th><th>Mål</th><th>Faktisk</th><th>%</th></tr></thead><tbody>';
   // HMS-reg
   const nm=v=>{const n=parseFloat(String(v==null?'':v).replace(/\s/g,'').replace(',','.'));return isNaN(n)?null:n;};
   // Sum av linjenes HMS-registreringer (fra linjetavlene) når feltet ikke er fylt ut for hånd
   const sumLines=(node,f)=>{let s=0,any=false;lines.forEach(l=>{const v=nm(((node||{})[lk(l)]||{})[f]);if(v!=null){s+=v;any=true;}});return any?s:null;};
   const hmsFaktAuto=sumLines((BD.day||{})[sk],'hms_fakt'), hmsMaalAuto=sumLines((BD.day||{})[sk],'hms_maal');
-  const hmsWFaktAuto=sumLines((BD.week||{})[weekKey(day)],'hms_fakt'), hmsWMaalAuto=sumLines((BD.week||{})[weekKey(day)],'hms_maal');
+  const hmsWFaktAuto=sumLines((BD.week||{})[wkk],'hms_fakt'), hmsWMaalAuto=sumLines((BD.week||{})[wkk],'hms_maal');
   const hF=nm(hms.faktisk)!=null?nm(hms.faktisk):hmsFaktAuto, hM=nm(hms.maal)!=null?nm(hms.maal):hmsMaalAuto;
   const hWF=nm(hmsW.faktisk)!=null?nm(hmsW.faktisk):hmsWFaktAuto, hWM=nm(hmsW.maal)!=null?nm(hmsW.maal):hmsWMaalAuto;
-  h+='<tr><td class="ln"><span class="lbl">HMS-reg</span></td><td>'+cell('board/day/'+sk+'/hms/maal',hms.maal!=null?hms.maal:fmtVal(hmsMaalAuto),{num:true,auto:hms.maal==null&&hmsMaalAuto!=null,ph:'mål',single:true})+'</td><td>'+cell('board/day/'+sk+'/hms/faktisk',hms.faktisk!=null?hms.faktisk:fmtVal(hmsFaktAuto),{num:true,auto:hms.faktisk==null&&hmsFaktAuto!=null,ph:'—',single:true})+'</td>'+pctCell(hF,hM)
-    +(withComment?'<td>'+cell('board/day/'+sk+'/hms/kommentar',hms.kommentar,{ph:''})+'</td>':'')+'<td></td>'
-    +'<td>'+cell('board/week/'+weekKey(day)+'/hms/maal',hmsW.maal!=null?hmsW.maal:fmtVal(hmsWMaalAuto),{num:true,auto:hmsW.maal==null&&hmsWMaalAuto!=null,ph:'mål',single:true})+'</td><td>'+cell('board/week/'+weekKey(day)+'/hms/faktisk',hmsW.faktisk!=null?hmsW.faktisk:fmtVal(hmsWFaktAuto),{num:true,auto:hmsW.faktisk==null&&hmsWFaktAuto!=null,ph:'—',single:true})+'</td>'+pctCell(hWF,hWM)+'</tr>';
+  const hmsKom=withComment?'<td>'+cell('board/day/'+sk+'/hms/kommentar',hms.kommentar,{ph:''})+'</td>':'';
+  h+=pct
+    ?'<tr><td class="ln"><span class="lbl">HMS-reg</span></td><td></td>'+pctCell(hF,hM)+hmsKom+'<td></td>'+pctCell(hWF,hWM)+'</tr>'
+    :'<tr><td class="ln"><span class="lbl">HMS-reg</span></td><td></td><td>'+cell('board/day/'+sk+'/hms/maal',hms.maal!=null?hms.maal:fmtVal(hmsMaalAuto),{num:true,auto:hms.maal==null&&hmsMaalAuto!=null,ph:'mål',single:true})+'</td><td>'+cell('board/day/'+sk+'/hms/faktisk',hms.faktisk!=null?hms.faktisk:fmtVal(hmsFaktAuto),{num:true,auto:hms.faktisk==null&&hmsFaktAuto!=null,ph:'—',single:true})+'</td>'+pctCell(hF,hM)
+      +hmsKom+'<td></td>'
+      +'<td>'+cell('board/week/'+wkk+'/hms/maal',hmsW.maal!=null?hmsW.maal:fmtVal(hmsWMaalAuto),{num:true,auto:hmsW.maal==null&&hmsWMaalAuto!=null,ph:'mål',single:true})+'</td><td>'+cell('board/week/'+wkk+'/hms/faktisk',hmsW.faktisk!=null?hmsW.faktisk:fmtVal(hmsWFaktAuto),{num:true,auto:hmsW.faktisk==null&&hmsWFaktAuto!=null,ph:'—',single:true})+'</td>'+pctCell(hWF,hWM)+'</tr>';
   lines.forEach(line=>{
-    const v=dayVals(line,sel), w=weekVals(line,sel), k=lk(line);
+    const v=dayVals(line,sel), w=weekVals(line,sel), k=lk(line), ao=aoFor(line,sk);
     const fc=clsVs(v.faktisk,v.maal), wc=clsVs(w.faktisk,w.maal);
+    const kom=withComment?'<td>'+cell('board/day/'+sk+'/'+k+'/kommentar',v.kommentar,{ph:''})+'</td>':'';
+    const svinn='<td>'+cell('board/day/'+sk+'/'+k+'/svinn',v.svinn,{num:true,ph:'%',single:true})+'</td>';
     h+='<tr><td class="ln"><span class="lbl">'+esc(line)+'</span>'+(v.oee!=null?'<div class="sub">OEE '+v.oee.toFixed(0)+' %</div>':'')+'</td>'
-      +'<td>'+cell('board/day/'+sk+'/'+k+'/maal',fmtVal(v.maal),{num:true,auto:v.maalIsAuto,ovr:!v.maalIsAuto&&bdNum(sk,line,'maal')!=null,ph:'—',single:true})+'</td>'
-      +'<td>'+cell('board/day/'+sk+'/'+k+'/faktisk',fmtVal(v.faktisk),{num:true,auto:v.faktIsAuto,ovr:!v.faktIsAuto&&bdNum(sk,line,'faktisk')!=null,ph:AUTO_LINES.includes(line)?'—':'skriv inn',single:true,cls:fc})+'</td>'
-      +pctCell(v.faktisk,v.maal)
-      +(withComment?'<td>'+cell('board/day/'+sk+'/'+k+'/kommentar',v.kommentar,{ph:''})+'</td>':'')
-      +'<td>'+cell('board/day/'+sk+'/'+k+'/svinn',v.svinn,{num:true,ph:'%',single:true})+'</td>'
-      +'<td>'+cell('board/week/'+w.wk+'/'+k+'/maal',fmtVal(w.maal),{num:true,auto:w.maalIsAuto,ph:'—',single:true})+'</td>'
-      +'<td>'+cell('board/week/'+w.wk+'/'+k+'/faktisk',fmtVal(w.faktisk),{num:true,auto:w.faktIsAuto,ph:'—',single:true,cls:wc})+'</td>'+pctCell(w.faktisk,w.maal)+'</tr>';
+      +'<td>'+cell('board/day/'+sk+'/'+k+'/ao',ao.v,{auto:ao.auto,ph:'AO',single:true,cls:'ao'})+'</td>'
+      +(pct
+        ?pctCell(v.faktisk,v.maal)+kom+svinn+pctCell(w.faktisk,w.maal)
+        :'<td>'+cell('board/day/'+sk+'/'+k+'/maal',fmtVal(v.maal),{num:true,auto:v.maalIsAuto,ovr:!v.maalIsAuto&&bdNum(sk,line,'maal')!=null,ph:'—',single:true})+'</td>'
+         +'<td>'+cell('board/day/'+sk+'/'+k+'/faktisk',fmtVal(v.faktisk),{num:true,auto:v.faktIsAuto,ovr:!v.faktIsAuto&&bdNum(sk,line,'faktisk')!=null,ph:AUTO_LINES.includes(line)?'—':'skriv inn',single:true,cls:fc})+'</td>'
+         +pctCell(v.faktisk,v.maal)+kom+svinn
+         +'<td>'+cell('board/week/'+w.wk+'/'+k+'/maal',fmtVal(w.maal),{num:true,auto:w.maalIsAuto,ph:'—',single:true})+'</td>'
+         +'<td>'+cell('board/week/'+w.wk+'/'+k+'/faktisk',fmtVal(w.faktisk),{num:true,auto:w.faktIsAuto,ph:'—',single:true,cls:wc})+'</td>'+pctCell(w.faktisk,w.maal))
+      +'</tr>';
   });
-  h+='</tbody></table><div class="sub" style="margin-top:6px">Mål hentes fra importert plan, faktisk fra tellingen på Glacier (merket <i>auto</i>). Klikk i et felt for å skrive inn eller overstyre; tøm feltet for å gå tilbake til automatisk. Uke-faktisk summerer dagene. HMS-reg summerer linjetavlene automatisk, eller skrives inn her. Tallene er de samme på alle tavler — notater og tiltak er per tavle.</div>';
+  h+='</tbody></table><div class="sub" style="margin-top:6px">'+(pct
+    ?'Viser bare prosent av mål — hold over et tall for å se faktisk og mål, eller velg «Mål / produsert» øverst for å se og skrive inn tallene. AO-nr hentes fra dagens skiftrapport (merket <i>auto</i>) eller skrives inn.'
+    :'Mål hentes fra importert plan, faktisk fra tellingen på Glacier, AO-nr fra dagens skiftrapport (merket <i>auto</i>). Klikk i et felt for å skrive inn eller overstyre; tøm feltet for å gå tilbake til automatisk. Uke-faktisk summerer dagene. HMS-reg summerer linjetavlene automatisk, eller skrives inn her. Tallene er de samme på alle tavler — notater og tiltak er per tavle.')+'</div>';
   return h;
 }
 function omstillingHTML(lines){
@@ -735,10 +792,10 @@ function renderBoard(day){
     LINE_SEL='Alle';
     h='<div class="grid g-teknisk">'
       +'<div class="card"><div class="hdr">Måltall</div>'+maaltallHTML(day,BOARD_LINES,false)+'</div>'
-      +'<div class="card"><div class="hdr">Tiltak i dag — morgen</div>'
+      +'<div style="display:flex;flex-direction:column;gap:12px">'+techCard(null)+'<div class="card"><div class="hdr">Tiltak i dag — morgen</div>'
       +BOARD_LINES.map(line=>'<div style="display:grid;grid-template-columns:90px 1fr;gap:8px;align-items:start;padding:4px 0;border-bottom:1px solid var(--border)"><span class="lbl" style="margin-top:4px">'+esc(line)+'</span><div>'+itemsHTML(lk(line))+'</div></div>').join('')
       +'<div style="display:grid;grid-template-columns:90px 1fr;gap:8px;align-items:start;padding:4px 0"><span class="lbl" style="margin-top:4px;background:var(--text3)">Annet</span><div>'+itemsHTML('annet')+'</div></div>'
-      +'</div>'
+      +'</div></div>'
       +'<div style="display:flex;flex-direction:column;gap:12px">'
       +'<div class="card">'+stopsHTML(day)+'</div>'
       +'<div class="card"><div class="hdr">Linje prio</div>'+noteRows('prio',3,'linje')+'</div>'
@@ -755,9 +812,13 @@ function renderBoard(day){
     const goal=getOEEGoal(isMes?line:null);
     const pct=v.maal?Math.round((v.faktisk||0)/v.maal*100):null;
     const wpct=w.maal?Math.round((w.faktisk||0)/w.maal*100):null;
+    const ao=aoFor(line,sk), dl=OFF===0?'i dag':OFF===-1?'i går':fmtDM(day), pcol=pct==null?'var(--border)':pct>=100?'var(--green)':pct>=90?'var(--amber)':'var(--red)';
     h='<div class="kpis" style="margin-bottom:12px">'
-      +'<div class="kpi" style="border-top-color:var(--blue)"><div class="kl">Mål '+(OFF===0?'i dag':OFF===-1?'i går':fmtDM(day))+'</div><div class="kv">'+cell('board/day/'+sk+'/'+k+'/maal',fmtVal(v.maal),{num:true,auto:v.maalIsAuto,ph:'—',single:true})+'</div><div class="ks">'+(planProducts(line,sk).join(', ')||'plan fra importen')+'</div></div>'
-      +'<div class="kpi" style="border-top-color:'+(pct==null?'var(--border)':pct>=100?'var(--green)':pct>=90?'var(--amber)':'var(--red)')+'"><div class="kl">Faktisk</div><div class="kv">'+cell('board/day/'+sk+'/'+k+'/faktisk',fmtVal(v.faktisk),{num:true,auto:v.faktIsAuto,ph:'skriv inn',single:true})+'</div><div class="ks">'+(pct!=null?'<b class="'+clsVs(v.faktisk,v.maal)+'">'+pct+' % av mål</b>':'')+'</div></div>'
+      +(VIS==='pct'
+        ?'<div class="kpi" style="border-top-color:'+pcol+'" title="'+fmtVal(v.faktisk)+' av '+fmtVal(v.maal)+'"><div class="kl">Måloppnåelse '+dl+'</div><div class="kv '+clsVs(v.faktisk,v.maal)+'">'+(pct!=null?pct+' %':'—')+'</div><div class="ks">'+(planProducts(line,sk).join(', ')||'av dagens mål')+'</div></div>'
+        :'<div class="kpi" style="border-top-color:var(--blue)"><div class="kl">Mål '+dl+'</div><div class="kv">'+cell('board/day/'+sk+'/'+k+'/maal',fmtVal(v.maal),{num:true,auto:v.maalIsAuto,ph:'—',single:true})+'</div><div class="ks">'+(planProducts(line,sk).join(', ')||'plan fra importen')+'</div></div>'
+         +'<div class="kpi" style="border-top-color:'+pcol+'"><div class="kl">Faktisk</div><div class="kv">'+cell('board/day/'+sk+'/'+k+'/faktisk',fmtVal(v.faktisk),{num:true,auto:v.faktIsAuto,ph:'skriv inn',single:true})+'</div><div class="ks">'+(pct!=null?'<b class="'+clsVs(v.faktisk,v.maal)+'">'+pct+' % av mål</b>':'')+'</div></div>')
+      +'<div class="kpi" style="border-top-color:var(--teal)"><div class="kl">AO-nr</div><div class="kv" style="font-size:24px">'+cell('board/day/'+sk+'/'+k+'/ao',ao.v,{auto:ao.auto,ph:'—',single:true,cls:'ao'})+'</div><div class="ks">'+(ao.auto?'fra skiftrapporten':'skrives inn')+'</div></div>'
       +(isMes?'<div class="kpi" style="border-top-color:'+(v.oee==null?'var(--border)':v.oee>=goal?'var(--green)':'var(--red)')+'"><div class="kl">OEE</div><div class="kv">'+(v.oee!=null?v.oee.toFixed(0)+' %':'—')+'</div><div class="ks">mål '+goal+' %</div></div>':'')
       +(isMes?'<div class="kpi" style="border-top-color:var(--red)"><div class="kl">Nedetid</div><div class="kv">'+fmtD(down)+'</div><div class="ks">'+ev.length+' stopp'+(ev[0]?' · største '+fmtD(ev[0].duration)+' '+esc(ev[0].cause||''):'')+'</div></div>':'')
       +hmsKpi(line,sk,w.wk)
@@ -765,7 +826,7 @@ function renderBoard(day){
       +'<div class="kpi" style="border-top-color:'+(wpct==null?'var(--border)':wpct>=100?'var(--green)':wpct>=90?'var(--amber)':'var(--red)')+'"><div class="kl">Uke '+isoWeek(day)+'</div><div class="kv">'+cell('board/week/'+w.wk+'/'+k+'/faktisk',fmtVal(w.faktisk),{num:true,auto:w.faktIsAuto,ph:'—',single:true})+'</div><div class="ks">mål '+cell('board/week/'+w.wk+'/'+k+'/maal',fmtVal(w.maal),{num:true,auto:w.maalIsAuto,ph:'—',single:true,cls:'sub'})+(wpct!=null?' · <b class="'+clsVs(w.faktisk,w.maal)+'">'+wpct+' %</b>':'')+'</div></div>'
       +'</div>'
       +'<div class="grid g-linje">'
-      +'<div class="card"><div class="hdr">Tiltak '+esc(line)+'</div>'+itemsHTML(k)+'</div>'
+      +'<div style="display:flex;flex-direction:column;gap:12px">'+techCard(line)+'<div class="card"><div class="hdr">Tiltak '+esc(line)+'</div>'+itemsHTML(k)+'</div></div>'
       +'<div class="card"><div class="hdr">Dagen</div>'
       +'<div class="sub" style="margin-bottom:3px">Kommentar</div>'+cell('board/day/'+sk+'/'+k+'/kommentar',v.kommentar,{ph:'Hva skjedde …',big:true})
       +(isMes?'<div class="sub" style="margin:10px 0 3px">Største stopp</div>'+(ev.length?'<table><tbody>'+ev.slice(0,6).map(e=>'<tr><td class="num">'+fmtSpan(e)+'</td><td>'+esc(e.machine||'—')+'</td><td>'+esc(e.cause||'')+(e.unhandled?'<span class="tag amber">ubehandlet</span>':'')+'</td><td class="num"><b>'+fmtD(e.duration)+'</b></td></tr>').join('')+'</tbody></table>':'<div class="empty">Ingen stopp registrert.</div>'):'')
@@ -781,6 +842,7 @@ function renderBoard(day){
   // Ikke tegn over et felt noen skriver i
   if(document.activeElement&&el.contains(document.activeElement)&&document.activeElement.classList.contains('cell'))return;
   el.innerHTML=h;
+  document.querySelectorAll('#vis-seg .b').forEach(x=>x.classList.toggle('on',x.dataset.vis===VIS));
   wireCells(el);wireItems(el);
 }
 

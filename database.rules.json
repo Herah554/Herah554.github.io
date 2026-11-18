@@ -127,6 +127,25 @@
       ".read": "auth != null",
       ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'master' || root.child('users').child(auth.uid).child('role').val() === 'leder' || root.child('users').child(auth.uid).child('shiftAccess').val() === true)"
     },
+    "techReports": {
+      ".read": "auth != null",
+      ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'master' || root.child('users').child(auth.uid).child('role').val() === 'leder' || root.child('users').child(auth.uid).child('techAccess').val() === true)",
+      "$date": {
+        "$skift": {
+          "e": {
+            "$id": {
+              "done": {
+                ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'master' || root.child('users').child(auth.uid).child('role').val() === 'leder' || root.child('users').child(auth.uid).child('techAccess').val() === true || root.child('users').child(auth.uid).child('boardAccess').val() === true)"
+              }
+            }
+          }
+        }
+      }
+    },
+    "techOpen": {
+      ".read": "auth != null",
+      ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'master' || root.child('users').child(auth.uid).child('role').val() === 'leder' || root.child('users').child(auth.uid).child('techAccess').val() === true || root.child('users').child(auth.uid).child('boardAccess').val() === true)"
+    },
     "userDashboards": {
       "$uid": {
         ".read": "auth != null && $uid === auth.uid",

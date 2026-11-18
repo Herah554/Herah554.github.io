@@ -34,7 +34,10 @@ const DATA={
   opc_status:{connected:true,last_seen:now.getTime(),url:"opc.tcp://192.168.10.1:4840"},
   shiftPlan:{[today]:{Glacier:shift},[yday]:{Glacier:shift}},
   plan:{production:{[today]:{Glacier:[{product:"Krone-is Jordbær",artNr:"11001",antall:480,timer:8}]}}},
-  shiftReports:{},deleteRequests:{},calibrationReviews:{},board:{},rca:{},userDashboards:{},system:{}
+  techReports:{[yday]:{dag:{e:{t1:{line:"Glacier",area:"Pakkemaskin",text:"Byttet sugekopper på eskereiser, må etterstrammes neste skift",ao:"45012",status:"oppf",initials:"OO",by:"u2",byName:"Operatør Ola",at:now.getTime()-20*3600000},
+      t2:{line:"Rollo",area:"Pinnemaskin",text:"Smurt kjede",status:"ok",initials:"OO",by:"u2",byName:"Operatør Ola",at:now.getTime()-19*3600000}}},kveld:{none:{by:"u2",byName:"Operatør Ola",initials:"OO",at:now.getTime()-12*3600000}}}},
+  techOpen:{t1:{date:yday,skift:"dag",line:"Glacier",area:"Pakkemaskin",text:"Byttet sugekopper på eskereiser, må etterstrammes neste skift",ao:"45012",initials:"OO",at:now.getTime()-20*3600000}},
+  shiftReports:{[today]:{Glacier:{line:"Glacier",date:today,aoNr:"778812",produkt:"Krone-is Jordbær"}}},deleteRequests:{},calibrationReviews:{},board:{},rca:{},userDashboards:{},system:{}
 };
 const stub=`<script>
 (function(){

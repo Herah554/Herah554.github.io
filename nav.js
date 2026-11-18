@@ -3,7 +3,7 @@
    Sidene har hver sin <nav> i HTML. Ved DOMContentLoaded byttes lenkene ut med
    denne strukturen (logo og .ml med brukernavn/logg ut/temabryter beholdes):
 
-     Dashboard · Tavle · Saker · Rapporter ▾ (Rapporter, Produkter) · Skiftrapport ·
+     Dashboard · Tavle · Saker · Rapporter ▾ (Rapporter, Produkter) · Skiftrapport ▾ (produksjon, teknisk) ·
      Admin ▾ (Innstillinger, Brukere, Dashbord-oppsett, Import, Logg & data)
 
    Rollestyring: sist kjente rolle fra localStorage (diplomis.nav) brukes med én gang,
@@ -13,7 +13,7 @@
 
      master   → alt
      leder    → Rapporter, Produkter, Skiftrapport, Innstillinger, Brukere, Dashbord-oppsett
-     operatør → Dashbord, Tavle (+ Skiftrapport ved shiftAccess)
+     operatør → Dashbord, Tavle (+ Skiftrapport ved shiftAccess, teknisk skiftrapport ved techAccess)
    Ny side: legg den inn i MENU under, ikke i hver HTML-fil. */
 (function(){
   'use strict';
@@ -25,7 +25,9 @@
     {label:'Rapporter',items:[
       {href:'rapporter.html',label:'Rapporter',id:'nav-rap'},
       {href:'produkter.html',label:'Produkter',id:'nav-prod'}]},
-    {href:'skiftrapport.html',label:'Skiftrapport',id:'nav-skift'},
+    {label:'Skiftrapport',items:[
+      {href:'skiftrapport.html',label:'Skiftrapport produksjon',id:'nav-skift'},
+      {href:'teknisk.html',label:'Skiftrapport teknisk',id:'nav-tek'}]},
     {label:'Admin',items:[
       {href:'innstillinger.html',label:'Innstillinger',id:'nav-set'},
       {href:'brukere.html',label:'Brukere',id:'nav-usr'},
@@ -36,7 +38,23 @@
   var CSS='.nav-grp{position:relative}.nav-grp>.nl{cursor:pointer;user-select:none}.nav-grp>.nl::after{content:" ▾";font-size:10px;opacity:.6}'
     +'.nav-dd{display:none;position:absolute;top:calc(100% + 4px);left:0;min-width:180px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shm);padding:4px;z-index:60;flex-direction:column}'
     +'.nav-grp.open>.nav-dd,.nav-grp:hover>.nav-dd{display:flex}.nav-dd .nl{display:block;padding:7px 12px}'
-    +'@media(max-width:700px){.nav-dd{position:fixed;left:8px;right:8px;min-width:0}}';
+    /* Mobil (18.11.2026): lenkene fikk ikke plass på én linje, så siden ble bredere enn skjermen, og
+       nedtrekkene åpnet seg utenfor skjermen (position:fixed med top:100%). Under 900 px vises bare
+       logo + ☰; trykk åpner alle sidene som en liste, med gruppene brettet ut. */
+    +'.nav-burger{display:none;margin-left:auto;font-size:22px;line-height:1;background:none;border:1px solid rgba(128,128,128,.4);border-radius:var(--r);padding:6px 12px;cursor:pointer;color:inherit;font-family:inherit}'
+    +'@media(max-width:900px){'
+    +'nav{flex-wrap:wrap!important;height:auto!important;min-height:54px;padding:6px 12px!important;row-gap:2px;max-width:100vw}'
+    +'nav .nav-burger{display:inline-block}'
+    +'nav>a.nl,nav>.nav-grp{display:none;width:100%}'
+    +'nav>.ml{display:none!important;width:100%;margin-left:0!important;flex-wrap:wrap;padding:8px 0 4px;border-top:1px solid rgba(128,128,128,.25)}'
+    +'nav.open{max-height:100vh;overflow-y:auto}'
+    +'nav.open>a.nl,nav.open>.nav-grp{display:block}'
+    +'nav.open>.ml{display:flex!important}'
+    +'nav .nl{font-size:16px!important;padding:12px 12px!important}'
+    +'.nav-grp>.nl{display:block;font-size:11px!important;text-transform:uppercase;letter-spacing:.06em;opacity:.65;padding:10px 12px 2px!important;cursor:default}'
+    +'.nav-grp>.nl::after{content:""}'
+    +'.nav-grp>.nav-dd{display:flex!important;position:static;box-shadow:none;border:none;background:transparent;padding:0 0 0 10px;min-width:0}'
+    +'}';
 
   // «-test» fjernes så testkopiene fra tools/ (rotarsak-test.html) oppfører seg som den ekte siden
   function current(){return (location.pathname.split('/').pop()||'index.html').toLowerCase().replace('-test.html','.html');}
@@ -51,6 +69,9 @@
     var st=document.createElement('style');st.textContent=CSS;document.head.appendChild(st);
     var old=nav.querySelectorAll(':scope > a.nl');old.forEach(function(a){a.remove();});
     var ml=nav.querySelector('.ml');
+    var bg=document.createElement('button');bg.type='button';bg.className='nav-burger';bg.setAttribute('aria-label','Meny');bg.textContent='☰';
+    bg.addEventListener('click',function(ev){ev.stopPropagation();nav.classList.toggle('open');bg.textContent=nav.classList.contains('open')?'✕':'☰';});
+    nav.insertBefore(bg,ml||null);
     MENU.forEach(function(m){
       var el;
       if(m.items){
@@ -70,7 +91,7 @@
      dashbordet. Eieren (system/owner) ser alltid alt. Dette styrer hva som VISES — hva som
      faktisk kan leses i databasen bestemmes av reglene (database.rules.json). */
   var MODS=[['tavle','Tavle','nav-tavle','tavle.html','alle'],['saker','Saker','nav-rca','rotarsak.html','alle'],
-    ['skiftrapport','Skiftrapport','nav-skift','skiftrapport.html','alle'],['rapporter','Rapporter','nav-rap','rapporter.html','leder'],
+    ['skiftrapport','Skiftrapport produksjon','nav-skift','skiftrapport.html','alle'],['teknisk','Skiftrapport teknisk','nav-tek','teknisk.html','alle'],['rapporter','Rapporter','nav-rap','rapporter.html','leder'],
     ['produkter','Produkter','nav-prod','produkter.html','leder'],['innstillinger','Innstillinger','nav-set','innstillinger.html','leder'],
     ['brukere','Brukere','nav-usr','brukere.html','leder'],['dashbord','Dashbord-oppsett','nav-dash','dashbord.html','leder'],
     ['import','Import','nav-import','import.html','master'],['logg','Logg & data','nav-logg','logg.html','master']];
@@ -104,6 +125,7 @@
     show('nav-rap',staff);show('nav-prod',staff);show('nav-set',staff);show('nav-usr',staff);
     show('nav-import',r==='master');show('nav-logg',r==='master');
     show('nav-skift',staff||p.shiftAccess===true);
+    show('nav-tek',staff||p.techAccess===true);
     show('nav-dash',r!=='linjeoperator');
     show('nav-tavle',true);show('nav-rca',true);
     applyHide(p);
@@ -111,7 +133,7 @@
   }
   function remember(p){
     if(p.owner===undefined)p=Object.assign({},p,{owner:OWNER});else OWNER=!!p.owner;
-    try{localStorage.setItem(KEY,JSON.stringify({role:p.role,shiftAccess:p.shiftAccess===true,hide:p.hide||null,owner:!!p.owner}));}catch(e){}
+    try{localStorage.setItem(KEY,JSON.stringify({role:p.role,shiftAccess:p.shiftAccess===true,techAccess:p.techAccess===true,hide:p.hide||null,owner:!!p.owner}));}catch(e){}
     apply(p);guard(p,true);
   }
   function forget(){try{localStorage.removeItem(KEY);}catch(e){}}

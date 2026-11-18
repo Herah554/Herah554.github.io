@@ -79,6 +79,14 @@ t("leder tar eierskap",O,{db:DB0,uid:"l",data:undefined,newData:"l"},false);
 t("master tar eierskap når eier finnes",O,{db:DB,uid:"m",data:"o",newData:"m"},false);
 t("eier overfører eierskap",O,{db:DB,uid:"o",data:"o",newData:"m"},true);
 
+/* teknisk skiftrapport */
+users.tk={role:"linjeoperator",techAccess:true};
+each({o:1,m:1,l:1,tk:1,op:0,opb:0,b:0},(u,w)=>t("skriv teknisk rapport som "+u,R.techReports[".write"],rd(0,u),!!w));
+each({tk:1,opb:1,l:1,op:0,b:0},(u,w)=>t("marker fulgt opp som "+u,R.techReports.$date.$skift.e.$id.done[".write"],rd(0,u),!!w));
+each({tk:1,opb:1,m:1,op:0,b:0},(u,w)=>t("skriv techOpen som "+u,R.techOpen[".write"],rd(0,u),!!w));
+t("operatør leser teknisk rapport",R.techReports[".read"],rd(0,"op"),true);
+t("uinnlogget leser ikke teknisk rapport",R.techReports[".read"],{db:DB,uid:null},false);
+
 /* det broen trenger skal være urørt */
 ["production","productHourly","active_product","opc_status"].forEach(k=>t("bro skriver "+k,R[k][".write"],{db:DB,uid:"b"},true));
 t("bro oppretter hendelse",R.events.$id[".write"],{db:DB,uid:"b",data:undefined,newData:{line:"Glacier",ts:1}},true);

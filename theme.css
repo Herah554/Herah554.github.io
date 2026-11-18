@@ -201,3 +201,22 @@ html:not([data-theme="dark"]) [style*="background:#f0fdf4"]{background:#e4ebd0 !
 html:not([data-theme="dark"]) .bb, html:not([data-theme="dark"]) .tk-banner, html:not([data-theme="dark"]) .cb, html:not([data-theme="dark"]) .lchk.on, html:not([data-theme="dark"]) .b-opc, html:not([data-theme="dark"]) input.auto, html:not([data-theme="dark"]) .rb-l,
 html:not([data-theme="dark"]) .hcell.sugg{background:#dbecf6;border-color:#cae3f2;color:#1d5a82}
 html:not([data-theme="dark"]) .tk-text{color:#1d5a82}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TELEFON (18.11.2026)
+   Sidene ble bredere enn skjermen på mobil, så alt måtte skyves sidelengs og menyen havnet
+   utenfor. To årsaker: menyen (løst i nav.js med ☰) og «grid blowout» — et barn i et
+   CSS-rutenett krymper ikke under innholdets minste bredde (min-width:auto), så ett bredt
+   bord dro hele kortet og dermed siden ut. Her får alt i <main> lov til å krympe, og brede
+   tabeller ruller inne i kortet sitt i stedet for å dra siden med seg.
+   Spesifisiteten er bevisst lav (main *), så sider som setter min-width selv, vinner. */
+@media(max-width:900px){
+  html{overflow-x:hidden}
+  main *{min-width:0}
+  main .card{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  main table{max-width:none}
+  main input,main select,main textarea{max-width:100%}
+  /* Større trykkflater: Apple anbefaler minst 44 px */
+  main button,main .chip,main .b,main select,main input[type=date]{min-height:38px}
+  main input[type=checkbox],main input[type=radio]{min-height:0}
+}

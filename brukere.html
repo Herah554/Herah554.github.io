@@ -74,10 +74,10 @@ input:focus,select:focus{border-color:var(--accent)}
 .toast.e{border-color:#fecaca;color:var(--red)}
 @media(max-width:600px){.page{padding:1rem}nav{padding:0 1rem}.fg{grid-template-columns:1fr}.ugrid{grid-template-columns:1fr}}
 </style>
-<link rel="stylesheet" href="theme.css?v=20261105c"/>
-<script src="theme.js?v=20261105c"></script>
+<link rel="stylesheet" href="theme.css?v=20261118a"/>
+<script src="theme.js?v=20261118a"></script>
 <script src="time24.js?v=20260924b"></script>
-<script src="nav.js?v=20261105f"></script>
+<script src="nav.js?v=20261118a"></script>
 </head>
 <body>
 <nav>
@@ -120,6 +120,7 @@ input:focus,select:focus{border-color:var(--accent)}
     </div>
     <div class="fr"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="n-shift" style="width:auto;margin:0">Skiftrapport-tilgang (kan levere/se skiftrapporter)</label></div>
     <div class="fr"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="n-board" style="width:auto;margin:0">Tavle-tilgang (kan redigere tavlene og hake av tiltak — master og leder har det alltid)</label></div>
+    <div class="fr"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="n-tech" style="width:auto;margin:0">Teknisk skiftrapport (kan føre og lese teknisk skiftrapport — master og leder har det alltid)</label></div>
     <div class="fr"><label>Dashboard</label><select id="n-dash"><option value="std">Standard</option></select></div>
     <div class="acc">
       <div class="fr"><label>Innsyn i saker (rotårsaksanalyser)</label><select id="n-level"></select></div>
@@ -147,6 +148,7 @@ input:focus,select:focus{border-color:var(--accent)}
     <div id="e-lsec" class="fr"><label id="e-lsec-lbl">Linjetilgang</label><div class="lchecks" id="e-lchecks"></div></div>
     <div class="fr"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="e-shift" style="width:auto;margin:0">Skiftrapport-tilgang</label></div>
     <div class="fr"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="e-board" style="width:auto;margin:0">Tavle-tilgang</label></div>
+    <div class="fr"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="e-tech" style="width:auto;margin:0">Teknisk skiftrapport</label></div>
     <div class="fr"><label>Dashboard</label><select id="e-dash"><option value="std">Standard</option></select></div>
     <div class="acc">
       <div class="fr"><label>Innsyn i saker (rotårsaksanalyser)</label><select id="e-level"></select></div>
@@ -398,6 +400,7 @@ async function createUser(){
   const lines=role==='master'?[]:getChecked('n-lchecks');
   const shiftAccess=document.getElementById('n-shift').checked;
   const boardAccess=document.getElementById('n-board').checked;
+  const techAccess=document.getElementById('n-tech').checked;
   const dashboardId=document.getElementById('n-dash').value||'std';
   document.getElementById('cerr').style.display='none';
   document.getElementById('cok').style.display='none';
@@ -409,11 +412,11 @@ async function createUser(){
     const sec=firebase.initializeApp(FB,'tmp-'+Date.now());
     const cred=await sec.auth().createUserWithEmailAndPassword(email,pass);
     await sec.auth().signOut();await sec.delete();
-    const rec={name,email,role,lines,shiftAccess,boardAccess,dashboardId,createdAt:Date.now()};
+    const rec={name,email,role,lines,shiftAccess,boardAccess,techAccess,dashboardId,createdAt:Date.now()};
     if(MY_ROLE==='master'){const lv=document.getElementById('n-level').value, hide=getHide('n-mods');if(lv!=='')rec.caseLevel=+lv;if(hide)rec.hide=hide;}
     await db.ref('users/'+cred.user.uid).set(rec);
     buildLevel('n-level',null);buildMods('n-mods',document.getElementById('n-role').value,{});
-    document.getElementById('n-name').value='';document.getElementById('n-email').value='';document.getElementById('n-pass').value='';document.getElementById('n-shift').checked=false;document.getElementById('n-board').checked=false;
+    document.getElementById('n-name').value='';document.getElementById('n-email').value='';document.getElementById('n-pass').value='';document.getElementById('n-shift').checked=false;document.getElementById('n-tech').checked=false;document.getElementById('n-board').checked=false;
     showMsg('cok','✓ Bruker "'+name+'" er opprettet.');
     showToast('Bruker opprettet');
   }catch(e){
@@ -432,6 +435,7 @@ function openEdit(uid){
     buildChecks('e-lchecks',u.lines||[]);
     document.getElementById('e-shift').checked=u.shiftAccess===true;
     document.getElementById('e-board').checked=u.boardAccess===true;
+    document.getElementById('e-tech').checked=u.techAccess===true;
     setDashSelect(u.dashboardId||'std');
     EDIT_HIDE=u.hide||{};document.getElementById('e-mods').innerHTML='';
     buildLevel('e-level',typeof u.caseLevel==='number'?u.caseLevel:null);
@@ -460,11 +464,12 @@ async function saveEdit(){
   const lines=role==='master'?[]:getChecked('e-lchecks');
   const shiftAccess=document.getElementById('e-shift').checked;
   const boardAccess=document.getElementById('e-board').checked;
+  const techAccess=document.getElementById('e-tech').checked;
   const dashboardId=document.getElementById('e-dash').value||'std';
 
   if(!name){showToast('Skriv inn navn',true);return;}
   if(role!=='master'&&!lines.length){showToast('Velg minst én linje',true);return;}
-  const upd={name,role,lines,shiftAccess,boardAccess,dashboardId};
+  const upd={name,role,lines,shiftAccess,boardAccess,techAccess,dashboardId};
   if(MY_ROLE==='master'){const lv=document.getElementById('e-level').value;upd.caseLevel=lv===''?null:+lv;upd.hide=getHide('e-mods');}
   try{await db.ref('users/'+editUid).update(upd);}
   catch(e){showToast('Kunne ikke lagre — du har ikke tilgang til å endre denne brukeren',true);return;}

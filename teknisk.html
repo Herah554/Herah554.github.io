@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+<title>Skiftrapport teknisk — Diplom-is</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#f4f6f9;--bg2:#fff;--bg3:#eef0f4;--border:#e2e6ed;--text:#18202e;--text2:#4a5568;--text3:#8a95a8;--accent:#e63329;--navy:#1e3a8a;--blue:#2563eb;--green:#16a34a;--amber:#d97706;--red:#dc2626;--teal:#0d9488;--purple:#7c3aed;--font:'IBM Plex Sans',sans-serif;--mono:'IBM Plex Mono',monospace;--r:8px;--rl:12px;--sh:0 1px 4px rgba(0,0,0,.08);--shm:0 4px 20px rgba(0,0,0,.12)}
+body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14px;min-height:100vh}
+nav{background:var(--bg2);border-bottom:1px solid var(--border);height:54px;display:flex;align-items:center;padding:0 1.5rem;gap:.4rem;position:sticky;top:0;z-index:50;box-shadow:var(--sh)}
+.logo{font-weight:600;font-size:15px;color:var(--accent)}.logo span{font-weight:400;font-size:12px;color:var(--text3)}
+.nl{font-size:13px;color:var(--text2);text-decoration:none;padding:5px 10px;border-radius:var(--r);font-weight:500;white-space:nowrap}
+.nl:hover{background:var(--bg3)}.nl.on{color:var(--accent);background:var(--bg3)}
+.ml{margin-left:auto;display:flex;align-items:center;gap:8px}
+.ubadge{font-size:11px;font-family:var(--mono);background:var(--bg3);padding:3px 9px;border-radius:99px;color:var(--text2)}
+.lout{font-size:12px;background:none;border:1px solid var(--border);border-radius:var(--r);padding:4px 9px;cursor:pointer;color:var(--text3)}
+.page{max-width:1300px;margin:0 auto;padding:1.1rem 1.5rem 3rem}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:1rem 1.1rem;box-shadow:var(--sh);margin-bottom:.75rem}
+.lbl{font-size:10px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
+input,select,textarea{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text);padding:8px 10px;font-family:var(--font);font-size:14px;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:.75rem}
+.chip{font-size:13px;padding:7px 14px;border:1px solid var(--border);background:var(--bg2);border-radius:99px;cursor:pointer;color:var(--text2);font-family:inherit;font-weight:600}
+.chip.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+.bdg{display:inline-block;background:var(--amber);color:#fff;font-size:10px;font-weight:700;border-radius:99px;padding:1px 7px;margin-left:4px}
+.bdg:empty{display:none}
+.toprow{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end}
+.fitem{display:flex;flex-direction:column}
+.daterow{display:flex;gap:5px;align-items:center}
+.daterow input{width:160px}
+.shiftbtns{display:flex;gap:6px}
+.sbtn{padding:8px 16px;border:1px solid var(--border);background:var(--bg3);border-radius:var(--r);cursor:pointer;font-size:13px;font-weight:600;color:var(--text2);font-family:inherit}
+.sbtn.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.sbtn .c{font-weight:400;opacity:.75;margin-left:4px}
+.bg{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text2);font-size:13px;font-weight:500;padding:8px 13px;cursor:pointer;font-family:inherit;white-space:nowrap}
+.bg:hover{background:var(--border)}
+.bp{background:var(--accent);border:1px solid var(--accent);border-radius:var(--r);color:#fff;font-size:13px;font-weight:600;padding:8px 14px;cursor:pointer;font-family:inherit;white-space:nowrap}
+.wk{font-size:20px;font-weight:700;padding:5px 0}
+.stat{margin-top:.75rem;font-size:13px;color:var(--text2);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.sub{font-size:11.5px;color:var(--text3)}
+.good{color:var(--green)}.warn{color:var(--amber)}.bad{color:var(--red)}
+/* rapporten — som Excel-arket: Maskin | Området | Beskrivelse | AO | Status | Initialer */
+.rhead,.r{display:grid;grid-template-columns:150px 1fr 100px 250px 52px 30px;gap:6px;align-items:start}
+.rhead{background:var(--navy);color:#fff;font-size:12px;font-weight:600;padding:7px 8px 7px 6px;margin-left:130px}
+.rhead span{padding:0 4px}
+.phead{display:none}
+.blk{display:grid;grid-template-columns:130px 1fr;border-top:1px solid var(--border)}
+.blk .ln{background:var(--navy);color:#fff;font-weight:700;font-size:13.5px;padding:12px 10px}
+.blk .ln .n{display:block;font-weight:400;font-size:11px;opacity:.75;margin-top:2px}
+.rows{padding:4px 8px 4px 0}
+.r{padding:4px 0 4px 6px;border-bottom:1px dashed var(--border)}
+.r:last-child{border-bottom:none}
+.r input,.r textarea{padding:7px 8px;font-size:13.5px;background:var(--bg2)}
+.r textarea{resize:none;overflow:hidden;min-height:36px;line-height:1.4}
+.r.new input,.r.new textarea{background:var(--bg3);border-style:dashed}
+.r.oppf{box-shadow:inset 3px 0 0 var(--amber)}
+.r.fulgt{box-shadow:inset 3px 0 0 var(--green)}
+.stb{display:flex;gap:4px}
+.stb button{flex:1;padding:7px 6px;border:1px solid var(--border);background:var(--bg2);border-radius:var(--r);cursor:pointer;font-size:12px;font-weight:600;color:var(--text2);font-family:inherit;white-space:nowrap}
+.stb button.on[data-st=oppf]{background:var(--amber);border-color:var(--amber);color:#fff}
+.stb button.on[data-st=ok]{background:var(--green);border-color:var(--green);color:#fff}
+.stb.mangler button{border-color:var(--amber)}
+.ini{font-family:var(--mono);font-size:12px;font-weight:600;text-align:center;padding:9px 0;color:var(--text2)}
+.x{background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:8px 4px}.x:hover{color:var(--red)}
+.note{grid-column:1/-1;font-size:12px;color:var(--text2);padding:0 2px 2px}
+.mlbl{display:none}
+/* oppfølging + logg */
+.fu{border:1px solid var(--border);border-left:4px solid var(--amber);border-radius:var(--r);padding:10px 12px;margin-bottom:8px;display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center}
+.fu.done{border-left-color:var(--green)}
+.fu .t{font-size:14px;font-weight:600;line-height:1.4}
+.tag{display:inline-block;font-size:10.5px;padding:1px 7px;border-radius:99px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);margin-right:3px}
+.tag.dark{background:var(--navy);color:#fff;border-color:var(--navy);font-weight:600}
+table.lg{width:100%;border-collapse:collapse;font-size:13px;min-width:560px}
+table.lg th{font-size:10px;font-family:var(--mono);text-transform:uppercase;color:var(--text3);text-align:left;padding:7px 9px;border-bottom:2px solid var(--border);white-space:nowrap}
+table.lg td{padding:7px 9px;border-bottom:1px solid var(--border);vertical-align:top}
+table.lg td.c{cursor:pointer}
+table.lg td.c:hover{background:var(--bg3)}
+table.lg tr.helg td{background:rgba(128,128,128,.06)}
+.ls{display:inline-block;font-weight:600;font-size:12.5px}
+.ls.ok{color:var(--green)}.ls.none{color:var(--text3)}.ls.miss{color:var(--red)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:.75rem}
+.kpi{background:var(--bg3);border-radius:var(--r);padding:.6rem .8rem}.kl{font-size:10px;font-family:var(--mono);text-transform:uppercase;color:var(--text3)}.kv{font-size:22px;font-weight:700}
+.empty{color:var(--text3);font-size:13px;padding:1.2rem;text-align:center}
+.gate{max-width:440px;margin:16vh auto;text-align:center;padding:2rem}
+.gate h1{font-size:18px;margin-bottom:.5rem}.gate p{color:var(--text2);font-size:13px;margin-bottom:1rem}
+.toast{position:fixed;bottom:18px;right:18px;left:auto;background:var(--bg2);border:1px solid var(--border);color:var(--green);font-size:12.5px;font-weight:600;padding:9px 14px;border-radius:var(--r);opacity:0;transition:opacity .3s;pointer-events:none;box-shadow:var(--shm);z-index:300;max-width:calc(100vw - 36px)}
+.toast.e{color:var(--red)}
+/* telefon: én post = ett kort */
+@media(max-width:900px){
+  .page{padding:.75rem .75rem 3rem}
+  .rhead{display:none}
+  .blk{grid-template-columns:1fr}
+  .blk .ln{padding:8px 12px}
+  .blk .ln .n{display:inline;margin-left:6px}
+  .rows{padding:6px 8px}
+  .r{grid-template-columns:1fr 110px;padding:8px 0;gap:6px}
+  .r>[data-f=text]{grid-column:1/-1;grid-row:1}
+  .r>[data-f=area]{grid-column:1;grid-row:2}
+  .r>[data-f=ao]{grid-column:2;grid-row:2}
+  .r>.stb{grid-column:1/-1;grid-row:3}
+  .r>.ini{grid-column:1;grid-row:4;text-align:left;padding:4px 2px}
+  .r>.x{grid-column:2;grid-row:4;text-align:right}
+  .stb button{padding:11px 6px;font-size:13px}
+  .r input,.r textarea{font-size:16px}          /* under 16 px zoomer iPhone inn når feltet får fokus */
+  .daterow input{width:150px}
+  .fu{grid-template-columns:1fr}
+}
+@media print{
+  nav,.noprint,.tabs,.x,.r.new,.toast{display:none!important}
+  body{background:#fff;font-size:12px}.page{padding:0;max-width:none}
+  .card{box-shadow:none;border:none;padding:0}
+  .phead{display:block;font-size:16px;font-weight:700;padding:0 0 8px}
+  .r input,.r textarea{border:none;background:none;padding:2px 4px}
+  .stb button{display:none}.stb button.on{display:block;border:none;background:none!important;color:#000!important;text-align:left;padding:2px 4px}
+  .blk{break-inside:avoid}
+}
+</style>
+<link rel="stylesheet" href="theme.css?v=20261118a"/>
+<script src="theme.js?v=20261118a"></script>
+<script src="time24.js?v=20260924b"></script>
+<script src="nav.js?v=20261118a"></script>
+</head>
+<body>
+<nav>
+  <div class="logo">Diplom-is<span> / Produksjon</span></div>
+  <a href="index.html" class="nl">Dashboard</a>
+  <div class="ml">
+    <div class="ubadge" id="ubadge">—</div>
+    <button class="lout" onclick="auth.signOut().then(()=>location.href='login.html')">Logg ut</button>
+  </div>
+</nav>
+
+<div id="gate" class="gate" style="display:none">
+  <h1>Ingen tilgang</h1>
+  <p>Du har ikke tilgang til teknisk skiftrapport. En master eller leder kan gi deg tilgang under Brukere («Teknisk skiftrapport»).</p>
+  <a class="bp" href="index.html" style="text-decoration:none">Til dashbordet</a>
+</div>
+
+<main class="page" id="app" style="display:none">
+  <div class="tabs noprint">
+    <button class="chip on" data-view="rapport">Skiftrapport teknisk</button>
+    <button class="chip" data-view="oppf">Oppfølging<span class="bdg" id="n-open"></span></button>
+    <button class="chip" data-view="logg">Logg</button>
+  </div>
+
+  <div id="v-rapport">
+    <div class="card noprint">
+      <div class="toprow">
+        <div class="fitem"><div class="lbl">Dato</div><div class="daterow"><button class="bg" id="d-prev" title="Forrige dag">‹</button><input type="date" id="f-date"/><button class="bg" id="d-next" title="Neste dag">›</button><button class="bg" id="d-today">I dag</button></div></div>
+        <div class="fitem"><div class="lbl">Skift</div><div class="shiftbtns" id="shiftbtns"></div></div>
+        <div class="fitem"><div class="lbl">Uke</div><div class="wk" id="f-week">—</div></div>
+        <div class="fitem" style="margin-left:auto"><div style="display:flex;gap:6px"><button class="bg" id="b-lines" style="display:none">⚙ Linjer</button><button class="bg" onclick="window.print()">🖨 Skriv ut</button></div></div>
+      </div>
+      <div class="stat" id="stat"></div>
+    </div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <div class="phead" id="phead"></div>
+      <div class="rhead"><span>Området</span><span>Beskrivelse — hva er gjort?</span><span>AO</span><span>Status</span><span>Init.</span><span></span></div>
+      <div id="rap"></div>
+    </div>
+    <div class="sub noprint" style="padding:0 4px">Lagres mens du skriver — det finnes ingen lagre-knapp. Initialene settes fra brukeren din. «Trenger oppfølging» legger posten på Teknisk-tavla til noen markerer den som fulgt opp.</div>
+  </div>
+  <div id="v-oppf" style="display:none"></div>
+  <div id="v-logg" style="display:none"></div>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════════
+   SKIFTRAPPORT TEKNISK (18.11.2026) — etter teknisk avdelings Excel-ark «Skiftrapport mal»:
+   én rapport per dato og skift, med rader per linje/maskin: Området · Beskrivelse · AO ·
+   Status (trenger oppfølging / trenger ikke) · Initialer (settes fra brukeren).
+
+   techReports/{YYYY-MM-DD}/{dag|kveld|natt}/e/{id} = {line, area, text, ao, status:'oppf'|'ok',
+        initials, by, byName, at, editedBy?, editedAt?, done?:{by,byName,initials,at,note}}
+   techReports/{dato}/{skift}/none = {by,byName,initials,at}   «ingenting å melde» — skiftet er ført
+   techOpen/{id} = {date, skift, line, area, text, ao, initials, at}
+        Kopi av hver post som trenger oppfølging og ikke er fulgt opp. Tavla (Teknisk) og fanen
+        Oppfølging leser bare denne lille noden, så en gammel oppfølging aldri faller ut av et
+        datovindu. Skrives ALLTID sammen med posten i én update (saveEntry) — ikke skriv til
+        techReports uten å oppdatere techOpen.
+   settings/techLines  = [linjenavn]                      (⚙ Linjer, master/leder)
+   settings/techShifts = {dag,kveld,natt,helg: bool}      hvilke skift loggen forventer rapport fra
+   Nattskift over midnatt hører til datoen det STARTER (som resten av systemet).
+   Tilgang: master, leder eller users/{uid}.techAccess (avkryssing i Brukere).
+   ═══════════════════════════════════════════════════════════════════════════ */
+const DEF_LINES=['Diverse','Rollo','Glacier','Koba','REX','Løp 1','Løp 2','Løp 3','Pallerommet','Krokan','Miks','Soft is'];
+const SKIFT_N={dag:'Dag',kveld:'Kveld',natt:'Natt'}, SKIFTS=['dag','kveld','natt'];
+const DAGER=['Søndag','Mandag','Tirsdag','Onsdag','Torsdag','Fredag','Lørdag'], MND=['januar','februar','mars','april','mai','juni','juli','august','september','oktober','november','desember'];
+const FB={apiKey:"AIzaSyCL4x1KNwgeDxqTFeP32BndJgH4B5MworQ",authDomain:"messystem-f14dd.firebaseapp.com",databaseURL:"https://messystem-f14dd-default-rtdb.firebaseio.com",projectId:"messystem-f14dd",storageBucket:"messystem-f14dd.firebasestorage.app",messagingSenderId:"1001051250309",appId:"1:1001051250309:web:0b2d82db50e8fd24ce93ec"};
+if(!firebase.apps.length)firebase.initializeApp(FB);
+const db=firebase.database(),auth=firebase.auth();
+
+let USER=null, UID='', SETTINGS={}, REP={}, OPEN={}, DATE='', SKIFT='dag', VIEW='rapport', MONTH=null;
+const pad=n=>String(n).padStart(2,'0');
+const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+const dk=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+const pd=k=>{const p=String(k).split('-');return new Date(+p[0],+p[1]-1,+p[2],12);};
+const fmtDay=k=>{const d=pd(k);return pad(d.getDate())+'.'+pad(d.getMonth()+1)+'.'+d.getFullYear();};
+const fmtT=ts=>{const d=new Date(ts);return pad(d.getDate())+'.'+pad(d.getMonth()+1)+' '+pad(d.getHours())+':'+pad(d.getMinutes());};
+function isoWeek(d){const t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));const day=t.getUTCDay()||7;t.setUTCDate(t.getUTCDate()+4-day);const y=new Date(Date.UTC(t.getUTCFullYear(),0,1));return Math.ceil(((t-y)/86400000+1)/7);}
+function ini(name){return String(name||'').trim().split(/\s+/).map(w=>w.charAt(0)).join('').toUpperCase().slice(0,3)||'?';}
+function canWrite(){return !!(USER&&(USER.role==='master'||USER.role==='leder'||USER.techAccess===true));}
+function isStaff(){return !!(USER&&(USER.role==='master'||USER.role==='leder'));}
+function lines(){const l=SETTINGS.techLines;return Array.isArray(l)&&l.length?l.filter(Boolean):DEF_LINES;}
+function shiftDef(){return SETTINGS.shiftTimes||{dag:{start:'06:00',end:'14:00'},kveld:{start:'14:00',end:'22:00'},natt:{start:'22:00',end:'06:00'}};}
+function tmin(t){const p=String(t||'').split(':');return (parseInt(p[0])||0)*60+(parseInt(p[1])||0);}
+/* Start og slutt for et skift i absolutt tid; slutt før start = over midnatt */
+function shiftSpan(date,skift){const s=shiftDef()[skift]||{},d=pd(date);d.setHours(0,0,0,0);const a=d.getTime()+tmin(s.start)*60000;let b=d.getTime()+tmin(s.end)*60000;if(b<=a)b+=86400000;return [a,b];}
+/* Hvilket skift er det nå? Etter midnatt på nattskiftet er datoen fortsatt i går. */
+function nowShift(){
+  const now=Date.now();
+  for(const off of [0,-1]){const d=new Date();d.setDate(d.getDate()+off);const k=dk(d);for(const s of SKIFTS){const sp=shiftSpan(k,s);if(now>=sp[0]&&now<sp[1])return {date:k,skift:s};}}
+  return {date:dk(new Date()),skift:'dag'};
+}
+function toast(msg,err){const t=document.getElementById('toast');t.textContent=(err?'✕ ':'✓ ')+msg;t.className='toast'+(err?' e':'');t.style.opacity='1';clearTimeout(toast._t);toast._t=setTimeout(()=>{t.style.opacity='0';},err?5000:2200);}
+function fail(){toast('Kunne ikke lagre. Sjekk at reglene for «techReports» er publisert i Firebase, og at du har tilgang.',true);}
+function shiftNode(date,skift){return (REP[date]||{})[skift]||{};}
+function entries(date,skift){const e=shiftNode(date,skift).e||{};return Object.keys(e).map(id=>Object.assign({id},e[id])).filter(x=>x&&typeof x==='object').sort((a,b)=>(a.at||0)-(b.at||0));}
+const filled=e=>!!(e.text||e.area||e.ao);
+
+/* ── AUTH + DATA ── */
+auth.onAuthStateChanged(async user=>{
+  if(!user){location.href='login.html';return;}
+  UID=user.uid;
+  const s=await db.ref('users/'+user.uid).once('value');USER=s.val();
+  if(!USER){auth.signOut();location.href='login.html';return;}
+  document.getElementById('ubadge').textContent=USER.name+' · '+ini(USER.name);
+  if(!canWrite()){document.getElementById('gate').style.display='block';return;}
+  document.getElementById('app').style.display='block';
+  document.getElementById('b-lines').style.display=isStaff()?'':'none';
+  const q=new URLSearchParams(location.search), ns=nowShift();
+  DATE=/^\d{4}-\d{2}-\d{2}$/.test(q.get('dato')||'')?q.get('dato'):ns.date;
+  SKIFT=SKIFTS.includes(q.get('skift'))?q.get('skift'):ns.skift;
+  if(q.get('vis')==='oppf')VIEW='oppf';
+  MONTH=new Date(pd(DATE).getFullYear(),pd(DATE).getMonth(),1);
+  start();
+});
+let started=false, repRef=null, repFrom='', repTo='';
+function onRep(s){REP=s.val()||{};sched();}
+function start(){
+  if(started)return;started=true;
+  db.ref('settings').on('value',s=>{SETTINGS=s.val()||{};sched();});
+  db.ref('techOpen').on('value',s=>{OPEN=s.val()||{};sched();},()=>{});
+  ensureRange();render();
+}
+/* Last bare måneden(e) som vises, pluss de siste 31 dagene (for «nylig fulgt opp») */
+function ensureRange(){
+  const d=pd(DATE), a=new Date(Math.min(new Date(d.getFullYear(),d.getMonth(),1),MONTH,Date.now()-31*86400000)), last=new Date(Math.max(new Date(d.getFullYear(),d.getMonth()+1,0),new Date(MONTH.getFullYear(),MONTH.getMonth()+1,0),Date.now()));
+  const from=dk(new Date(a.getFullYear(),a.getMonth(),1)), to=dk(new Date(last.getFullYear(),last.getMonth()+1,0));
+  if(repRef&&from>=repFrom&&to<=repTo)return;
+  if(repRef)repRef.off('value',onRep);
+  repFrom=repRef&&repFrom<from?repFrom:from;repTo=repRef&&repTo>to?repTo:to;
+  repRef=db.ref('techReports').orderByKey().startAt(repFrom).endAt(repTo);
+  repRef.on('value',onRep,()=>{});
+}
+let _t=null,_dirty=false;
+function typing(){const a=document.activeElement;return !!(a&&/INPUT|TEXTAREA/.test(a.tagName)&&document.getElementById('rap').contains(a));}
+function sched(){if(_t)return;_t=setTimeout(()=>{_t=null;if(typing()){_dirty=true;return;}render();},150);}
+document.addEventListener('focusout',()=>{if(_dirty)setTimeout(()=>{if(!typing()){_dirty=false;render();}},150);});
+
+/* ── LAGRING: posten og oppfølgingskopien skrives alltid sammen ── */
+function saveEntry(date,skift,id,patch,isNew){
+  const node=((REP[date]=REP[date]||{})[skift]=REP[date][skift]||{}), map=(node.e=node.e||{}), cur=map[id]||{}, now=Date.now();
+  const e=Object.assign({},cur,patch);
+  if(isNew){e.by=UID;e.byName=USER.name;e.initials=ini(USER.name);e.at=now;}
+  else if(cur.by&&cur.by!==UID&&!('done' in patch)){e.editedBy=ini(USER.name);e.editedAt=now;}
+  Object.keys(e).forEach(k=>{if(e[k]===''||e[k]==null)delete e[k];});
+  map[id]=e;delete node.none;                                   // optimistisk, så neste felt bygger videre på denne
+  const u={};
+  u['techReports/'+date+'/'+skift+'/e/'+id]=e;
+  u['techReports/'+date+'/'+skift+'/none']=null;
+  u['techOpen/'+id]=(e.status==='oppf'&&!e.done)?{date,skift,line:e.line||'',area:e.area||'',text:e.text||'',ao:e.ao||'',initials:e.initials||'',at:e.at||now}:null;
+  return db.ref().update(u).catch(fail);
+}
+function removeEntry(date,skift,id){
+  const u={};u['techReports/'+date+'/'+skift+'/e/'+id]=null;u['techOpen/'+id]=null;
+  const m=shiftNode(date,skift).e;if(m)delete m[id];
+  return db.ref().update(u).catch(fail);
+}
+/* Fulgt opp — brukes også fra oppfølgingslista, der posten kan ligge utenfor datoene som er lastet */
+function markDone(id,date,skift){
+  const note=prompt('Hva ble gjort? (valgfritt — vises i rapporten og loggen)','');if(note===null)return;
+  const u={};u['techReports/'+date+'/'+skift+'/e/'+id+'/done']={by:UID,byName:USER.name,initials:ini(USER.name),at:Date.now(),note:note.trim()||null};u['techOpen/'+id]=null;
+  db.ref().update(u).then(()=>toast('Markert som fulgt opp')).catch(fail);
+}
+
+/* ── RENDER ── */
+function render(){
+  if(!USER||!DATE)return;
+  document.querySelectorAll('.tabs .chip').forEach(b=>b.classList.toggle('on',b.dataset.view===VIEW));
+  ['rapport','oppf','logg'].forEach(v=>{document.getElementById('v-'+v).style.display=v===VIEW?'':'none';});
+  const n=Object.keys(OPEN).length;document.getElementById('n-open').textContent=n||'';
+  if(VIEW==='rapport')renderRap();else if(VIEW==='oppf')renderOppf();else renderLogg();
+}
+function rowHTML(line,e){
+  const isNew=!e, st=e&&e.status||'';e=e||{};
+  const cls='r'+(isNew?' new':'')+(st==='oppf'?(e.done?' fulgt':' oppf'):'');
+  return '<div class="'+cls+'" data-row data-line="'+esc(line)+'"'+(isNew?'':' data-id="'+esc(e.id)+'"')+'>'
+    +'<input data-f="area" value="'+esc(e.area||'')+'" placeholder="Området" aria-label="Området">'
+    +'<textarea data-f="text" rows="1" placeholder="'+(isNew?'Skriv hva som er gjort …':'Beskrivelse')+'" aria-label="Beskrivelse">'+esc(e.text||'')+'</textarea>'
+    +'<input data-f="ao" value="'+esc(e.ao||'')+'" placeholder="AO-nr" aria-label="AO-nummer">'
+    +'<div class="stb'+(!isNew&&!st&&filled(e)?' mangler':'')+'"><button type="button" data-st="oppf"'+(st==='oppf'?' class="on"':'')+'>Trenger oppfølging</button><button type="button" data-st="ok"'+(st==='ok'?' class="on"':'')+'>Trenger ikke</button></div>'
+    +'<div class="ini" title="'+esc(e.byName||'')+(e.editedBy?' · endret av '+esc(e.editedBy):'')+'">'+esc(isNew?'':e.initials||'')+(e.editedBy?'<span class="sub">*</span>':'')+'</div>'
+    +(isNew?'<span></span>':'<button type="button" class="x" data-del title="Slett posten">✕</button>')
+    +(!isNew&&!st&&filled(e)?'<div class="note warn">Velg status: trenger dette oppfølging?</div>':'')
+    +(st==='oppf'&&!e.done?'<div class="note warn">⚠ Ligger på Teknisk-tavla til noen har fulgt opp. <button type="button" class="bg" data-done style="padding:3px 9px;font-size:12px;margin-left:4px">✓ Fulgt opp</button></div>':'')
+    +(st==='oppf'&&e.done?'<div class="note good">✓ Fulgt opp av '+esc(e.done.initials||e.done.byName||'')+' '+fmtT(e.done.at)+(e.done.note?' — '+esc(e.done.note):'')+' <button type="button" class="bg noprint" data-undone style="padding:3px 9px;font-size:12px;margin-left:4px">Angre</button></div>':'')
+    +'</div>';
+}
+function renderRap(){
+  const d=pd(DATE), es=entries(DATE,SKIFT), node=shiftNode(DATE,SKIFT);
+  const f=document.getElementById('f-date');if(document.activeElement!==f)f.value=DATE;
+  document.getElementById('f-week').textContent=isoWeek(d);
+  document.getElementById('shiftbtns').innerHTML=SKIFTS.map(s=>{const n=entries(DATE,s).filter(filled).length, none=shiftNode(DATE,s).none;return '<button type="button" class="sbtn'+(s===SKIFT?' on':'')+'" data-skift="'+s+'">'+SKIFT_N[s]+'<span class="c">'+(n?n:none?'–':'')+'</span></button>';}).join('');
+  document.getElementById('phead').textContent='Skiftrapport Teknisk — '+DAGER[d.getDay()]+' '+fmtDay(DATE)+' — '+SKIFT_N[SKIFT]+'skift — uke '+isoWeek(d);
+  const real=es.filter(filled), oppf=real.filter(e=>e.status==='oppf'&&!e.done).length, nostat=real.filter(e=>!e.status).length, sp=shiftSpan(DATE,SKIFT);
+  const sd=shiftDef()[SKIFT]||{};
+  document.getElementById('stat').innerHTML='<b>'+DAGER[d.getDay()]+' '+fmtDay(DATE)+' · '+SKIFT_N[SKIFT]+'skift</b> <span class="sub">'+esc(sd.start||'')+'–'+esc(sd.end||'')+'</span>'
+    +(real.length?'<span>'+real.length+' post'+(real.length===1?'':'er')+'</span>'+(oppf?'<span class="warn"><b>'+oppf+' trenger oppfølging</b></span>':'')+(nostat?'<span class="warn">'+nostat+' uten status</span>':'')
+      :node.none?'<span class="good"><b>✓ Ingenting å melde</b> — '+esc(node.none.initials||'')+' '+fmtT(node.none.at)+'</span><button type="button" class="bg" data-act="unnone" style="padding:4px 10px;font-size:12px">Angre</button>'
+      :'<span class="sub">Ikke ført ennå'+(Date.now()>sp[1]?' — skiftet er over':'')+'.</span><button type="button" class="bg" data-act="none" style="padding:4px 10px;font-size:12px">Ingenting å melde på dette skiftet</button>');
+  const ls=lines().slice();es.forEach(e=>{if(e.line&&!ls.includes(e.line))ls.push(e.line);});
+  document.getElementById('rap').innerHTML=ls.map(line=>{
+    const l=es.filter(e=>e.line===line);
+    return '<div class="blk"><div class="ln">'+esc(line)+(l.filter(filled).length?'<span class="n">'+l.filter(filled).length+' post'+(l.filter(filled).length===1?'':'er')+'</span>':'')+'</div><div class="rows">'+l.map(e=>rowHTML(line,e)).join('')+rowHTML(line,null)+'</div></div>';
+  }).join('');
+  document.querySelectorAll('#rap textarea').forEach(grow);
+}
+function grow(t){t.style.height='auto';t.style.height=Math.max(36,t.scrollHeight+2)+'px';}
+
+function fuHTML(x,done){
+  return '<div class="fu'+(done?' done':'')+'"><div><div class="t">'+esc(x.text||'(uten beskrivelse)')+'</div><div style="margin-top:5px"><span class="tag dark">'+esc(x.line||'—')+'</span>'+(x.area?'<span class="tag">'+esc(x.area)+'</span>':'')+(x.ao?'<span class="tag">AO '+esc(x.ao)+'</span>':'')
+    +'<span class="sub">'+fmtDay(x.date)+' · '+SKIFT_N[x.skift]+'skift · '+esc(x.initials||'')+(done?' · <b class="good">fulgt opp av '+esc(x.done.initials||'')+' '+fmtT(x.done.at)+'</b>'+(x.done.note?' — '+esc(x.done.note):''):' · '+age(x.date))+'</span></div></div>'
+    +'<div style="display:flex;gap:6px;flex-wrap:wrap">'+(done?'':'<button type="button" class="bp" data-fu="'+esc(x.id)+'" data-date="'+x.date+'" data-skift="'+x.skift+'">✓ Fulgt opp</button>')+'<button type="button" class="bg" data-open="'+x.date+'" data-skift="'+x.skift+'">Åpne rapporten</button></div></div>';
+}
+function age(k){const n=Math.round((pd(dk(new Date()))-pd(k))/86400000);return n<=0?'i dag':n===1?'i går':n+' dager siden';}
+function renderOppf(){
+  const open=Object.keys(OPEN).map(id=>Object.assign({id},OPEN[id])).filter(x=>x&&x.date).sort((a,b)=>(a.at||0)-(b.at||0));
+  const cut=Date.now()-30*86400000, done=[];
+  Object.keys(REP).forEach(date=>SKIFTS.forEach(s=>entries(date,s).forEach(e=>{if(e.done&&e.done.at>=cut)done.push(Object.assign({date,skift:s},e));})));
+  done.sort((a,b)=>b.done.at-a.done.at);
+  document.getElementById('v-oppf').innerHTML='<div class="card"><div style="font-size:15px;font-weight:700;margin-bottom:4px">Trenger oppfølging <span class="tag">'+open.length+'</span></div><div class="sub" style="margin-bottom:10px">Poster teknikerne har merket «Trenger oppfølging». De samme ligger på Teknisk-tavla. Eldste først.</div>'
+    +(open.map(x=>fuHTML(x,false)).join('')||'<div class="empty">Ingenting venter på oppfølging. 👍</div>')+'</div>'
+    +'<div class="card"><div style="font-size:15px;font-weight:700;margin-bottom:10px">Fulgt opp siste 30 dager <span class="tag">'+done.length+'</span></div>'+(done.map(x=>fuHTML(x,true)).join('')||'<div class="empty">Ingen.</div>')+'</div>';
+}
+/* Loggen: hvilke skift er ført, hvilke mangler */
+function expected(date,skift){const t=Object.assign({dag:true,kveld:true,natt:true,helg:false},SETTINGS.techShifts||{}), wd=pd(date).getDay();if((wd===0||wd===6)&&!t.helg)return false;return !!t[skift];}
+/* Dager før rapporten ble tatt i bruk skal ikke stå som «ikke ført»: tell fra settings/techStart,
+   ellers fra første dag det finnes noe skrevet. */
+function startDate(){if(SETTINGS.techStart)return SETTINGS.techStart;const ks=Object.keys(REP).sort();return ks[0]||dk(new Date());}
+function cellState(date,skift){
+  const es=entries(date,skift).filter(filled), node=shiftNode(date,skift), sp=shiftSpan(date,skift), now=Date.now();
+  if(es.length)return {k:'ok',n:es.length,oppf:es.filter(e=>e.status==='oppf'&&!e.done).length,who:Array.from(new Set(es.map(e=>e.initials).filter(Boolean)))};
+  if(node.none)return {k:'none',who:[node.none.initials]};
+  if(now<sp[0])return {k:'future'};
+  if(!expected(date,skift)||date<startDate())return {k:'off'};
+  return {k:now<sp[1]?'now':'miss'};
+}
+function renderLogg(){
+  const y=MONTH.getFullYear(), m=MONTH.getMonth(), today=dk(new Date()), days=[];
+  for(let d=new Date(y,m+1,0).getDate();d>=1;d--){const k=dk(new Date(y,m,d));if(k<=today)days.push(k);}
+  let exp=0,ok=0,miss=0;
+  const rows=days.map(k=>{const d=pd(k), helg=d.getDay()===0||d.getDay()===6;
+    return '<tr'+(helg?' class="helg"':'')+'><td><b>'+DAGER[d.getDay()].slice(0,3)+' '+pad(d.getDate())+'.'+pad(m+1)+'</b></td><td class="sub">'+isoWeek(d)+'</td>'+SKIFTS.map(s=>{const c=cellState(k,s);
+      if(c.k==='ok'||c.k==='none'){if(expected(k,s))exp++;ok+=expected(k,s)?1:0;}else if(c.k==='miss'){exp++;miss++;}
+      const body=c.k==='ok'?'<span class="ls ok">✓ '+c.n+' post'+(c.n===1?'':'er')+'</span>'+(c.oppf?' <span class="ls" style="color:var(--amber)">⚠ '+c.oppf+'</span>':'')+'<div class="sub">'+esc(c.who.join(', '))+'</div>'
+        :c.k==='none'?'<span class="ls none">– ingenting å melde</span><div class="sub">'+esc(c.who.join(', '))+'</div>'
+        :c.k==='miss'?'<span class="ls miss">Ikke ført</span>':c.k==='now'?'<span class="sub">pågår</span>':c.k==='future'?'':'<span class="sub">—</span>';
+      return '<td class="c" data-open="'+k+'" data-skift="'+s+'">'+body+'</td>';}).join('')+'</tr>';}).join('');
+  const t=Object.assign({dag:true,kveld:true,natt:true,helg:false},SETTINGS.techShifts||{});
+  const nowM=new Date();
+  document.getElementById('v-logg').innerHTML='<div class="card"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:.75rem"><button type="button" class="bg" data-month="-1">‹</button><div style="font-size:16px;font-weight:700;min-width:150px;text-align:center;text-transform:capitalize">'+MND[m]+' '+y+'</div><button type="button" class="bg" data-month="1"'+(y===nowM.getFullYear()&&m===nowM.getMonth()?' disabled style="opacity:.4"':'')+'>›</button><button type="button" class="bg" data-month="0">Denne måneden</button></div>'
+    +'<div class="kpis"><div class="kpi"><div class="kl">Skift ført</div><div class="kv'+(exp&&ok===exp?' good':'')+'">'+ok+' av '+exp+'</div></div><div class="kpi"><div class="kl">Ikke ført</div><div class="kv'+(miss?' bad':' good')+'">'+miss+'</div></div><div class="kpi"><div class="kl">Venter på oppfølging</div><div class="kv'+(Object.keys(OPEN).length?' warn':'')+'">'+Object.keys(OPEN).length+'</div></div></div>'
+    +'<div style="overflow-x:auto"><table class="lg"><thead><tr><th>Dag</th><th>Uke</th><th>Dag</th><th>Kveld</th><th>Natt</th></tr></thead><tbody>'+(rows||'<tr><td colspan="5" class="empty">Ingen dager å vise.</td></tr>')+'</tbody></table></div>'
+    +'<div class="sub" style="margin-top:8px">Trykk på et skift for å åpne rapporten. «Ikke ført» = skiftet er over, og ingen har skrevet noe eller markert «ingenting å melde».</div>'
+    +(isStaff()?'<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);display:flex;gap:14px;flex-wrap:wrap;align-items:center"><span class="lbl" style="margin:0">Skift det skal føres rapport på</span>'+[['dag','Dag'],['kveld','Kveld'],['natt','Natt'],['helg','Også helg']].map(x=>'<label style="display:flex;gap:6px;align-items:center;font-size:13px;cursor:pointer"><input type="checkbox" data-ts="'+x[0]+'"'+(t[x[0]]?' checked':'')+' style="width:auto">'+x[1]+'</label>').join('')+'<label style="display:flex;gap:6px;align-items:center;font-size:13px">Teller fra <input type="date" data-tstart value="'+esc(SETTINGS.techStart||'')+'" style="width:160px"></label><span class="sub">'+(SETTINGS.techStart?'':'(tomt = fra første dag noe er skrevet: '+fmtDay(startDate())+')')+'</span></div>':'')+'</div>';
+}
+
+/* ── HANDLINGER ── */
+function goto(date,skift,view){flush();DATE=date;if(skift)SKIFT=skift;VIEW=view||'rapport';MONTH=new Date(pd(DATE).getFullYear(),pd(DATE).getMonth(),1);ensureRange();window.scrollTo(0,0);render();}
+function shiftDay(n){const d=pd(DATE);d.setDate(d.getDate()+n);goto(dk(d));}
+document.getElementById('d-prev').onclick=()=>shiftDay(-1);
+document.getElementById('d-next').onclick=()=>shiftDay(1);
+document.getElementById('d-today').onclick=()=>{const n=nowShift();goto(n.date,n.skift);};
+document.getElementById('f-date').addEventListener('change',e=>{if(/^\d{4}-\d{2}-\d{2}$/.test(e.target.value))goto(e.target.value);});
+document.getElementById('b-lines').onclick=()=>{
+  const v=prompt('Linjer/maskiner i rapporten, i rekkefølge, adskilt med komma:',lines().join(', '));if(v===null)return;
+  const l=v.split(',').map(x=>x.trim()).filter(Boolean);if(!l.length)return;
+  db.ref('settings/techLines').set(l).then(()=>toast('Linjene er oppdatert')).catch(fail);
+};
+function rowCtx(el){const row=el.closest('[data-row]');return row?{row,id:row.dataset.id||'',line:row.dataset.line}:null;}
+document.addEventListener('click',ev=>{
+  const t=ev.target.closest&&ev.target.closest('[data-view],[data-skift],[data-st],[data-del],[data-done],[data-undone],[data-act],[data-fu],[data-open],[data-month]');if(!t)return;
+  const d=t.dataset;
+  flush();
+  if(d.view){VIEW=d.view;ensureRange();render();return;}
+  if(d.month!==undefined){const n=+d.month, now=new Date();MONTH=n?new Date(MONTH.getFullYear(),MONTH.getMonth()+n,1):new Date(now.getFullYear(),now.getMonth(),1);if(MONTH>now)MONTH=new Date(now.getFullYear(),now.getMonth(),1);ensureRange();render();return;}
+  if(d.fu){markDone(d.fu,d.date,d.skift);return;}
+  if(d.open){goto(d.open,d.skift,'rapport');return;}
+  if(d.act==='none'){db.ref('techReports/'+DATE+'/'+SKIFT+'/none').set({by:UID,byName:USER.name,initials:ini(USER.name),at:Date.now()}).catch(fail);return;}
+  if(d.act==='unnone'){db.ref('techReports/'+DATE+'/'+SKIFT+'/none').remove().catch(fail);return;}
+  if(d.skift&&t.classList.contains('sbtn')){SKIFT=d.skift;render();return;}
+  const c=rowCtx(t);if(!c)return;
+  if(d.st){
+    /* Ta med det som står i feltene akkurat nå: på iPhone mister ikke tekstfeltet fokus når du
+       trykker en knapp, så «change» har ikke nødvendigvis lagret teksten ennå. */
+    const vals=rowVals(c.row);
+    if(!c.id){
+      if(!Object.keys(vals).some(k=>vals[k])){toast('Skriv hva som er gjort først',true);return;}
+      const id=db.ref('techReports').push().key;c.row.dataset.id=id;
+      saveEntry(DATE,SKIFT,id,Object.assign({line:c.line},vals,{status:d.st}),true);
+    }else{
+      const cur=((shiftNode(DATE,SKIFT).e||{})[c.id]||{}).status;
+      saveEntry(DATE,SKIFT,c.id,Object.assign(vals,{status:cur===d.st?null:d.st,done:null}));
+    }
+    if(document.activeElement&&document.activeElement.blur)document.activeElement.blur();
+    _dirty=false;render();return;
+  }
+  if(d.del!==undefined){if(!confirm('Slette posten?'))return;removeEntry(DATE,SKIFT,c.id);render();return;}
+  if(d.done!==undefined){markDone(c.id,DATE,SKIFT);return;}
+  if(d.undone!==undefined){saveEntry(DATE,SKIFT,c.id,{done:null});render();return;}
+});
+function rowVals(row){const v={};row.querySelectorAll('[data-f]').forEach(f=>{v[f.dataset.f]=f.value.trim();});return v;}
+/* Ett felt → databasen. En ny rad får id-en sin ved første lagring og er en vanlig post etter det. */
+function commit(el){
+  const tm=PEND.get(el);if(tm){clearTimeout(tm);PEND.delete(el);}
+  const c=rowCtx(el);if(!c||!document.body.contains(el))return;
+  const v=el.value.trim(), p={};p[el.dataset.f]=v;
+  if(!c.id){if(!v)return;const id=db.ref('techReports').push().key;c.row.dataset.id=id;c.row.classList.remove('new');saveEntry(DATE,SKIFT,id,Object.assign({line:c.line},p),true);}
+  else if((((shiftNode(DATE,SKIFT).e||{})[c.id]||{})[el.dataset.f]||'')!==v)saveEntry(DATE,SKIFT,c.id,p);
+}
+/* Lagrer 0,7 s etter siste tastetrykk, og med en gang feltet forlates. flush() tømmer køen før
+   noe tegnes på nytt (bytte dato/skift/fane), så ingenting som er skrevet går tapt. */
+const PEND=new Map();
+function flush(){Array.from(PEND.keys()).forEach(commit);}
+document.addEventListener('change',ev=>{
+  const el=ev.target;
+  if(el.dataset&&el.dataset.ts){const u={};u[el.dataset.ts]=el.checked;db.ref('settings/techShifts').update(u).catch(fail);return;}
+  if(el.dataset&&el.dataset.tstart!==undefined){db.ref('settings/techStart').set(el.value||null).catch(fail);return;}
+  if(el.dataset&&el.dataset.f)commit(el);
+});
+document.addEventListener('input',ev=>{
+  const el=ev.target;if(!el.dataset||!el.dataset.f)return;
+  if(el.tagName==='TEXTAREA')grow(el);
+  clearTimeout(PEND.get(el));PEND.set(el,setTimeout(()=>commit(el),700));
+});
+window.addEventListener('pagehide',flush);
+</script>
+</body>
+</html>
