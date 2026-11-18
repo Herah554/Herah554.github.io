@@ -747,6 +747,11 @@ function hmsKpi(line,sk,wk){
   const d=((BD.day||{})[sk]||{})[k]||{}, w=((BD.week||{})[wk]||{})[k]||{};
   const nm=v=>{const n=parseFloat(String(v==null?'':v).replace(/\s/g,'').replace(',','.'));return isNaN(n)?null:n;};
   const p=nm(d.hms_fakt)!=null&&nm(d.hms_maal)?Math.round(nm(d.hms_fakt)/nm(d.hms_maal)*100):null;
+  /* «Bare %»: ingen mål- eller faktisk-tall, bare prosenten for dagen og uka */
+  if(VIS==='pct'){
+    const wp=nm(w.hms_fakt)!=null&&nm(w.hms_maal)?Math.round(nm(w.hms_fakt)/nm(w.hms_maal)*100):null;
+    return '<div class="kpi" style="border-top-color:var(--teal)"><div class="kl">HMS-reg</div><div class="kv '+clsVs(nm(d.hms_fakt),nm(d.hms_maal))+'">'+(p!=null?p+' %':'—')+'</div><div class="ks">'+(wp!=null?'uke: <b class="'+clsVs(nm(w.hms_fakt),nm(w.hms_maal))+'">'+wp+' %</b>':'')+'</div></div>';
+  }
   return '<div class="kpi" style="border-top-color:var(--teal)"><div class="kl">HMS-reg</div>'
     +'<div style="display:flex;align-items:baseline;gap:6px"><div class="kv" style="font-size:28px">'+cell('board/day/'+sk+'/'+k+'/hms_fakt',d.hms_fakt,{num:true,ph:'—',single:true})+'</div><span class="sub">av mål</span>'+cell('board/day/'+sk+'/'+k+'/hms_maal',d.hms_maal,{num:true,ph:'mål',single:true,cls:'sub'})+(p!=null?'<b class="'+clsVs(nm(d.hms_fakt),nm(d.hms_maal))+'">'+p+' %</b>':'')+'</div>'
     +'<div class="ks" style="display:flex;align-items:center;gap:4px">uke: '+cell('board/week/'+wk+'/'+k+'/hms_fakt',w.hms_fakt,{num:true,ph:'—',single:true,cls:'sub'})+' av '+cell('board/week/'+wk+'/'+k+'/hms_maal',w.hms_maal,{num:true,ph:'mål',single:true,cls:'sub'})+'</div></div>';
@@ -815,7 +820,7 @@ function renderBoard(day){
     const ao=aoFor(line,sk), dl=OFF===0?'i dag':OFF===-1?'i går':fmtDM(day), pcol=pct==null?'var(--border)':pct>=100?'var(--green)':pct>=90?'var(--amber)':'var(--red)';
     h='<div class="kpis" style="margin-bottom:12px">'
       +(VIS==='pct'
-        ?'<div class="kpi" style="border-top-color:'+pcol+'" title="'+fmtVal(v.faktisk)+' av '+fmtVal(v.maal)+'"><div class="kl">Måloppnåelse '+dl+'</div><div class="kv '+clsVs(v.faktisk,v.maal)+'">'+(pct!=null?pct+' %':'—')+'</div><div class="ks">'+(planProducts(line,sk).join(', ')||'av dagens mål')+'</div></div>'
+        ?'<div class="kpi" style="border-top-color:'+pcol+'" title="'+fmtVal(v.faktisk)+' av '+fmtVal(v.maal)+'"><div class="kl">'+dl.charAt(0).toUpperCase()+dl.slice(1)+'</div><div class="kv '+clsVs(v.faktisk,v.maal)+'">'+(pct!=null?pct+' %':'—')+'</div><div class="ks">'+esc(planProducts(line,sk).join(', '))+'</div></div>'
         :'<div class="kpi" style="border-top-color:var(--blue)"><div class="kl">Mål '+dl+'</div><div class="kv">'+cell('board/day/'+sk+'/'+k+'/maal',fmtVal(v.maal),{num:true,auto:v.maalIsAuto,ph:'—',single:true})+'</div><div class="ks">'+(planProducts(line,sk).join(', ')||'plan fra importen')+'</div></div>'
          +'<div class="kpi" style="border-top-color:'+pcol+'"><div class="kl">Faktisk</div><div class="kv">'+cell('board/day/'+sk+'/'+k+'/faktisk',fmtVal(v.faktisk),{num:true,auto:v.faktIsAuto,ph:'skriv inn',single:true})+'</div><div class="ks">'+(pct!=null?'<b class="'+clsVs(v.faktisk,v.maal)+'">'+pct+' % av mål</b>':'')+'</div></div>')
       +'<div class="kpi" style="border-top-color:var(--teal)"><div class="kl">AO-nr</div><div class="kv" style="font-size:24px">'+cell('board/day/'+sk+'/'+k+'/ao',ao.v,{auto:ao.auto,ph:'—',single:true,cls:'ao'})+'</div><div class="ks">'+(ao.auto?'fra skiftrapporten':'skrives inn')+'</div></div>'
@@ -823,7 +828,10 @@ function renderBoard(day){
       +(isMes?'<div class="kpi" style="border-top-color:var(--red)"><div class="kl">Nedetid</div><div class="kv">'+fmtD(down)+'</div><div class="ks">'+ev.length+' stopp'+(ev[0]?' · største '+fmtD(ev[0].duration)+' '+esc(ev[0].cause||''):'')+'</div></div>':'')
       +hmsKpi(line,sk,w.wk)
       +'<div class="kpi" style="border-top-color:var(--purple)"><div class="kl">Svinn %</div><div class="kv">'+cell('board/day/'+sk+'/'+k+'/svinn',v.svinn,{num:true,ph:'—',single:true})+'</div><div class="ks">skrives inn</div></div>'
-      +'<div class="kpi" style="border-top-color:'+(wpct==null?'var(--border)':wpct>=100?'var(--green)':wpct>=90?'var(--amber)':'var(--red)')+'"><div class="kl">Uke '+isoWeek(day)+'</div><div class="kv">'+cell('board/week/'+w.wk+'/'+k+'/faktisk',fmtVal(w.faktisk),{num:true,auto:w.faktIsAuto,ph:'—',single:true})+'</div><div class="ks">mål '+cell('board/week/'+w.wk+'/'+k+'/maal',fmtVal(w.maal),{num:true,auto:w.maalIsAuto,ph:'—',single:true,cls:'sub'})+(wpct!=null?' · <b class="'+clsVs(w.faktisk,w.maal)+'">'+wpct+' %</b>':'')+'</div></div>'
+      +'<div class="kpi" style="border-top-color:'+(wpct==null?'var(--border)':wpct>=100?'var(--green)':wpct>=90?'var(--amber)':'var(--red)')+'"><div class="kl">Uke '+isoWeek(day)+'</div>'
+        +(VIS==='pct'
+          ?'<div class="kv '+clsVs(w.faktisk,w.maal)+'" title="'+fmtVal(w.faktisk)+' av '+fmtVal(w.maal)+'">'+(wpct!=null?wpct+' %':'—')+'</div><div class="ks"></div></div>'
+          :'<div class="kv">'+cell('board/week/'+w.wk+'/'+k+'/faktisk',fmtVal(w.faktisk),{num:true,auto:w.faktIsAuto,ph:'—',single:true})+'</div><div class="ks">mål '+cell('board/week/'+w.wk+'/'+k+'/maal',fmtVal(w.maal),{num:true,auto:w.maalIsAuto,ph:'—',single:true,cls:'sub'})+(wpct!=null?' · <b class="'+clsVs(w.faktisk,w.maal)+'">'+wpct+' %</b>':'')+'</div></div>')
       +'</div>'
       +'<div class="grid g-linje">'
       +'<div style="display:flex;flex-direction:column;gap:12px">'+techCard(line)+'<div class="card"><div class="hdr">Tiltak '+esc(line)+'</div>'+itemsHTML(k)+'</div></div>'
