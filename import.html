@@ -339,7 +339,8 @@ function renderPreview(){
 function normLine(v){
   if(!v)return '';
   const s=String(v).toUpperCase().replace(/\s+/g,'');
-  const m={GLACIER:'Glacier',LØP1:'Løp 1',LOP1:'Løp 1',LØP2:'Løp 2',LOP2:'Løp 2',LØP3:'Løp 3',LOP3:'Løp 3',ROLLO:'Rollo',KOBA:'Koba',KROKAN:'Krokan',SOFTIS:'Soft is'};
+  const m={GLACIER:'Glacier',LØP1:'Løp 1',LOP1:'Løp 1',LØP2:'Løp 2',LOP2:'Løp 2',LØP3:'Løp 3',LOP3:'Løp 3',ROLLO:'Rollo',KOBA:'Koba',KROKAN:'Krokan',SOFTIS:'Soft is',
+    'STR.LINE':'Koba',STRLINE:'Koba',STRAIGHTLINE:'Koba'};   // Power BI kaller Koba-linja «STR.LINE» (bekreftet av David 18.11.2026)
   return m[s]||String(v).trim();
 }
 function normDate(v){
